@@ -35,8 +35,8 @@ La identidad visual se inspira en las consolas clásicas, pero usa sonidos, tipo
 - **Fórmula de Nivel:** XP para pasar del nivel actual al siguiente = `100 × nivel^1.5` (redondeado). Ejemplo: del nivel 1 al 2 son 100 XP; del 2 al 3, 283 XP.
 - **Día Cumplido:** Un día cuenta para la racha cuando se completan **todas las Bounties activas** antes del Cierre del Día.
 - **Multiplicador de Rachas:** Aplica exclusivamente a las Bounties. Suma **+5% de XP por día de racha**, con un tope máximo de **+50%** (alcanzado en el día 10).
-- **Red de Seguridad de Racha:** Fallar un día no borra la racha a cero; la reduce a la mitad. Si se fallan varios días, se reduce a la mitad por cada día fallado.
-- **Deshacer:** Las tareas marcadas por error se pueden deshacer, restituyendo el XP.
+- **Red de Seguridad de Racha:** Fallar un día no borra la racha a cero; la reduce a la mitad. Si se fallan varios días, se reduce a la mitad por cada día fallado. Un día sin Bounties activas no cambia la racha.
+- **Deshacer:** Las tareas marcadas por error se pueden deshacer, restituyendo el XP. Una Bounty solo se puede deshacer durante el mismo día, antes del Cierre del Día.
 - **Cierre del Día:** Configurado a las **4:00 a.m.** para no penalizar a quienes trasnochan programando o trabajando.
 
 ### B. Estructura de Misiones

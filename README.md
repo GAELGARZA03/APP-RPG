@@ -15,6 +15,12 @@ npm install
 npm run dev
 ```
 
+## Pruebas
+
+```bash
+npm test
+```
+
 ## Android
 
 Compila la app web, la copia al proyecto Android y lo abre en Android Studio:
