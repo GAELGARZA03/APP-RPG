@@ -1,0 +1,26 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-void: #0b0f14;
+  --color-panel: #141b23;
+  --color-line: #2a3644;
+  --color-ink: #e6edf3;
+  --color-muted: #8b9bab;
+  --color-signal: #4ade80;
+  --color-ember: #fb923c;
+  --font-console: ui-monospace, 'Cascadia Code', 'Roboto Mono', Menlo, Consolas, monospace;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-void);
+  color: var(--color-ink);
+  font-family: var(--font-console);
+  -webkit-tap-highlight-color: transparent;
+}

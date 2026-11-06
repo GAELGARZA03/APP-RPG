@@ -1,53 +1,71 @@
-# Product Requirements Document (PRD): Real Life RPG (Gamified Life & Goal Manager)
+# PRD: Real Life RPG (Versión 4.1 - Definitivo)
 
-## 1. Project Overview & Vision
-**Product Name:** Real Life RPG (Working Title)
-**Target User:** Creative professionals, developers, and gamers (specifically Gael) who struggle with execution friction, task tracking, and long-term goal abandonment ("the idea graveyard").
-**Core Value Proposition:** Transform real-world self-improvement, tasks, and lifetime aspirations into an immersive, gamified RPG experience inspired by classic retro console interfaces (Xbox 360 / Xbox Classic). The app uses integrated AI (Gemini API) to dynamically generate structured campaigns, micro-tasks, and skill trees from natural language ideas or chat transcripts.
+## 1. Visión General del Producto
+Aplicación móvil para Android, distribuida como **APK con Capacitor**, diseñada para transformar el desarrollo personal, las metas y los hábitos diarios en un juego de rol (RPG) con estética retro de consola. Utiliza un motor de IA (vía API de Gemini) para estructurar ideas abstractas en campañas y misiones, operando con un sistema estricto de progresión, rachas y XP controlada por código.
 
----
-
-## 2. Platform & Deployment Requirements
-*   **Initial Phase (Frontend & Prototype):** Web-based responsive application designed with a console dashboard aesthetic.
-*   **Android Distribution (Crucial Requirement):** 
-    *   The app must be buildable and packagable as a standalone Android application package (`.apk` or Android App Bundle) or distributed via a standalone PWA/Native wrapper (avoiding messy developer dependencies like running straight out of temporary repository clones/Git workflows for daily end-use). 
-    *   It must live on the device independently so that updates to remote repositories do not break the local installation experience.
+La identidad visual se inspira en las consolas clásicas, pero usa sonidos, tipografías y gráficos propios.
 
 ---
 
-## 3. Core Features & Functional Requirements
-
-### A. The Retro Dashboard (User Interface)
-*   **Visual Aesthetic:** Inspired by the Xbox 360 blade interface or classic console menu system. Features nostalgic typography, smooth sliding transitions, sound effects (*chimes* on task completion), and a dark/neon cyberpunk or console-grey palette.
-*   **HUD (Heads-Up Display):** 
-    *   Global Level & XP Bar (Calculated from completed tasks).
-    *   Current Streak counter.
-    *   Quick-access menu tiles.
-
-### B. AI-Powered Quest Generator (Gemini API Integration)
-*   **Input Mechanism:** A quick-input text area or parsed transcript paste zone where the user types a raw idea or goal (e.g., *"I want to learn basic card magic"* or *"Build the alarm app"*).
-*   **AI Processing & Structuring:** Sends a structured prompt to the Gemini API to parse the input into an RPG format containing:
-    1.  **Main Quest (Campaign):** The overarching goal with a progress tracker percentage.
-    2.  **Side Quests:** Supporting habits or sub-tasks.
-    3.  **Bounties (Daily Tasks):** Atomic micro-actions required to advance.
-    4.  **XP Rewards:** Assigned point values based on difficulty.
-
-### C. Progression & Skill Trees
-*   **Skill Trees:** Categorized branches (e.g., *Technical/Coding*, *Physical/Fitness*, *Creative/Multimedia*).
-*   **Unlocks:** Spending skill points earned via leveling up to unlock advanced missions or complex project structures.
-*   **Achievements (System Notifications):** Popup banners with audio cues when milestones are hit (e.g., unlocking *"Insomniac Code Hero"*).
+## 2. Requerimientos Técnicos y Seguridad
+- **Stack Base:** React + Vite + Tailwind CSS (con TypeScript).
+- **Motor Móvil:** Capacitor (compilación estricta a archivo `.apk` instalable en Android vía ADB/USB). La interfaz viaja dentro del APK, así que la app funciona de forma independiente del repositorio.
+- **Seguridad de API Key:** La llave de Gemini **nunca** se incrusta en el código compilado. Se ingresa una vez en la pantalla de "Ajustes" de la app y se almacena cifrada localmente. Queda excluida de los respaldos `.json`.
+- **Almacenamiento y Respaldo:**
+  - Almacenamiento local mediante IndexedDB.
+  - Botón de exportación e importación de respaldo `.json` (con recordatorio semanal opcional).
+  - Llave de firma de Android (*Keystore*) guardada de forma segura fuera del repositorio para evitar bloqueos en futuras actualizaciones del APK.
+- **Optimización Samsung:** Manejo explícito de permisos de notificaciones locales y exclusión de las políticas agresivas de ahorro de batería de One UI.
+- **Sin conexión:** Todo funciona sin internet, excepto generar misiones con IA.
 
 ---
 
-## 4. Technical Architecture (Phased Approach)
+## 3. Interfaz
+- Orientación **vertical**, optimizada para usarse con una mano.
+- **Navegación por pestañas.**
+- **HUD:** nivel, barra de XP y racha actual siempre a la vista.
 
-### Phase 1: Frontend & UI Mockup (Current Priority)
-*   **Tech Stack:** React / Vite or modern HTML/CSS/Tailwind with custom CSS animations mimicking console dashboards.
-*   **Deliverable:** A fully interactive frontend prototype showcasing the Xbox-style menu navigation, sample quests, inventory/skill tree views, and mock API response handling.
+---
 
-### Phase 2: AI Integration & Local Storage
-*   **Tech Stack:** LocalStorage / IndexedDB for persistence. Secure client-side input for the Gemini API Key.
-*   **Deliverable:** Dynamic quest generation where typing a goal hits the Gemini API and populates the dashboard with custom RPG quests.
+## 4. Mecánicas de Juego y Reglas (Core Loops)
 
-### Phase 3: Android Packaging
-*   **Tech Stack:** Capacitor or Cordova wrapper to compile the web application into a standalone `.apk` file for seamless native installation on Android devices without relying on active cloud development repository connections.
+### A. Economía de XP, Niveles y Rachas
+- **Dificultad (1-5):** Gemini evalúa la dificultad; la app calcula matemáticamente el XP otorgado:
+  - Nivel 1: 20 XP | Nivel 2: 50 XP | Nivel 3: 90 XP | Nivel 4: 140 XP | Nivel 5: 200 XP.
+- **Fórmula de Nivel:** XP para pasar del nivel actual al siguiente = `100 × nivel^1.5` (redondeado). Ejemplo: del nivel 1 al 2 son 100 XP; del 2 al 3, 283 XP.
+- **Día Cumplido:** Un día cuenta para la racha cuando se completan **todas las Bounties activas** antes del Cierre del Día.
+- **Multiplicador de Rachas:** Aplica exclusivamente a las Bounties. Suma **+5% de XP por día de racha**, con un tope máximo de **+50%** (alcanzado en el día 10).
+- **Red de Seguridad de Racha:** Fallar un día no borra la racha a cero; la reduce a la mitad. Si se fallan varios días, se reduce a la mitad por cada día fallado.
+- **Deshacer:** Las tareas marcadas por error se pueden deshacer, restituyendo el XP.
+- **Cierre del Día:** Configurado a las **4:00 a.m.** para no penalizar a quienes trasnochan programando o trabajando.
+
+### B. Estructura de Misiones
+1. **Campañas Principales (Main Quests):** Metas grandes desglosadas en *Side Quests*. Su barra de progreso se calcula con el XP completado de sus sub-tareas.
+2. **Side Quests:** Tareas secundarias, normalmente vinculadas a campañas. Pueden existir sin campaña; en ese caso no mueven ninguna barra de progreso.
+3. **Bounties (Contratos Diarios):** Hábitos diarios repetibles (ej. medicamentos). Se pueden crear y editar manualmente desde el día uno, sin depender de la IA. En las Bounties manuales, el usuario elige la dificultad.
+4. **Previsualización:** Obligatorio revisar y editar las misiones generadas por IA, incluida su dificultad, antes de aceptarlas en el HUD.
+
+### C. Notificaciones (Trilogía Diaria)
+Para evitar el abandono de la app y el "cementerio de ideas", se programan notificaciones locales en tres momentos del día, con horarios configurables:
+1. **Mañana:** Alerta de misión al despertar.
+2. **Tarde:** Checkpoint para revisar campañas.
+3. **Noche:** Cierre del día y registro antes de dormir.
+
+### D. Progresión Estética (Sin Bloqueos)
+- Subir de nivel desbloquea elementos visuales retro, temas de color, títulos de perfil y efectos de sonido. Jamás se bloquean funcionalidades o tareas por falta de nivel.
+
+---
+
+## 5. Fuera de Alcance en Esta Versión
+- Árbol de habilidades y sistema de logros (*achievements*).
+- Bounties con frecuencia distinta a la diaria (ej. tres veces por semana).
+
+---
+
+## 6. Plan de Desarrollo
+- **Sprint 0:** Estructura inicial del proyecto, configuración de Capacitor y primera prueba de compilación en Android.
+- **Sprint 1:** Motor de datos local y reglas matemáticas de XP, niveles y rachas.
+- **Sprint 2:** Interfaz vertical estilo HUD de consola retro, navegación por pestañas y creación manual de misiones.
+- **Sprint 3:** Sistema de respaldos en JSON y notificaciones locales.
+- **Sprint 4:** Conexión y validación de respuestas de la API de Gemini para generación de misiones.
+- **Sprint 5:** Progresión estética.

@@ -1,0 +1,20 @@
+# Dependencias y compilados
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Variables locales
+.env
+.env.*
+
+# Llaves de firma: nunca van al repositorio
+*.jks
+*.keystore
+keystore.properties
+
+# Editores y sistema
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
