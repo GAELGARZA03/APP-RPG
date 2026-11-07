@@ -56,6 +56,23 @@ Horarios iniciales: 8:00, 15:00 y 22:30. Además, un recordatorio semanal opcion
 
 ### D. Progresión Estética (Sin Bloqueos)
 - Subir de nivel desbloquea elementos visuales retro, temas de color, títulos de perfil y efectos de sonido. Jamás se bloquean funcionalidades o tareas por falta de nivel.
+- Se eligen en la pestaña **Perfil**. Al subir de nivel, un aviso anuncia lo desbloqueado. Si se baja de nivel (por deshacer una tarea), se muestra la opción inicial hasta recuperarlo. Silenciar los sonidos está disponible desde el nivel 1.
+
+| Nivel | Recompensa |
+|---|---|
+| 1 | Tema Terminal, título «Aprendiz», sonidos Clásico (o sin sonido) |
+| 2 | Título «Explorador» |
+| 3 | Tema Ámbar CRT |
+| 4 | Título «Aventurero», sonidos Arcade |
+| 5 | Tema Neón |
+| 6 | Título «Cazador de Contratos», efecto CRT |
+| 7 | Sonidos Cristal |
+| 8 | Tema Consola Gris |
+| 10 | Título «Veterano» |
+| 11 | Sonidos Bajo 8-bit |
+| 12 | Tema Oro Legendario |
+| 15 | Título «Héroe Insomne» |
+| 20 | Título «Leyenda Viviente» |
 
 ---
 

@@ -7,11 +7,12 @@ import { AddButton, Panel, ProgressBar, TaskRow } from './parts'
 export function TodayTab(props: {
   today: GameDay
   hud: Hud
+  title: string
   onCreate: () => void
   onEdit: (bounty: TodayBounty) => void
   onReward: (xp: number | null) => void
 }) {
-  const { today, hud, onCreate, onEdit, onReward } = props
+  const { today, hud, title, onCreate, onEdit, onReward } = props
   const bounties = useLiveQuery(() => getTodayBounties(db, today), [today])
 
   async function toggle(bounty: TodayBounty) {
@@ -26,7 +27,9 @@ export function TodayTab(props: {
       <section aria-label="HUD del jugador" className="rounded-lg border border-line bg-panel p-4">
         <div className="flex items-end justify-between">
           <div>
-            <p className="text-xs text-muted">NIVEL</p>
+            <p className="text-xs text-muted">
+              NIVEL · <span className="text-signal">{title}</span>
+            </p>
             <p className="text-5xl leading-none font-bold text-signal">{hud.level}</p>
           </div>
           <div className="text-right">

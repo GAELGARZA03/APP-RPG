@@ -11,7 +11,13 @@ import {
   createSideQuest,
   getHud,
 } from './gameStore'
-import { getLastBackupAt, getNotificationSettings, saveNotificationSettings } from './settings'
+import {
+  getCosmetics,
+  getLastBackupAt,
+  getNotificationSettings,
+  saveCosmetics,
+  saveNotificationSettings,
+} from './settings'
 
 const noon = new Date(2026, 10, 7, 12)
 const today = gameDayOf(noon)
@@ -38,6 +44,7 @@ async function fillSource() {
   const quest = await createSideQuest(source, { title: 'Diseñar', difficulty: 3, campaignId: campaign.id }, noon)
   await completeSideQuest(source, quest.id, noon)
   await saveNotificationSettings(source, { enabled: true, night: '23:15' })
+  await saveCosmetics(source, { theme: 'amber', sound: 'off' })
 }
 
 describe('Respaldo', () => {
@@ -50,6 +57,7 @@ describe('Respaldo', () => {
     expect(await getHud(target, today)).toEqual(await getHud(source, today))
     expect(await target.sideQuests.toArray()).toEqual(await source.sideQuests.toArray())
     expect((await getNotificationSettings(target)).night).toBe('23:15')
+    expect(await getCosmetics(target)).toMatchObject({ theme: 'amber', sound: 'off' })
     expect(await getLastBackupAt(target)).toBe(noon.toISOString())
   })
 

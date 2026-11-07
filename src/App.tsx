@@ -20,18 +20,22 @@ import {
 import { FormSheet, type FormSheetProps } from './ui/FormSheet'
 import { GeneratorSheet } from './ui/GeneratorSheet'
 import { MissionsTab } from './ui/MissionsTab'
-import { playComplete, playLevelUp } from './ui/sound'
+import { effectiveCosmetics, THEMES, titleName, unlocksBetween } from './game/cosmetics'
+import { getCosmetics } from './data/settings'
+import { ProfileTab } from './ui/ProfileTab'
+import { playComplete, playLevelUp, setSoundPack } from './ui/sound'
 import { getNotificationSettings } from './data/settings'
 import { applyNotificationSettings, notificationsSupported } from './platform/notifications'
 import { SettingsTab } from './ui/settings/SettingsTab'
 import { TodayTab } from './ui/TodayTab'
 import { useGameDay } from './ui/useGameDay'
 
-type Tab = 'today' | 'missions' | 'settings'
+type Tab = 'today' | 'missions' | 'profile' | 'settings'
 
 const TABS: Array<{ id: Tab; label: string }> = [
   { id: 'today', label: 'Hoy' },
   { id: 'missions', label: 'Misiones' },
+  { id: 'profile', label: 'Perfil' },
   { id: 'settings', label: 'Ajustes' },
 ]
 
@@ -112,6 +116,8 @@ export function App() {
   const today = useGameDay()
   const hud = useLiveQuery(() => getHud(db, today), [today])
   const notificationSettings = useLiveQuery(() => getNotificationSettings(db), [])
+  const cosmeticChoice = useLiveQuery(() => getCosmetics(db), [])
+  const cosmetics = hud && cosmeticChoice ? effectiveCosmetics(cosmeticChoice, hud.level) : null
   const [tab, setTab] = useState<Tab>('today')
   const [sheet, setSheet] = useState<Sheet | null>(null)
   const [toast, setToast] = useState<{ id: number; text: string } | null>(null)
@@ -129,18 +135,38 @@ export function App() {
 
   useEffect(() => {
     if (!toast) return
-    const timer = setTimeout(() => setToast(null), 1800)
+    // Los avisos largos (desbloqueos) se quedan más tiempo en pantalla.
+    const timer = setTimeout(() => setToast(null), Math.min(5000, 1800 + toast.text.length * 30))
     return () => clearTimeout(timer)
   }, [toast])
 
   useEffect(() => {
     if (!hud) return
-    if (previousLevel.current !== null && hud.level > previousLevel.current) {
+    const previous = previousLevel.current
+    if (previous !== null && hud.level > previous) {
       playLevelUp()
-      showToast(`¡Subiste al nivel ${hud.level}!`)
+      const unlocked = unlocksBetween(previous, hud.level)
+      showToast(
+        unlocked.length > 0
+          ? `¡Nivel ${hud.level}! Desbloqueaste: ${unlocked.join(', ')}`
+          : `¡Subiste al nivel ${hud.level}!`,
+      )
     }
     previousLevel.current = hud.level
   }, [hud])
+
+  // Aplica el tema y los sonidos elegidos (solo si están desbloqueados).
+  const themeId = cosmetics?.theme
+  const soundId = cosmetics?.sound
+  useEffect(() => {
+    if (!themeId) return
+    document.documentElement.dataset.theme = themeId
+    const background = THEMES.find((theme) => theme.id === themeId)?.swatch[0]
+    if (background) document.querySelector('meta[name="theme-color"]')?.setAttribute('content', background)
+  }, [themeId])
+  useEffect(() => {
+    if (soundId) setSoundPack(soundId)
+  }, [soundId])
 
   // Mantiene los recordatorios programados al día con los ajustes guardados.
   useEffect(() => {
@@ -163,6 +189,7 @@ export function App() {
 
   return (
     <>
+      {cosmetics?.crt && <div aria-hidden className="crt-overlay" />}
       {/* Fondo bajo la barra de estado para que el contenido no se vea detrás de los iconos. */}
       <div aria-hidden className="fixed inset-x-0 top-0 z-10 h-[env(safe-area-inset-top)] bg-void" />
       <main className="mx-auto flex min-h-dvh max-w-md flex-col gap-4 px-4 pt-[calc(env(safe-area-inset-top)+1rem)] pb-[calc(env(safe-area-inset-bottom)+6rem)]">
@@ -184,6 +211,7 @@ export function App() {
           <TodayTab
             today={today}
             hud={hud}
+            title={titleName(cosmetics?.title ?? 'apprentice')}
             onCreate={() => setSheet({ kind: 'newBounty' })}
             onEdit={(bounty) => setSheet({ kind: 'editBounty', bounty })}
             onReward={reward}
@@ -199,6 +227,7 @@ export function App() {
             onReward={reward}
           />
         )}
+        {tab === 'profile' && hud && cosmeticChoice && <ProfileTab hud={hud} choice={cosmeticChoice} />}
         {tab === 'settings' && <SettingsTab />}
       </main>
 
@@ -206,7 +235,7 @@ export function App() {
         {toast && (
           <p
             key={toast.id}
-            className="animate-[toast-in_200ms_ease-out] rounded-md border border-signal bg-panel px-4 py-2 font-bold text-signal shadow-lg"
+            className="mx-4 max-w-sm animate-[toast-in_200ms_ease-out] rounded-md border border-signal bg-panel px-4 py-2 text-center font-bold text-signal shadow-lg"
           >
             {toast.text}
           </p>
@@ -217,7 +246,7 @@ export function App() {
         aria-label="Secciones"
         className="fixed inset-x-0 bottom-0 border-t border-line bg-void/95 pb-[env(safe-area-inset-bottom)] backdrop-blur"
       >
-        <div className="mx-auto grid max-w-md grid-cols-3">
+        <div className="mx-auto grid max-w-md grid-cols-4">
           {TABS.map(({ id, label }) => (
             <button
               key={id}

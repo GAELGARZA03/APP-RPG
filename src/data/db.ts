@@ -1,4 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie'
+import type { CosmeticChoice } from '../game/cosmetics'
 import type { GameDay } from '../game/gameDay'
 import type { Difficulty } from '../game/rules'
 
@@ -65,7 +66,11 @@ export interface AiSettings {
   model: string
 }
 
-export type Setting = NotificationSettings | BackupInfo | AiSettings
+export interface CosmeticSettings extends CosmeticChoice {
+  id: 'cosmetics'
+}
+
+export type Setting = NotificationSettings | BackupInfo | AiSettings | CosmeticSettings
 
 export class GameDatabase extends Dexie {
   bounties!: EntityTable<Bounty, 'id'>

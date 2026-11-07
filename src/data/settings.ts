@@ -1,5 +1,19 @@
 import { DEFAULT_GEMINI_MODEL } from '../ai/gemini'
-import type { AiSettings, BackupInfo, GameDatabase, NotificationSettings } from './db'
+import { DEFAULT_COSMETICS, type CosmeticChoice } from '../game/cosmetics'
+import type { AiSettings, BackupInfo, CosmeticSettings, GameDatabase, NotificationSettings } from './db'
+
+/** Lo elegido por el jugador; la app aplica solo lo que está desbloqueado (ver effectiveCosmetics). */
+export async function getCosmetics(db: GameDatabase): Promise<CosmeticChoice> {
+  const saved = await db.settings.get('cosmetics')
+  if (saved?.id !== 'cosmetics') return DEFAULT_COSMETICS
+  const { theme, title, sound, crt } = saved
+  return { theme, title, sound, crt }
+}
+
+export async function saveCosmetics(db: GameDatabase, changes: Partial<CosmeticChoice>): Promise<void> {
+  const settings: CosmeticSettings = { id: 'cosmetics', ...(await getCosmetics(db)), ...changes }
+  await db.settings.put(settings)
+}
 
 export async function getAiSettings(db: GameDatabase): Promise<AiSettings> {
   const saved = await db.settings.get('ai')

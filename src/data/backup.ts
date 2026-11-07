@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { SOUNDS, THEMES, TITLES, type SoundId, type ThemeId, type TitleId } from '../game/cosmetics'
 import type { GameDatabase } from './db'
 import { markBackupDone } from './settings'
 
@@ -41,16 +42,25 @@ const backupSchema = z.object({
       .max(1),
     settings: z
       .array(
-        z.object({
-          id: z.literal('notifications'),
-          enabled: z.boolean(),
-          morning: time,
-          afternoon: time,
-          night: time,
-          weeklyBackupReminder: z.boolean(),
-        }),
+        z.discriminatedUnion('id', [
+          z.object({
+            id: z.literal('notifications'),
+            enabled: z.boolean(),
+            morning: time,
+            afternoon: time,
+            night: time,
+            weeklyBackupReminder: z.boolean(),
+          }),
+          z.object({
+            id: z.literal('cosmetics'),
+            theme: z.enum(THEMES.map((theme) => theme.id) as [ThemeId, ...ThemeId[]]),
+            title: z.enum(TITLES.map((title) => title.id) as [TitleId, ...TitleId[]]),
+            sound: z.enum(SOUNDS.map((sound) => sound.id) as [SoundId, ...SoundId[]]),
+            crt: z.boolean(),
+          }),
+        ]),
       )
-      .max(1),
+      .max(2),
   }),
 })
 
@@ -76,7 +86,8 @@ export async function createBackup(db: GameDatabase, now = new Date()): Promise<
         sideQuests: await db.sideQuests.toArray(),
         xpEvents: await db.xpEvents.toArray(),
         player: await db.player.toArray(),
-        settings: settings.filter((setting) => setting.id === 'notifications'),
+        // La info del último respaldo y el modelo de IA no viajan; la API key ni siquiera está aquí.
+        settings: settings.filter((setting) => setting.id === 'notifications' || setting.id === 'cosmetics'),
       },
     }
   })

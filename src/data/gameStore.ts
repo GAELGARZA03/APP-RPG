@@ -86,9 +86,11 @@ export async function getHud(db: GameDatabase, today: GameDay) {
       events.filter((event) => event.day === today).map((event) => event.taskId),
     )
     const todayFulfilled = outcomeOf(bounties, completedToday, today) === 'fulfilled'
+    const totalXp = events.reduce((sum, event) => sum + event.xp, 0)
 
     return {
-      ...levelProgress(events.reduce((sum, event) => sum + event.xp, 0)),
+      ...levelProgress(totalXp),
+      totalXp,
       streak: player.streak + (todayFulfilled ? 1 : 0),
       streakBonusPercent: streakBonusPercent(player.streak),
       todayFulfilled,

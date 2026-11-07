@@ -11,6 +11,58 @@
   --font-console: ui-monospace, 'Cascadia Code', 'Roboto Mono', Menlo, Consolas, monospace;
 }
 
+/* Temas desbloqueables: redefinen los mismos colores que usa toda la interfaz. */
+[data-theme='amber'] {
+  --color-void: #0f0a05;
+  --color-panel: #1a1209;
+  --color-line: #3b2a14;
+  --color-ink: #ffe8c2;
+  --color-muted: #b8946a;
+  --color-signal: #ffb000;
+  --color-ember: #ff7a45;
+}
+
+[data-theme='neon'] {
+  --color-void: #0a0614;
+  --color-panel: #150d26;
+  --color-line: #34204f;
+  --color-ink: #f0e8ff;
+  --color-muted: #a594c8;
+  --color-signal: #22d3ee;
+  --color-ember: #f472b6;
+}
+
+[data-theme='grey'] {
+  --color-void: #16181c;
+  --color-panel: #22262c;
+  --color-line: #3a4048;
+  --color-ink: #eef1f4;
+  --color-muted: #9aa3ad;
+  --color-signal: #a3e635;
+  --color-ember: #f59e0b;
+}
+
+[data-theme='gold'] {
+  --color-void: #0d0a14;
+  --color-panel: #1a1426;
+  --color-line: #3a2d50;
+  --color-ink: #fdf6e3;
+  --color-muted: #b3a3c9;
+  --color-signal: #fbbf24;
+  --color-ember: #c084fc;
+}
+
+/* Efecto CRT: líneas de escaneo y viñeta sobre toda la pantalla. */
+.crt-overlay {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background:
+    repeating-linear-gradient(to bottom, rgb(0 0 0 / 0.22) 0 1px, transparent 1px 3px),
+    radial-gradient(ellipse at center, transparent 55%, rgb(0 0 0 / 0.45));
+}
+
 @keyframes toast-in {
   from {
     opacity: 0;
