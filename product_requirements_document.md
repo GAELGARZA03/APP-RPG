@@ -43,7 +43,7 @@ La identidad visual se inspira en las consolas clásicas, pero usa sonidos, tipo
 1. **Campañas Principales (Main Quests):** Metas grandes desglosadas en *Side Quests*. Su barra de progreso se calcula con el XP completado de sus sub-tareas.
 2. **Side Quests:** Tareas secundarias, normalmente vinculadas a campañas. Pueden existir sin campaña; en ese caso no mueven ninguna barra de progreso.
 3. **Bounties (Contratos Diarios):** Hábitos diarios repetibles (ej. medicamentos). Se pueden crear y editar manualmente desde el día uno, sin depender de la IA. En las Bounties manuales, el usuario elige la dificultad.
-4. **Previsualización:** Obligatorio revisar y editar las misiones generadas por IA, incluida su dificultad, antes de aceptarlas en el HUD.
+4. **Previsualización:** Obligatorio revisar y editar las misiones generadas por IA, incluida su dificultad, antes de aceptarlas en el HUD. Gemini propone una campaña con 3 a 8 Side Quests y hasta 3 contratos diarios; los contratos sugeridos aparecen desmarcados porque, si se aceptan, cuentan para la racha. El modelo es configurable en Ajustes (por defecto `gemini-3.5-flash-lite`).
 5. **Archivar y Borrar:** Las Bounties se archivan en lugar de borrarse, para conservar su historial. Borrar una campaña o una Side Quest conserva el XP ya ganado; para quitarlo, primero se deshace la tarea.
 
 ### C. Notificaciones (Trilogía Diaria)
@@ -51,6 +51,8 @@ Para evitar el abandono de la app y el "cementerio de ideas", se programan notif
 1. **Mañana:** Alerta de misión al despertar.
 2. **Tarde:** Checkpoint para revisar campañas.
 3. **Noche:** Cierre del día y registro antes de dormir.
+
+Horarios iniciales: 8:00, 15:00 y 22:30. Además, un recordatorio semanal opcional de respaldo los domingos a las 20:00. La app pide el permiso de notificaciones, la exclusión del ahorro de batería y el permiso de alarmas exactas, y muestra en Hoy un aviso mientras los recordatorios estén apagados.
 
 ### D. Progresión Estética (Sin Bloqueos)
 - Subir de nivel desbloquea elementos visuales retro, temas de color, títulos de perfil y efectos de sonido. Jamás se bloquean funcionalidades o tareas por falta de nivel.

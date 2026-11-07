@@ -230,6 +230,29 @@ export async function deleteCampaign(db: GameDatabase, id: string): Promise<void
   })
 }
 
+/** Crea de una vez la campaña y las misiones aceptadas de un plan generado por IA. */
+export async function acceptPlan(
+  db: GameDatabase,
+  plan: {
+    campaign: string
+    sideQuests: Array<{ title: string; difficulty: Difficulty }>
+    bounties: Array<{ title: string; difficulty: Difficulty }>
+  },
+  now = new Date(),
+): Promise<Campaign> {
+  return db.transaction('rw', db.campaigns, db.sideQuests, db.bounties, async () => {
+    const campaign = await createCampaign(db, plan.campaign, now)
+    // Se suma un milisegundo por misión para conservar el orden propuesto.
+    for (const [index, quest] of plan.sideQuests.entries()) {
+      await createSideQuest(db, { ...quest, campaignId: campaign.id }, new Date(now.getTime() + index + 1))
+    }
+    for (const [index, bounty] of plan.bounties.entries()) {
+      await createBounty(db, bounty, new Date(now.getTime() + index + 1))
+    }
+    return campaign
+  })
+}
+
 // --- Side Quests ------------------------------------------------------------
 
 export async function createSideQuest(

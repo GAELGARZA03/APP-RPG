@@ -1,5 +1,6 @@
-import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
+import { useId, useState, type FormEvent } from 'react'
 import { baseXp, type Difficulty } from '../game/rules'
+import { Sheet } from './Sheet'
 
 const DIFFICULTIES: Difficulty[] = [1, 2, 3, 4, 5]
 
@@ -22,20 +23,11 @@ export interface FormSheetProps {
 /** Hoja inferior para crear o editar. Se cierra con Escape, el botón atrás o al guardar. */
 export function FormSheet(props: FormSheetProps) {
   const { heading, submitLabel, initialTitle = '', initialDifficulty, danger, onSubmit, onClose } = props
-  const dialogRef = useRef<HTMLDialogElement>(null)
   const headingId = useId()
   const [title, setTitle] = useState(initialTitle)
   const [difficulty, setDifficulty] = useState<Difficulty>(initialDifficulty ?? 2)
   const [confirming, setConfirming] = useState(false)
   const [busy, setBusy] = useState(false)
-
-  useEffect(() => {
-    const dialog = dialogRef.current
-    if (!dialog) return
-    dialog.showModal()
-    // Al editar no se abre el teclado: el foco queda en la hoja, no en el nombre.
-    if (initialTitle !== '') dialog.focus()
-  }, [initialTitle])
 
   async function run(action: () => Promise<void>) {
     setBusy(true)
@@ -54,13 +46,8 @@ export function FormSheet(props: FormSheetProps) {
   }
 
   return (
-    <dialog
-      ref={dialogRef}
-      aria-labelledby={headingId}
-      onClose={onClose}
-      tabIndex={-1}
-      className="outline-none mx-auto mt-auto mb-0 max-h-[90dvh] w-full max-w-md rounded-t-xl border border-b-0 border-line bg-panel px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] text-ink backdrop:bg-black/70"
-    >
+    // Al editar no se abre el teclado: el foco queda en la hoja, no en el nombre.
+    <Sheet labelledBy={headingId} focusSheet={initialTitle !== ''} onClose={onClose}>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <h2 id={headingId} className="text-sm tracking-widest text-muted">
           {heading.toUpperCase()}
@@ -137,6 +124,6 @@ export function FormSheet(props: FormSheetProps) {
           </button>
         )}
       </form>
-    </dialog>
+    </Sheet>
   )
 }

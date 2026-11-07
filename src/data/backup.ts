@@ -1,0 +1,136 @@
+import { z } from 'zod'
+import type { GameDatabase } from './db'
+import { markBackupDone } from './settings'
+
+const BACKUP_APP = 'real-life-rpg'
+const BACKUP_VERSION = 1
+
+const id = z.string().min(1).max(100)
+const title = z.string().trim().min(1).max(200)
+const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
+const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+const difficulty = z.literal([1, 2, 3, 4, 5])
+const timestamp = z.number().int().nonnegative()
+
+// z.object descarta cualquier campo que no esté aquí, así un respaldo nunca mete datos extra.
+const backupSchema = z.object({
+  app: z.literal(BACKUP_APP),
+  version: z.literal(BACKUP_VERSION),
+  exportedAt: z.iso.datetime(),
+  data: z.object({
+    bounties: z.array(
+      z.object({ id, title, difficulty, createdAt: timestamp, createdDay: day, archivedDay: day.nullable() }),
+    ),
+    campaigns: z.array(z.object({ id, title, createdAt: timestamp, createdDay: day })),
+    sideQuests: z.array(
+      z.object({
+        id,
+        title,
+        difficulty,
+        campaignId: id.nullable(),
+        createdAt: timestamp,
+        createdDay: day,
+        completedDay: day.nullable(),
+      }),
+    ),
+    xpEvents: z.array(
+      z.object({ id, kind: z.enum(['bounty', 'sideQuest']), taskId: id, day, xp: z.number().int().nonnegative() }),
+    ),
+    player: z
+      .array(z.object({ id: z.literal('player'), streak: z.number().int().nonnegative(), lastSettledDay: day }))
+      .max(1),
+    settings: z
+      .array(
+        z.object({
+          id: z.literal('notifications'),
+          enabled: z.boolean(),
+          morning: time,
+          afternoon: time,
+          night: time,
+          weeklyBackupReminder: z.boolean(),
+        }),
+      )
+      .max(1),
+  }),
+})
+
+export type Backup = z.infer<typeof backupSchema>
+
+export class BackupError extends Error {}
+
+function tables(db: GameDatabase) {
+  return [db.bounties, db.campaigns, db.sideQuests, db.xpEvents, db.player, db.settings]
+}
+
+export async function createBackup(db: GameDatabase, now = new Date()): Promise<Backup> {
+  return db.transaction('r', tables(db), async () => {
+    const settings = await db.settings.toArray()
+
+    return {
+      app: BACKUP_APP,
+      version: BACKUP_VERSION,
+      exportedAt: now.toISOString(),
+      data: {
+        bounties: await db.bounties.toArray(),
+        campaigns: await db.campaigns.toArray(),
+        sideQuests: await db.sideQuests.toArray(),
+        xpEvents: await db.xpEvents.toArray(),
+        player: await db.player.toArray(),
+        settings: settings.filter((setting) => setting.id === 'notifications'),
+      },
+    }
+  })
+}
+
+export function parseBackup(text: string): Backup {
+  let json: unknown
+  try {
+    json = JSON.parse(text)
+  } catch {
+    throw new BackupError('El archivo no es un respaldo válido.')
+  }
+
+  const result = backupSchema.safeParse(json)
+  if (result.success) return result.data
+
+  const header = typeof json === 'object' && json !== null ? (json as Record<string, unknown>) : {}
+  if (header.app !== BACKUP_APP) throw new BackupError('Este archivo no es un respaldo de Real Life RPG.')
+  if (header.version !== BACKUP_VERSION) {
+    throw new BackupError('Este respaldo es de una versión de la app que no se reconoce.')
+  }
+  throw new BackupError('El respaldo está incompleto o dañado.')
+}
+
+export function summarizeBackup(backup: Backup) {
+  const { data } = backup
+  return {
+    exportedAt: backup.exportedAt,
+    bounties: data.bounties.filter((bounty) => bounty.archivedDay === null).length,
+    campaigns: data.campaigns.length,
+    sideQuests: data.sideQuests.length,
+    totalXp: data.xpEvents.reduce((sum, event) => sum + event.xp, 0),
+  }
+}
+
+/** Reemplaza todos los datos. Si algo falla, no se cambia nada. */
+export async function restoreBackup(db: GameDatabase, backup: Backup): Promise<void> {
+  try {
+    await db.transaction('rw', tables(db), async () => {
+      await Promise.all(tables(db).map((table) => table.clear()))
+      await db.bounties.bulkAdd(backup.data.bounties)
+      await db.campaigns.bulkAdd(backup.data.campaigns)
+      await db.sideQuests.bulkAdd(backup.data.sideQuests)
+      await db.xpEvents.bulkAdd(backup.data.xpEvents)
+      await db.player.bulkAdd(backup.data.player)
+      await db.settings.bulkAdd(backup.data.settings)
+      await markBackupDone(db, backup.exportedAt)
+    })
+  } catch {
+    throw new BackupError('El respaldo está dañado: tus datos actuales no se modificaron.')
+  }
+}
+
+export function backupFileName(now = new Date()): string {
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `real-life-rpg-${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}.json`
+}

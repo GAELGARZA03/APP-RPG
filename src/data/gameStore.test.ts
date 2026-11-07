@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { gameDayOf } from '../game/gameDay'
 import { GameDatabase } from './db'
 import {
+  acceptPlan,
   archiveBounty,
   completeBounty,
   completeSideQuest,
@@ -248,6 +249,33 @@ describe('Side Quests y campañas', () => {
 
     expect(await getMissions(db)).toEqual({ campaigns: [], looseSideQuests: [] })
     expect((await hudOn(0)).xpIntoLevel).toBe(70)
+  })
+})
+
+describe('Plan generado por IA', () => {
+  it('crea la campaña con sus Side Quests en orden y los contratos aceptados', async () => {
+    await acceptPlan(
+      db,
+      {
+        campaign: 'Aprender magia',
+        sideQuests: [
+          { title: 'Comprar baraja', difficulty: 1 },
+          { title: 'Practicar doble lift', difficulty: 3 },
+        ],
+        bounties: [{ title: 'Practicar 10 minutos', difficulty: 1 }],
+      },
+      day(0),
+    )
+
+    const missions = await getMissions(db)
+    expect(missions.campaigns[0].title).toBe('Aprender magia')
+    expect(missions.campaigns[0].sideQuests.map((quest) => quest.title)).toEqual([
+      'Comprar baraja',
+      'Practicar doble lift',
+    ])
+    expect((await getTodayBounties(db, gameDayOf(day(0)))).map((bounty) => bounty.title)).toEqual([
+      'Practicar 10 minutos',
+    ])
   })
 })
 

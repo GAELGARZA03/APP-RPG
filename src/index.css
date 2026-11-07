@@ -24,6 +24,10 @@ body,
   min-height: 100%;
 }
 
+:root {
+  color-scheme: dark;
+}
+
 body {
   margin: 0;
   background: var(--color-void);

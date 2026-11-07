@@ -6,6 +6,7 @@ import { baseXp } from '../game/rules'
 import { AddButton, Panel, ProgressBar, SmallButton, TaskRow } from './parts'
 
 export function MissionsTab(props: {
+  onGenerate: () => void
   onCreateCampaign: () => void
   onEditCampaign: (campaign: Campaign) => void
   onCreateQuest: (campaignId: string | null) => void
@@ -42,6 +43,14 @@ export function MissionsTab(props: {
 
   return (
     <>
+      <button
+        type="button"
+        onClick={props.onGenerate}
+        className="min-h-12 rounded-lg border border-signal bg-signal/10 px-4 font-bold tracking-wider text-signal active:bg-signal/20"
+      >
+        ✦ GENERAR CAMPAÑA CON IA
+      </button>
+
       {missions.campaigns.length === 0 && (
         <Panel label="Campañas">
           <p className="mb-3 text-sm text-muted">

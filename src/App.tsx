@@ -18,18 +18,21 @@ import {
   type TodayBounty,
 } from './data/gameStore'
 import { FormSheet, type FormSheetProps } from './ui/FormSheet'
+import { GeneratorSheet } from './ui/GeneratorSheet'
 import { MissionsTab } from './ui/MissionsTab'
 import { playComplete, playLevelUp } from './ui/sound'
-import { SystemTab } from './ui/SystemTab'
+import { getNotificationSettings } from './data/settings'
+import { applyNotificationSettings, notificationsSupported } from './platform/notifications'
+import { SettingsTab } from './ui/settings/SettingsTab'
 import { TodayTab } from './ui/TodayTab'
 import { useGameDay } from './ui/useGameDay'
 
-type Tab = 'today' | 'missions' | 'system'
+type Tab = 'today' | 'missions' | 'settings'
 
 const TABS: Array<{ id: Tab; label: string }> = [
   { id: 'today', label: 'Hoy' },
   { id: 'missions', label: 'Misiones' },
-  { id: 'system', label: 'Sistema' },
+  { id: 'settings', label: 'Ajustes' },
 ]
 
 type Sheet =
@@ -39,8 +42,9 @@ type Sheet =
   | { kind: 'editCampaign'; campaign: Campaign }
   | { kind: 'newQuest'; campaignId: string | null }
   | { kind: 'editQuest'; quest: SideQuest }
+  | { kind: 'generate' }
 
-function sheetProps(sheet: Sheet): Omit<FormSheetProps, 'onClose'> {
+function sheetProps(sheet: Exclude<Sheet, { kind: 'generate' }>): Omit<FormSheetProps, 'onClose'> {
   switch (sheet.kind) {
     case 'newBounty':
       return {
@@ -107,6 +111,7 @@ function sheetProps(sheet: Sheet): Omit<FormSheetProps, 'onClose'> {
 export function App() {
   const today = useGameDay()
   const hud = useLiveQuery(() => getHud(db, today), [today])
+  const notificationSettings = useLiveQuery(() => getNotificationSettings(db), [])
   const [tab, setTab] = useState<Tab>('today')
   const [sheet, setSheet] = useState<Sheet | null>(null)
   const [toast, setToast] = useState<{ id: number; text: string } | null>(null)
@@ -137,6 +142,11 @@ export function App() {
     previousLevel.current = hud.level
   }, [hud])
 
+  // Mantiene los recordatorios programados al día con los ajustes guardados.
+  useEffect(() => {
+    if (notificationSettings) applyNotificationSettings(notificationSettings).catch(console.error)
+  }, [notificationSettings])
+
   // Botón atrás de Android: cierra la hoja, vuelve a "Hoy" o minimiza la app.
   const handleBack = useRef(() => {})
   handleBack.current = () => {
@@ -153,11 +163,23 @@ export function App() {
 
   return (
     <>
+      {/* Fondo bajo la barra de estado para que el contenido no se vea detrás de los iconos. */}
+      <div aria-hidden className="fixed inset-x-0 top-0 z-10 h-[env(safe-area-inset-top)] bg-void" />
       <main className="mx-auto flex min-h-dvh max-w-md flex-col gap-4 px-4 pt-[calc(env(safe-area-inset-top)+1rem)] pb-[calc(env(safe-area-inset-bottom)+6rem)]">
         <header>
           <p className="text-xs tracking-[0.3em] text-muted">REAL LIFE RPG</p>
         </header>
 
+        {tab === 'today' && notificationsSupported && notificationSettings?.enabled === false && (
+          <button
+            type="button"
+            onClick={() => setTab('settings')}
+            className="rounded-lg border border-ember bg-ember/10 p-3 text-left text-sm"
+          >
+            <span className="font-bold text-ember">Activa tus recordatorios</span>
+            <span className="block text-muted">Tres avisos al día para no perder tu racha. Toca para configurarlos.</span>
+          </button>
+        )}
         {hud && tab === 'today' && (
           <TodayTab
             today={today}
@@ -169,6 +191,7 @@ export function App() {
         )}
         {tab === 'missions' && (
           <MissionsTab
+            onGenerate={() => setSheet({ kind: 'generate' })}
             onCreateCampaign={() => setSheet({ kind: 'newCampaign' })}
             onEditCampaign={(campaign) => setSheet({ kind: 'editCampaign', campaign })}
             onCreateQuest={(campaignId) => setSheet({ kind: 'newQuest', campaignId })}
@@ -176,7 +199,7 @@ export function App() {
             onReward={reward}
           />
         )}
-        {tab === 'system' && <SystemTab />}
+        {tab === 'settings' && <SettingsTab />}
       </main>
 
       <div aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+5rem)] flex justify-center">
@@ -211,7 +234,22 @@ export function App() {
         </div>
       </nav>
 
-      {sheet && <FormSheet key={JSON.stringify(sheet)} {...sheetProps(sheet)} onClose={() => setSheet(null)} />}
+      {sheet?.kind === 'generate' && (
+        <GeneratorSheet
+          onClose={() => setSheet(null)}
+          onOpenSettings={() => {
+            setSheet(null)
+            setTab('settings')
+          }}
+          onCreated={(campaign) => {
+            playComplete()
+            showToast(`Campaña creada: ${campaign}`)
+          }}
+        />
+      )}
+      {sheet && sheet.kind !== 'generate' && (
+        <FormSheet key={JSON.stringify(sheet)} {...sheetProps(sheet)} onClose={() => setSheet(null)} />
+      )}
     </>
   )
 }

@@ -1,12 +1,19 @@
 import { Capacitor } from '@capacitor/core'
-import { baseXp, type Difficulty } from '../game/rules'
-import { Panel } from './parts'
+import { baseXp, type Difficulty } from '../../game/rules'
+import { Panel } from '../parts'
+import { BackupPanel } from './BackupPanel'
+import { GeminiPanel } from './GeminiPanel'
+import { RemindersPanel } from './RemindersPanel'
 
 const DIFFICULTIES: Difficulty[] = [1, 2, 3, 4, 5]
 
-export function SystemTab() {
+export function SettingsTab() {
   return (
     <>
+      <RemindersPanel />
+      <BackupPanel />
+      <GeminiPanel />
+
       <Panel label="Reglas">
         <ul className="flex flex-col gap-2 text-sm">
           <li>
@@ -25,9 +32,6 @@ export function SystemTab() {
       <Panel label="Sistema">
         <p className="text-sm">
           Plataforma: <span className="text-signal">{Capacitor.getPlatform()}</span>
-        </p>
-        <p className="text-sm">
-          Datos: <span className="text-signal">guardados solo en este dispositivo</span>
         </p>
       </Panel>
     </>

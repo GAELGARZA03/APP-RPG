@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+: los secretos cifrados nunca viajan en respaldos ni transferencias de dispositivo. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="rlrpg_secrets.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="rlrpg_secrets.xml" />
+    </device-transfer>
+</data-extraction-rules>

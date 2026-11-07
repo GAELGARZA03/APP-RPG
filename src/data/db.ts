@@ -44,12 +44,36 @@ export interface Player {
   lastSettledDay: GameDay
 }
 
+/** Horas en formato HH:MM (24 h). */
+export interface NotificationSettings {
+  id: 'notifications'
+  enabled: boolean
+  morning: string
+  afternoon: string
+  night: string
+  weeklyBackupReminder: boolean
+}
+
+export interface BackupInfo {
+  id: 'backup'
+  lastBackupAt: string | null
+}
+
+/** La API key no vive aquí: se guarda cifrada aparte (ver platform/secrets.ts). */
+export interface AiSettings {
+  id: 'ai'
+  model: string
+}
+
+export type Setting = NotificationSettings | BackupInfo | AiSettings
+
 export class GameDatabase extends Dexie {
   bounties!: EntityTable<Bounty, 'id'>
   campaigns!: EntityTable<Campaign, 'id'>
   sideQuests!: EntityTable<SideQuest, 'id'>
   xpEvents!: EntityTable<XpEvent, 'id'>
   player!: EntityTable<Player, 'id'>
+  settings!: EntityTable<Setting, 'id'>
 
   constructor(name = 'real-life-rpg') {
     super(name)
@@ -60,5 +84,6 @@ export class GameDatabase extends Dexie {
       xpEvents: 'id, &[taskId+day], taskId, day',
       player: 'id',
     })
+    this.version(2).stores({ settings: 'id' })
   }
 }
