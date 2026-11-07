@@ -1,4 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
+import { KeyRound, LoaderCircle, RotateCcw, Sparkles } from 'lucide-react'
+import { motion } from 'motion/react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { AiError, GEMINI_KEY_SECRET, generatePlan, MAX_IDEA_LENGTH, type GeneratedPlan } from '../ai/gemini'
 import { db } from '../data/appDb'
@@ -7,14 +9,26 @@ import { getAiSettings } from '../data/settings'
 import { baseXp, type Difficulty } from '../game/rules'
 import { httpRequest } from '../platform/http'
 import { getSecret } from '../platform/secrets'
-import { Sheet } from './Sheet'
+import { Button } from './kit/Button'
+import { SectionLabel } from './kit/Card'
+import { cn } from './kit/cn'
+import { Field, Input, Textarea } from './kit/controls'
+import { Sheet, SheetTitle } from './Sheet'
 
 const DIFFICULTIES: Difficulty[] = [1, 2, 3, 4, 5]
+const IDEA_EXAMPLES = [
+  'Aprender magia con cartas',
+  'Correr 5 km sin parar',
+  'Publicar mi app en Android',
+  'Leer 12 libros este año',
+]
 
 interface DraftItem {
   key: number
   title: string
   difficulty: Difficulty
+  description: string
+  steps: string[]
   include: boolean
 }
 
@@ -40,13 +54,11 @@ function toDraft(plan: GeneratedPlan): Draft {
 function chosen(items: DraftItem[]) {
   return items
     .filter((item) => item.include && item.title.trim())
-    .map(({ title, difficulty }) => ({ title: title.trim(), difficulty }))
+    .map(({ title, difficulty, description, steps }) => ({ title: title.trim(), difficulty, description, steps }))
 }
 
-const fieldClass =
-  'min-h-11 rounded-md border border-line bg-void px-3 text-base text-ink outline-none focus:border-signal'
-const primaryClass = 'min-h-11 flex-1 rounded-md bg-signal font-bold text-void disabled:opacity-40'
-const secondaryClass = 'min-h-11 flex-1 rounded-md border border-line text-muted'
+const compactField =
+  'min-h-11 rounded-xl border border-line bg-void px-3 text-ink outline-none transition-colors focus:border-signal'
 
 function ItemList(props: {
   label: string
@@ -55,7 +67,9 @@ function ItemList(props: {
 }) {
   return (
     <fieldset className="flex flex-col gap-2">
-      <legend className="mb-1 text-xs tracking-widest text-muted">{props.label.toUpperCase()}</legend>
+      <legend className="mb-2">
+        <SectionLabel>{props.label}</SectionLabel>
+      </legend>
       {props.items.map((item) => (
         <div key={item.key} className="flex items-start gap-2">
           <input
@@ -72,15 +86,17 @@ function ItemList(props: {
             maxLength={80}
             rows={1}
             aria-label="Nombre"
-            className={`${fieldClass} min-w-0 flex-1 resize-none py-2 text-sm leading-snug [field-sizing:content] ${
-              item.include ? '' : 'opacity-50'
-            }`}
+            className={cn(
+              compactField,
+              'min-w-0 flex-1 resize-none py-2 text-sm leading-snug [field-sizing:content]',
+              !item.include && 'opacity-50',
+            )}
           />
           <select
             value={item.difficulty}
             onChange={(event) => props.onChange(item.key, { difficulty: Number(event.target.value) as Difficulty })}
             aria-label={`Dificultad de ${item.title}`}
-            className={`${fieldClass} w-16 shrink-0 px-2 text-sm`}
+            className={cn(compactField, 'w-16 shrink-0 px-2 text-sm text-info')}
           >
             {DIFFICULTIES.map((difficulty) => (
               <option key={difficulty} value={difficulty}>
@@ -157,87 +173,108 @@ export function GeneratorSheet(props: {
   return (
     <Sheet labelledBy={headingId} focusSheet onClose={onClose}>
       <div className="flex flex-col gap-4">
-        <h2 id={headingId} className="text-sm tracking-widest text-muted">
-          ✦ GENERAR CAMPAÑA CON IA
-        </h2>
+        <SheetTitle id={headingId} icon={<Sparkles aria-hidden className="size-5 text-signal" />}>
+          Generar campaña con IA
+        </SheetTitle>
 
         {apiKey === null && (
           <>
-            <p className="text-sm">Para generar campañas necesitas guardar tu API key de Gemini en Ajustes.</p>
+            <div className="flex items-start gap-3 rounded-xl border border-line bg-raised p-3 text-sm">
+              <KeyRound aria-hidden className="mt-0.5 size-5 shrink-0 text-info" />
+              <p>Para generar campañas necesitas guardar tu API key de Gemini en Ajustes.</p>
+            </div>
             <div className="flex gap-2">
-              <button type="button" onClick={onClose} className={secondaryClass}>
+              <Button onClick={onClose} className="flex-1">
                 Cerrar
-              </button>
-              <button type="button" onClick={onOpenSettings} className={primaryClass}>
+              </Button>
+              <Button variant="primary" onClick={onOpenSettings} className="flex-1">
                 Ir a Ajustes
-              </button>
+              </Button>
             </div>
           </>
         )}
 
         {apiKey && step.kind === 'input' && (
           <>
-            <label className="flex flex-col gap-1 text-xs text-muted">
-              Escribe tu idea o pega una conversación
-              <textarea
+            <Field
+              label="Escribe tu idea o pega una conversación"
+              hint={
+                <span className="flex justify-between gap-2">
+                  <span>Tu texto se envía a Google Gemini. En el nivel gratuito, Google puede usarlo para mejorar sus productos.</span>
+                  <span className="shrink-0 tabular-nums">
+                    {idea.length}/{MAX_IDEA_LENGTH}
+                  </span>
+                </span>
+              }
+            >
+              <Textarea
                 value={idea}
                 onChange={(event) => setIdea(event.target.value)}
                 maxLength={MAX_IDEA_LENGTH}
                 rows={6}
-                placeholder="Ej.: Quiero aprender magia básica con cartas"
-                className={`${fieldClass} py-2 leading-snug`}
+                placeholder="Quiero aprender magia básica con cartas"
               />
-            </label>
-            <p className="-mt-2 text-right text-xs text-muted">
-              {idea.length} / {MAX_IDEA_LENGTH}
-            </p>
+            </Field>
+            {idea.trim() === '' && (
+              <div className="-mt-1 flex flex-wrap gap-2" aria-label="Ejemplos">
+                {IDEA_EXAMPLES.map((example) => (
+                  <motion.button
+                    key={example}
+                    type="button"
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setIdea(example)}
+                    className="rounded-full border border-white/[0.08] bg-void/50 px-3 py-1.5 text-sm text-muted active:border-signal active:text-signal"
+                  >
+                    {example}
+                  </motion.button>
+                ))}
+              </div>
+            )}
             {step.error && (
-              <p role="alert" className="text-sm text-ember">
+              <p role="alert" className="rounded-2xl border border-ember/50 bg-ember/10 p-3 text-sm text-ember">
                 {step.error}
               </p>
             )}
-            <p className="text-xs text-muted">
-              Tu texto se envía a Google Gemini. En el nivel gratuito, Google puede usarlo para mejorar sus productos.
-            </p>
             <div className="flex gap-2">
-              <button type="button" onClick={onClose} className={secondaryClass}>
+              <Button onClick={onClose} className="flex-1">
                 Cancelar
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="primary"
                 onClick={() => void generate()}
                 disabled={!idea.trim() || !aiSettings}
-                className={primaryClass}
+                className="flex-1"
               >
+                <Sparkles aria-hidden />
                 Generar
-              </button>
+              </Button>
             </div>
           </>
         )}
 
         {step.kind === 'loading' && (
           <>
-            <p role="status" className="animate-pulse py-8 text-center text-signal">
-              Generando campaña…
-            </p>
-            <button type="button" onClick={cancelLoading} className={secondaryClass}>
-              Cancelar
-            </button>
+            <div role="status" className="flex flex-col items-center gap-3 py-10 text-signal">
+              <motion.span animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}>
+                <LoaderCircle aria-hidden className="size-9" />
+              </motion.span>
+              <p className="font-display tracking-wide">Generando campaña…</p>
+            </div>
+            <Button onClick={cancelLoading}>Cancelar</Button>
           </>
         )}
 
         {step.kind === 'preview' && (
           <>
             <p className="text-sm text-muted">Revisa y edita antes de aceptar. Desmarca lo que no quieras.</p>
-            <label className="flex flex-col gap-1 text-xs text-muted">
-              Campaña
-              <input
+            <Field label="Campaña">
+              <Input
                 value={step.draft.campaign}
                 onChange={(event) => updateDraft((draft) => ({ ...draft, campaign: event.target.value }))}
                 maxLength={80}
-                className={`${fieldClass} font-bold`}
+                className="font-display font-semibold"
               />
-            </label>
+            </Field>
 
             <ItemList label="Side Quests" items={step.draft.sideQuests} onChange={changeItem('sideQuests')} />
 
@@ -255,17 +292,18 @@ export function GeneratorSheet(props: {
             )}
 
             <div className="flex gap-2">
-              <button type="button" onClick={() => setStep({ kind: 'input' })} className={secondaryClass}>
+              <Button onClick={() => setStep({ kind: 'input' })} className="flex-1">
+                <RotateCcw aria-hidden />
                 Volver a generar
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="primary"
                 onClick={() => void accept(step.draft)}
                 disabled={saving || !step.draft.campaign.trim() || chosen(step.draft.sideQuests).length === 0}
-                className={primaryClass}
+                className="flex-1"
               >
                 Crear campaña
-              </button>
+              </Button>
             </div>
           </>
         )}

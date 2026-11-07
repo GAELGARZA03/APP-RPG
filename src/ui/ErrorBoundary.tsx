@@ -20,7 +20,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { failed: 
         <button
           type="button"
           onClick={() => location.reload()}
-          className="min-h-11 rounded-md border border-line text-muted"
+          className="min-h-11 rounded-xl border border-line bg-raised text-ink"
         >
           Reintentar
         </button>

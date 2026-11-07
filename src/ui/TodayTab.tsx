@@ -1,19 +1,29 @@
 import { useLiveQuery } from 'dexie-react-hooks'
+import { CalendarCheck, CheckCheck, Plus } from 'lucide-react'
 import { db } from '../data/appDb'
-import { completeBounty, getTodayBounties, undoBounty, type Hud, type TodayBounty } from '../data/gameStore'
+import type { ProfileSettings } from '../data/db'
+import { completeBounty, getTodayBounties, getWeek, undoBounty, type Hud, type TaskRef, type TodayBounty } from '../data/gameStore'
 import type { GameDay } from '../game/gameDay'
-import { AddButton, Panel, ProgressBar, TaskRow } from './parts'
+import { HudCard, StreakCard } from './HudCard'
+import { Badge } from './kit/Badge'
+import { Button } from './kit/Button'
+import { Card } from './kit/Card'
+import { TaskRow } from './kit/TaskRow'
 
 export function TodayTab(props: {
   today: GameDay
   hud: Hud
   title: string
+  profile: ProfileSettings | undefined
+  onProfile: () => void
   onCreate: () => void
-  onEdit: (bounty: TodayBounty) => void
+  onOpen: (ref: TaskRef) => void
+  onStreakInfo: () => void
   onReward: (xp: number | null) => void
 }) {
-  const { today, hud, title, onCreate, onEdit, onReward } = props
+  const { today, hud, title, profile, onProfile, onCreate, onOpen, onStreakInfo, onReward } = props
   const bounties = useLiveQuery(() => getTodayBounties(db, today), [today])
+  const week = useLiveQuery(() => getWeek(db, today), [today])
 
   async function toggle(bounty: TodayBounty) {
     if (bounty.doneToday) await undoBounty(db, bounty.id)
@@ -24,70 +34,52 @@ export function TodayTab(props: {
 
   return (
     <>
-      <section aria-label="HUD del jugador" className="rounded-lg border border-line bg-panel p-4">
-        <div className="flex items-end justify-between">
-          <div>
-            <p className="text-xs text-muted">
-              NIVEL · <span className="text-signal">{title}</span>
-            </p>
-            <p className="text-5xl leading-none font-bold text-signal">{hud.level}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-xs text-muted">RACHA</p>
-            <p className="text-3xl leading-none font-bold text-ember">
-              {hud.streak} <span className="text-sm font-normal text-muted">días</span>
-            </p>
-            <p className="mt-1 text-xs text-muted">
-              Bono Bounties: <span className="text-ember">+{hud.streakBonusPercent}%</span>
-            </p>
-          </div>
-        </div>
+      <HudCard hud={hud} title={title} profile={profile} onOpen={onProfile} />
+      <StreakCard hud={hud} week={week} onInfo={onStreakInfo} />
 
-        <div className="mt-4">
-          <div className="mb-1 flex justify-between text-xs text-muted">
-            <span>XP</span>
-            <span>
-              {hud.xpIntoLevel} / {hud.xpToNext}
-            </span>
-          </div>
-          <ProgressBar
-            value={hud.xpIntoLevel}
-            max={hud.xpToNext}
-            label="Experiencia para el siguiente nivel"
-          />
-        </div>
-      </section>
-
-      <Panel
+      <Card
         label="Contratos de hoy"
+        icon={CalendarCheck}
         action={
           bounties && bounties.length > 0 ? (
-            <span className={`text-xs ${hud.todayFulfilled ? 'text-signal' : 'text-muted'}`}>
-              {hud.todayFulfilled ? 'Día cumplido' : `${doneCount} / ${bounties.length}`}
-            </span>
+            hud.todayFulfilled ? (
+              <Badge tone="signal">
+                <CheckCheck aria-hidden />
+                Día cumplido
+              </Badge>
+            ) : (
+              <Badge>
+                {doneCount} / {bounties.length}
+              </Badge>
+            )
           ) : undefined
         }
       >
         {bounties && bounties.length === 0 && (
           <p className="mb-3 text-sm text-muted">
-            Aún no tienes contratos. Crea tus hábitos diarios: completarlos todos mantiene viva tu racha.
+            Crea tus hábitos diarios. Completarlos todos mantiene viva tu racha.
           </p>
         )}
         <ul className="mb-3 flex flex-col gap-2">
           {bounties?.map((bounty) => (
             <TaskRow
               key={bounty.id}
+              layoutId={`task-${bounty.id}`}
               title={bounty.title}
               difficulty={bounty.difficulty}
               xp={bounty.xp}
               done={bounty.doneToday}
+              stepCount={bounty.steps?.length ?? 0}
               onToggle={() => void toggle(bounty)}
-              onEdit={() => onEdit(bounty)}
+              onOpen={() => onOpen({ kind: 'bounty', id: bounty.id })}
             />
           ))}
         </ul>
-        <AddButton onClick={onCreate}>Nuevo contrato diario</AddButton>
-      </Panel>
+        <Button variant="dashed" onClick={onCreate} className="w-full">
+          <Plus aria-hidden />
+          Nuevo contrato diario
+        </Button>
+      </Card>
     </>
   )
 }

@@ -10,8 +10,15 @@ export const MAX_IDEA_LENGTH = 8000
 const API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models'
 const TIMEOUT_MS = 45_000
 const MAX_TITLE_LENGTH = 80
+const MAX_DESCRIPTION_LENGTH = 400
+const MAX_STEP_LENGTH = 120
 
-export interface PlanItem {
+export interface TaskDetailPlan {
+  description: string
+  steps: string[]
+}
+
+export interface PlanItem extends TaskDetailPlan {
   title: string
   difficulty: Difficulty
 }
@@ -58,25 +65,44 @@ export class AiError extends Error {
   }
 }
 
+const MISSION_RULES = `Cada misión debe ser concreta y medible, como una misión de videojuego: qué hacer exactamente, cuántas veces o cuánto tiempo, y con qué.
+- Mal: "Repasar los fundamentos de mezclas falsas y cortes".
+- Bien: "Practicar 3 cortes falsos, 10 veces cada uno".
+- description: 1 o 2 frases que expliquen el objetivo y cómo saber que terminaste.
+- steps: de 2 a 4 objetivos concretos con cantidades, nombres o tiempos (por ejemplo "Practica el swing cut 10 veces sin mirar las manos"). Empieza cada uno con un verbo.
+- Títulos de máximo 70 caracteres, en español, con tono de videojuego pero claros.`
+
 const SYSTEM_PROMPT = `Eres el diseñador de misiones de Real Life RPG, una app que convierte metas reales en un juego de rol.
 Convierte la idea del usuario en un plan accionable.
 
 Reglas:
 - campaign: nombre corto y motivador de la meta (máximo 60 caracteres).
-- sideQuests: entre 3 y 8 tareas únicas, concretas y verificables, en orden lógico. Cada una se puede completar en una sola sesión. Empieza cada una con un verbo.
+- sideQuests: entre 3 y 8 misiones únicas, en orden lógico. Cada una se puede completar en una sola sesión.
 - bounties: de 0 a 3 hábitos diarios pequeños que sostengan la meta. Inclúyelos solo si tiene sentido repetirlos todos los días.
 - difficulty, de 1 a 5: 1 = menos de 15 minutos y sin esfuerzo; 2 = hasta 30 minutos; 3 = alrededor de una hora o esfuerzo moderado; 4 = varias horas o salir de la zona de confort; 5 = un día completo o un gran reto.
-- Títulos de máximo 70 caracteres, en español, con tono de videojuego pero claros.
+${MISSION_RULES}
 - Si el texto es largo o es una transcripción, extrae la meta principal.
 - No inventes datos personales del usuario.`
+
+const DETAIL_PROMPT = `Eres el diseñador de misiones de Real Life RPG, una app que convierte metas reales en un juego de rol.
+Te doy el título de una misión que ya existe. Escribe su descripción y sus objetivos para que sea concreta.
+${MISSION_RULES}
+- Respeta la intención del título; no lo cambies por otra cosa.
+- No inventes datos personales del usuario.`
+
+const detailProperties = {
+  description: { type: 'string' },
+  steps: { type: 'array', items: { type: 'string' }, minItems: 2, maxItems: 4 },
+}
 
 const itemSchema = {
   type: 'object',
   properties: {
     title: { type: 'string' },
     difficulty: { type: 'integer', minimum: 1, maximum: 5 },
+    ...detailProperties,
   },
-  required: ['title', 'difficulty'],
+  required: ['title', 'difficulty', 'description', 'steps'],
 }
 
 const RESPONSE_JSON_SCHEMA = {
@@ -89,13 +115,27 @@ const RESPONSE_JSON_SCHEMA = {
   required: ['campaign', 'sideQuests', 'bounties'],
 }
 
-// La respuesta de la IA nunca se usa sin validarla. Se recortan títulos largos en vez de rechazarlos.
-const title = z
-  .string()
-  .trim()
-  .min(1)
-  .transform((value) => value.slice(0, MAX_TITLE_LENGTH))
-const item = z.object({
+const DETAIL_JSON_SCHEMA = {
+  type: 'object',
+  properties: detailProperties,
+  required: ['description', 'steps'],
+}
+
+// La respuesta de la IA nunca se usa sin validarla. Se recortan textos largos en vez de rechazarlos.
+const clipped = (max: number) =>
+  z
+    .string()
+    .trim()
+    .transform((value) => value.slice(0, max))
+const title = clipped(MAX_TITLE_LENGTH).pipe(z.string().min(1))
+const detailSchema = z.object({
+  description: clipped(MAX_DESCRIPTION_LENGTH).default(''),
+  steps: z
+    .array(clipped(MAX_STEP_LENGTH))
+    .default([])
+    .transform((steps) => steps.filter(Boolean).slice(0, 6)),
+})
+const item = detailSchema.extend({
   title,
   difficulty: z.coerce
     .number()
@@ -156,7 +196,8 @@ const responseSchema = z.object({
     .optional(),
 })
 
-export function parseGeminiResponse(data: unknown): GeneratedPlan {
+/** Extrae el JSON que Gemini devolvió como texto, o lanza el error adecuado. */
+function extractJson(data: unknown): unknown {
   const response = responseSchema.safeParse(data)
   if (!response.success) throw new AiError('bad-response')
   if (response.data.promptFeedback?.blockReason) throw new AiError('blocked')
@@ -167,16 +208,25 @@ export function parseGeminiResponse(data: unknown): GeneratedPlan {
   }
 
   const text = candidate?.content?.parts?.map((part) => part.text ?? '').join('') ?? ''
-  let json: unknown
   try {
-    json = JSON.parse(text)
+    return JSON.parse(text)
   } catch {
     throw new AiError('bad-response')
   }
+}
 
-  const plan = planSchema.safeParse(json)
+export function parseGeminiResponse(data: unknown): GeneratedPlan {
+  const plan = planSchema.safeParse(extractJson(data))
   if (!plan.success) throw new AiError('bad-response')
   return plan.data
+}
+
+export function parseDetailResponse(data: unknown): TaskDetailPlan {
+  const detail = detailSchema.safeParse(extractJson(data))
+  if (!detail.success || (!detail.data.description && detail.data.steps.length === 0)) {
+    throw new AiError('bad-response')
+  }
+  return detail.data
 }
 
 function headers(apiKey: string) {
@@ -191,19 +241,55 @@ async function send(request: HttpRequest, options: Parameters<HttpRequest>[0]) {
   }
 }
 
+function generateUrl(model: string) {
+  return `${API_BASE}/${encodeURIComponent(model)}:generateContent`
+}
+
 export async function generatePlan(
   request: HttpRequest,
   options: { apiKey: string; model: string; idea: string },
 ): Promise<GeneratedPlan> {
   const response = await send(request, {
     method: 'POST',
-    url: `${API_BASE}/${encodeURIComponent(options.model)}:generateContent`,
+    url: generateUrl(options.model),
     headers: headers(options.apiKey),
     body: buildRequestBody(options.idea),
     timeoutMs: TIMEOUT_MS,
   })
   if (response.status !== 200) throw errorForStatus(response.status, response.data)
   return parseGeminiResponse(response.data)
+}
+
+/** Escribe la descripción y los objetivos de una misión que ya existe. */
+export async function detailTask(
+  request: HttpRequest,
+  options: { apiKey: string; model: string; title: string; campaign: string | null; daily: boolean },
+): Promise<TaskDetailPlan> {
+  const context = [
+    `Misión: ${options.title}`,
+    options.campaign ? `Campaña a la que pertenece: ${options.campaign}` : null,
+    options.daily ? 'Es un hábito diario que se repite todos los días.' : 'Es una misión que se completa una sola vez.',
+  ]
+    .filter(Boolean)
+    .join('\n')
+
+  const response = await send(request, {
+    method: 'POST',
+    url: generateUrl(options.model),
+    headers: headers(options.apiKey),
+    body: {
+      systemInstruction: { parts: [{ text: DETAIL_PROMPT }] },
+      contents: [{ role: 'user', parts: [{ text: context }] }],
+      generationConfig: {
+        responseMimeType: 'application/json',
+        responseJsonSchema: DETAIL_JSON_SCHEMA,
+        temperature: 0.6,
+      },
+    },
+    timeoutMs: TIMEOUT_MS,
+  })
+  if (response.status !== 200) throw errorForStatus(response.status, response.data)
+  return parseDetailResponse(response.data)
 }
 
 /**
@@ -216,7 +302,7 @@ export async function checkConnection(
 ): Promise<void> {
   const response = await send(request, {
     method: 'POST',
-    url: `${API_BASE}/${encodeURIComponent(options.model)}:generateContent`,
+    url: generateUrl(options.model),
     headers: headers(options.apiKey),
     body: {
       contents: [{ role: 'user', parts: [{ text: 'Responde solo: OK' }] }],

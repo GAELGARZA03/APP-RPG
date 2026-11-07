@@ -1,13 +1,17 @@
 import { useLiveQuery } from 'dexie-react-hooks'
+import { Check, Sparkles, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { AiError, checkConnection, GEMINI_KEY_SECRET } from '../../ai/gemini'
 import { db } from '../../data/appDb'
 import { getAiSettings, saveAiModel } from '../../data/settings'
 import { httpRequest } from '../../platform/http'
 import { getSecret, removeSecret, secretsPersist, setSecret } from '../../platform/secrets'
-import { Panel, SmallButton } from '../parts'
+import { Badge } from '../kit/Badge'
+import { Button } from '../kit/Button'
+import { Card } from '../kit/Card'
+import { Field, Input } from '../kit/controls'
 
-export function GeminiPanel() {
+export function GeminiPanel({ embedded, headingId }: { embedded?: boolean; headingId?: string } = {}) {
   const aiSettings = useLiveQuery(() => getAiSettings(db), [])
   const [hasKey, setHasKey] = useState<boolean | null>(null)
   const [draftKey, setDraftKey] = useState('')
@@ -55,66 +59,85 @@ export function GeminiPanel() {
   if (hasKey === null || !aiSettings) return null
 
   return (
-    <Panel label="Gemini (IA)">
-      <p className="mb-3 text-sm">
-        API key: <span className={hasKey ? 'text-signal' : 'text-ember'}>{hasKey ? 'guardada' : 'sin configurar'}</span>
-      </p>
+    <Card
+      embedded={embedded}
+      headingId={headingId}
+      label="Gemini (IA)"
+      icon={Sparkles}
+      action={
+        hasKey ? (
+          <Badge tone="signal">
+            <Check aria-hidden />
+            Llave guardada
+          </Badge>
+        ) : (
+          <Badge tone="ember">Sin llave</Badge>
+        )
+      }
+    >
+      <div className="flex flex-col gap-3">
+        <Field
+          label={hasKey ? 'Reemplazar API key' : 'Pega tu API key'}
+          hint={
+            <>
+              Créala gratis en{' '}
+              <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" className="text-signal underline">
+                aistudio.google.com/apikey
+              </a>
+              .{' '}
+              {secretsPersist
+                ? 'Se guarda cifrada en este teléfono y nunca entra en tus respaldos.'
+                : 'En el navegador solo dura mientras la pestaña esté abierta.'}
+            </>
+          }
+        >
+          <Input
+            type="password"
+            value={draftKey}
+            onChange={(event) => setDraftKey(event.target.value)}
+            autoComplete="off"
+            spellCheck={false}
+          />
+        </Field>
 
-      <label className="mb-2 flex flex-col gap-1 text-xs text-muted">
-        {hasKey ? 'Reemplazar API key' : 'Pega tu API key'}
-        <input
-          type="password"
-          value={draftKey}
-          onChange={(event) => setDraftKey(event.target.value)}
-          autoComplete="off"
-          spellCheck={false}
-          className="min-h-11 rounded-md border border-line bg-void px-3 text-base text-ink outline-none focus:border-signal"
-        />
-      </label>
-      <p className="mb-3 text-xs text-muted">
-        Créala gratis en{' '}
-        <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" className="text-signal underline">
-          aistudio.google.com/apikey
-        </a>
-        .{' '}
-        {secretsPersist
-          ? 'Se guarda cifrada en este teléfono y nunca entra en tus respaldos.'
-          : 'En el navegador solo dura mientras la pestaña esté abierta.'}
-      </p>
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" variant="outline" onClick={() => void saveKey()}>
+            Guardar llave
+          </Button>
+          {hasKey && (
+            <Button size="sm" onClick={() => void test()}>
+              Probar conexión
+            </Button>
+          )}
+          {hasKey && (
+            <Button
+              size="sm"
+              variant={confirmingRemoval ? 'danger' : 'ghost'}
+              onClick={() => (confirmingRemoval ? void removeKey() : setConfirmingRemoval(true))}
+            >
+              <Trash2 aria-hidden />
+              {confirmingRemoval ? 'Toca otra vez para borrar' : 'Borrar llave'}
+            </Button>
+          )}
+        </div>
 
-      <div className="mb-3 flex flex-wrap gap-2">
-        <SmallButton onClick={() => void saveKey()}>Guardar llave</SmallButton>
-        {hasKey && <SmallButton onClick={() => void test()}>Probar conexión</SmallButton>}
-        {hasKey && (
-          <button
-            type="button"
-            onClick={() => (confirmingRemoval ? void removeKey() : setConfirmingRemoval(true))}
-            className={`min-h-9 rounded-sm border px-3 text-xs ${
-              confirmingRemoval ? 'border-ember bg-ember/15 text-ember' : 'border-line text-muted'
-            }`}
-          >
-            {confirmingRemoval ? 'Toca otra vez para borrar' : 'Borrar llave'}
-          </button>
+        <Field label="Modelo">
+          <Input
+            key={aiSettings.model}
+            defaultValue={aiSettings.model}
+            onBlur={(event) => void saveAiModel(db, event.target.value)}
+            autoComplete="off"
+            spellCheck={false}
+            className="text-sm"
+          />
+        </Field>
+
+        {message && (
+          <p role="status" className={`text-sm ${message.error ? 'text-ember' : 'text-signal'}`}>
+            {message.text}
+          </p>
         )}
       </div>
-
-      <label className="flex flex-col gap-1 text-xs text-muted">
-        Modelo
-        <input
-          key={aiSettings.model}
-          defaultValue={aiSettings.model}
-          onBlur={(event) => void saveAiModel(db, event.target.value)}
-          autoComplete="off"
-          spellCheck={false}
-          className="min-h-11 rounded-md border border-line bg-void px-3 text-sm text-ink outline-none focus:border-signal"
-        />
-      </label>
-
-      {message && (
-        <p role="status" className={`mt-3 text-sm ${message.error ? 'text-ember' : 'text-signal'}`}>
-          {message.text}
-        </p>
-      )}
-    </Panel>
+    </Card>
   )
 }

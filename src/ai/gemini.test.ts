@@ -1,6 +1,14 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { HttpRequest } from '../platform/http'
-import { AiError, buildRequestBody, checkConnection, generatePlan, parseGeminiResponse } from './gemini'
+import {
+  AiError,
+  buildRequestBody,
+  checkConnection,
+  detailTask,
+  generatePlan,
+  parseDetailResponse,
+  parseGeminiResponse,
+} from './gemini'
 
 const geminiReply = (payload: unknown, finishReason = 'STOP') => ({
   candidates: [{ finishReason, content: { parts: [{ text: JSON.stringify(payload) }] } }],
@@ -9,10 +17,10 @@ const geminiReply = (payload: unknown, finishReason = 'STOP') => ({
 const plan = {
   campaign: 'Aprender magia con cartas',
   sideQuests: [
-    { title: 'Comprar una baraja', difficulty: 1 },
-    { title: 'Practicar el doble lift', difficulty: 3 },
+    { title: 'Comprar una baraja', difficulty: 1, description: 'Consigue una baraja estándar.', steps: ['Compra 1 baraja Bicycle', 'Ábrela y revisa las 52 cartas'] },
+    { title: 'Practicar el doble lift', difficulty: 3, description: 'Domina el movimiento básico.', steps: ['Practica 20 repeticiones', 'Grábate una vez'] },
   ],
-  bounties: [{ title: 'Practicar 10 minutos', difficulty: 1 }],
+  bounties: [{ title: 'Practicar 10 minutos', difficulty: 1, description: 'Sesión corta diaria.', steps: ['Practica 10 minutos', 'Anota qué mejoraste'] }],
 }
 
 function expectAiError(action: () => unknown, kind: AiError['kind']) {
@@ -40,7 +48,7 @@ describe('Respuesta de Gemini', () => {
     const result = parseGeminiResponse(geminiReply(messy))
 
     expect(result.campaign).toBe('Meta')
-    expect(result.sideQuests[0]).toEqual({ title: 'x'.repeat(80), difficulty: 5 })
+    expect(result.sideQuests[0]).toEqual({ title: 'x'.repeat(80), difficulty: 5, description: '', steps: [] })
     expect(result.sideQuests[1].difficulty).toBe(2)
     expect(result.bounties).toEqual([])
   })
@@ -112,5 +120,40 @@ describe('Petición a Gemini', () => {
 
   it('recorta ideas demasiado largas', () => {
     expect(buildRequestBody('a'.repeat(20_000)).contents[0].parts[0].text).toHaveLength(8000)
+  })
+})
+
+describe('Detallar una misión existente', () => {
+  it('pide descripción y objetivos con el título y la campaña', async () => {
+    const reply = geminiReply({
+      description: 'Practica los cortes básicos hasta hacerlos sin mirar.',
+      steps: ['Practica el swing cut 10 veces', 'Practica el corte Charlier 10 veces', '  '],
+    })
+    const request = vi.fn<HttpRequest>().mockResolvedValue({ status: 200, data: reply })
+
+    const detail = await detailTask(request, {
+      apiKey: 'k',
+      model: 'gemini-3.5-flash-lite',
+      title: 'Repasar mezclas falsas y cortes',
+      campaign: 'El Despertar del Mago',
+      daily: false,
+    })
+
+    expect(detail).toEqual({
+      description: 'Practica los cortes básicos hasta hacerlos sin mirar.',
+      steps: ['Practica el swing cut 10 veces', 'Practica el corte Charlier 10 veces'],
+    })
+    const sent = JSON.stringify(request.mock.calls[0][0].body)
+    expect(sent).toContain('Repasar mezclas falsas y cortes')
+    expect(sent).toContain('El Despertar del Mago')
+  })
+
+  it('rechaza respuestas vacías', () => {
+    expectAiError(() => parseDetailResponse(geminiReply({ description: '', steps: [] })), 'bad-response')
+  })
+
+  it('pide a Gemini descripción y objetivos en cada misión del plan', () => {
+    const schema = buildRequestBody('Magia').generationConfig.responseJsonSchema
+    expect(schema.properties.sideQuests.items.required).toEqual(['title', 'difficulty', 'description', 'steps'])
   })
 })

@@ -16,7 +16,7 @@ export interface Theme extends Unlockable<ThemeId> {
 }
 
 export const THEMES: Theme[] = [
-  { id: 'terminal', name: 'Terminal', level: 1, swatch: ['#0b0f14', '#4ade80'] },
+  { id: 'terminal', name: 'Lima Nocturna', level: 1, swatch: ['#070908', '#8fe03a'] },
   { id: 'amber', name: 'Ámbar CRT', level: 3, swatch: ['#0f0a05', '#ffb000'] },
   { id: 'neon', name: 'Neón', level: 5, swatch: ['#0a0614', '#22d3ee'] },
   { id: 'grey', name: 'Consola Gris', level: 8, swatch: ['#16181c', '#a3e635'] },

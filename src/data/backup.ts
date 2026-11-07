@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { SOUNDS, THEMES, TITLES, type SoundId, type ThemeId, type TitleId } from '../game/cosmetics'
-import type { GameDatabase } from './db'
+import type { CosmeticSettings, GameDatabase, NotificationSettings, ProfileSettings } from './db'
 import { markBackupDone } from './settings'
 
 const BACKUP_APP = 'real-life-rpg'
@@ -12,6 +12,8 @@ const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/)
 const difficulty = z.literal([1, 2, 3, 4, 5])
 const timestamp = z.number().int().nonnegative()
+const description = z.string().max(1000).optional()
+const steps = z.array(z.string().max(200)).max(10).optional()
 
 // z.object descarta cualquier campo que no esté aquí, así un respaldo nunca mete datos extra.
 const backupSchema = z.object({
@@ -20,7 +22,16 @@ const backupSchema = z.object({
   exportedAt: z.iso.datetime(),
   data: z.object({
     bounties: z.array(
-      z.object({ id, title, difficulty, createdAt: timestamp, createdDay: day, archivedDay: day.nullable() }),
+      z.object({
+        id,
+        title,
+        difficulty,
+        description,
+        steps,
+        createdAt: timestamp,
+        createdDay: day,
+        archivedDay: day.nullable(),
+      }),
     ),
     campaigns: z.array(z.object({ id, title, createdAt: timestamp, createdDay: day })),
     sideQuests: z.array(
@@ -28,6 +39,8 @@ const backupSchema = z.object({
         id,
         title,
         difficulty,
+        description,
+        steps,
         campaignId: id.nullable(),
         createdAt: timestamp,
         createdDay: day,
@@ -52,6 +65,15 @@ const backupSchema = z.object({
             weeklyBackupReminder: z.boolean(),
           }),
           z.object({
+            id: z.literal('profile'),
+            name: z.string().max(40),
+            photo: z
+              .string()
+              .max(400_000)
+              .regex(/^data:image\/(jpeg|png|webp);base64,/)
+              .nullable(),
+          }),
+          z.object({
             id: z.literal('cosmetics'),
             theme: z.enum(THEMES.map((theme) => theme.id) as [ThemeId, ...ThemeId[]]),
             title: z.enum(TITLES.map((title) => title.id) as [TitleId, ...TitleId[]]),
@@ -60,7 +82,7 @@ const backupSchema = z.object({
           }),
         ]),
       )
-      .max(2),
+      .max(3),
   }),
 })
 
@@ -87,7 +109,10 @@ export async function createBackup(db: GameDatabase, now = new Date()): Promise<
         xpEvents: await db.xpEvents.toArray(),
         player: await db.player.toArray(),
         // La info del último respaldo y el modelo de IA no viajan; la API key ni siquiera está aquí.
-        settings: settings.filter((setting) => setting.id === 'notifications' || setting.id === 'cosmetics'),
+        settings: settings.filter(
+          (setting): setting is NotificationSettings | CosmeticSettings | ProfileSettings =>
+            setting.id === 'notifications' || setting.id === 'cosmetics' || setting.id === 'profile',
+        ),
       },
     }
   })

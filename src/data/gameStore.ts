@@ -9,7 +9,10 @@ import {
   type DayOutcome,
   type Difficulty,
 } from '../game/rules'
-import type { Bounty, Campaign, GameDatabase, Player, SideQuest } from './db'
+import type { Bounty, Campaign, GameDatabase, Player, SideQuest, TaskDetail } from './db'
+
+export type TaskInput = { title: string; difficulty: Difficulty } & TaskDetail
+export type TaskChanges = Partial<TaskInput>
 
 function isActiveOn(bounty: Bounty, day: GameDay): boolean {
   return bounty.createdDay <= day && (bounty.archivedDay === null || bounty.archivedDay > day)
@@ -91,6 +94,7 @@ export async function getHud(db: GameDatabase, today: GameDay) {
     return {
       ...levelProgress(totalXp),
       totalXp,
+      completedTasks: events.length,
       streak: player.streak + (todayFulfilled ? 1 : 0),
       streakBonusPercent: streakBonusPercent(player.streak),
       todayFulfilled,
@@ -99,6 +103,42 @@ export async function getHud(db: GameDatabase, today: GameDay) {
 }
 
 export type Hud = Awaited<ReturnType<typeof getHud>>
+
+const WEEK_LABELS = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
+const WEEK_NAMES = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo']
+
+/** done/missed/rest = día cerrado (cumplido, fallado o sin contratos); today-done = hoy ya cumplido. */
+export type WeekDayStatus = 'done' | 'missed' | 'rest' | 'today' | 'today-done' | 'future'
+
+/** Semana actual (lunes a domingo) con el resultado de cada día. */
+export async function getWeek(db: GameDatabase, today: GameDay) {
+  return db.transaction('r', db.bounties, db.xpEvents, async () => {
+    const [year, month, date] = today.split('-').map(Number)
+    const weekday = new Date(Date.UTC(year, month - 1, date)).getUTCDay()
+    const monday = addDays(today, -((weekday + 6) % 7))
+    const bounties = await db.bounties.toArray()
+    const events = await db.xpEvents.where('day').between(monday, addDays(monday, 7)).toArray()
+
+    const completedByDay = new Map<GameDay, Set<string>>()
+    for (const event of events) {
+      const completed = completedByDay.get(event.day) ?? new Set<string>()
+      completed.add(event.taskId)
+      completedByDay.set(event.day, completed)
+    }
+
+    return WEEK_LABELS.map((label, index) => {
+      const day = addDays(monday, index)
+      const outcome = outcomeOf(bounties, completedByDay.get(day) ?? new Set(), day)
+      let status: WeekDayStatus
+      if (day > today) status = 'future'
+      else if (day === today) status = outcome === 'fulfilled' ? 'today-done' : 'today'
+      else status = outcome === 'fulfilled' ? 'done' : outcome === 'failed' ? 'missed' : 'rest'
+      return { day, label, name: WEEK_NAMES[index], status }
+    })
+  })
+}
+
+export type WeekDay = Awaited<ReturnType<typeof getWeek>>[number]
 
 /** Bounties activas hoy, con su estado y el XP que darían ahora mismo. */
 export async function getTodayBounties(db: GameDatabase, today: GameDay) {
@@ -140,11 +180,46 @@ export async function getCampaignProgress(db: GameDatabase, campaignId: string):
   return campaignProgressPercent(sideQuests)
 }
 
+export type TaskRef = { kind: 'bounty' | 'sideQuest'; id: string }
+
+/** Todo lo que muestra la vista de detalle de una misión. `null` si ya no existe. */
+export async function getTaskDetail(db: GameDatabase, ref: TaskRef, today: GameDay) {
+  return db.transaction('r', [...gameTables(db), db.campaigns], async () => {
+    if (ref.kind === 'bounty') {
+      const task = await db.bounties.get(ref.id)
+      if (!task) return null
+      const player = await projectPlayer(db, today)
+      return {
+        kind: 'bounty' as const,
+        task,
+        campaign: null,
+        done: (await db.xpEvents.get({ taskId: ref.id, day: today })) !== undefined,
+        xp: bountyXp(task.difficulty, player.streak),
+        completions: await db.xpEvents.where('taskId').equals(ref.id).count(),
+      }
+    }
+
+    const task = await db.sideQuests.get(ref.id)
+    if (!task) return null
+    const campaign = task.campaignId ? ((await db.campaigns.get(task.campaignId))?.title ?? null) : null
+    return {
+      kind: 'sideQuest' as const,
+      task,
+      campaign,
+      done: task.completedDay !== null,
+      xp: baseXp(task.difficulty),
+      completions: task.completedDay ? 1 : 0,
+    }
+  })
+}
+
+export type TaskDetailView = NonNullable<Awaited<ReturnType<typeof getTaskDetail>>>
+
 // --- Bounties -------------------------------------------------------------
 
 export async function createBounty(
   db: GameDatabase,
-  input: { title: string; difficulty: Difficulty },
+  input: TaskInput,
   now = new Date(),
 ): Promise<Bounty> {
   const bounty: Bounty = {
@@ -162,7 +237,7 @@ export async function createBounty(
 export async function updateBounty(
   db: GameDatabase,
   id: string,
-  changes: { title?: string; difficulty?: Difficulty },
+  changes: TaskChanges,
 ): Promise<void> {
   await db.bounties.update(id, changes)
 }
@@ -237,8 +312,8 @@ export async function acceptPlan(
   db: GameDatabase,
   plan: {
     campaign: string
-    sideQuests: Array<{ title: string; difficulty: Difficulty }>
-    bounties: Array<{ title: string; difficulty: Difficulty }>
+    sideQuests: TaskInput[]
+    bounties: TaskInput[]
   },
   now = new Date(),
 ): Promise<Campaign> {
@@ -259,13 +334,15 @@ export async function acceptPlan(
 
 export async function createSideQuest(
   db: GameDatabase,
-  input: { title: string; difficulty: Difficulty; campaignId?: string | null },
+  input: TaskInput & { campaignId?: string | null },
   now = new Date(),
 ): Promise<SideQuest> {
   const sideQuest: SideQuest = {
     id: crypto.randomUUID(),
     title: input.title,
     difficulty: input.difficulty,
+    description: input.description,
+    steps: input.steps,
     campaignId: input.campaignId ?? null,
     createdAt: now.getTime(),
     createdDay: gameDayOf(now),
@@ -278,7 +355,7 @@ export async function createSideQuest(
 export async function updateSideQuest(
   db: GameDatabase,
   id: string,
-  changes: { title?: string; difficulty?: Difficulty },
+  changes: TaskChanges,
 ): Promise<void> {
   await db.sideQuests.update(id, changes)
 }

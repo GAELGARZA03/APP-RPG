@@ -14,9 +14,11 @@ import {
 import {
   getCosmetics,
   getLastBackupAt,
+  getProfile,
   getNotificationSettings,
   saveCosmetics,
   saveNotificationSettings,
+  saveProfile,
 } from './settings'
 
 const noon = new Date(2026, 10, 7, 12)
@@ -45,6 +47,7 @@ async function fillSource() {
   await completeSideQuest(source, quest.id, noon)
   await saveNotificationSettings(source, { enabled: true, night: '23:15' })
   await saveCosmetics(source, { theme: 'amber', sound: 'off' })
+  await saveProfile(source, { name: 'Gael', photo: 'data:image/jpeg;base64,AAAA' })
 }
 
 describe('Respaldo', () => {
@@ -58,6 +61,7 @@ describe('Respaldo', () => {
     expect(await target.sideQuests.toArray()).toEqual(await source.sideQuests.toArray())
     expect((await getNotificationSettings(target)).night).toBe('23:15')
     expect(await getCosmetics(target)).toMatchObject({ theme: 'amber', sound: 'off' })
+    expect(await getProfile(target)).toMatchObject({ name: 'Gael', photo: 'data:image/jpeg;base64,AAAA' })
     expect(await getLastBackupAt(target)).toBe(noon.toISOString())
   })
 

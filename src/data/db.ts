@@ -3,7 +3,15 @@ import type { CosmeticChoice } from '../game/cosmetics'
 import type { GameDay } from '../game/gameDay'
 import type { Difficulty } from '../game/rules'
 
-export interface Bounty {
+/** Detalle opcional de una misión. Las misiones antiguas no lo tienen. */
+export interface TaskDetail {
+  /** Qué hay que hacer y cómo saber que terminaste. */
+  description?: string
+  /** Objetivos concretos y medibles, como en un videojuego. */
+  steps?: string[]
+}
+
+export interface Bounty extends TaskDetail {
   id: string
   title: string
   difficulty: Difficulty
@@ -19,7 +27,7 @@ export interface Campaign {
   createdDay: GameDay
 }
 
-export interface SideQuest {
+export interface SideQuest extends TaskDetail {
   id: string
   title: string
   difficulty: Difficulty
@@ -70,7 +78,14 @@ export interface CosmeticSettings extends CosmeticChoice {
   id: 'cosmetics'
 }
 
-export type Setting = NotificationSettings | BackupInfo | AiSettings | CosmeticSettings
+export interface ProfileSettings {
+  id: 'profile'
+  name: string
+  /** Foto recortada a 256×256 como data URL JPEG, o `null` si no hay. */
+  photo: string | null
+}
+
+export type Setting = NotificationSettings | BackupInfo | AiSettings | CosmeticSettings | ProfileSettings
 
 export class GameDatabase extends Dexie {
   bounties!: EntityTable<Bounty, 'id'>

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Emblema de Real Life RPG: un hexágono (insignia de juego) con dos flechas de "subir de nivel"
+  y un destello. Todo queda dentro de la zona segura de 66 dp de los iconos adaptables.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#1C2E10"
+        android:pathData="M54,30 L74.8,42 L74.8,66 L54,78 L33.2,66 L33.2,42 Z"
+        android:strokeWidth="5"
+        android:strokeColor="#8FE03A"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M43,67 L54,56 L65,67"
+        android:strokeWidth="6"
+        android:strokeColor="#738FE03A"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M43,56 L54,45 L65,56"
+        android:strokeWidth="6"
+        android:strokeColor="#8FE03A"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:fillColor="#EFFFD9"
+        android:pathData="M74,27 L75.4,31.6 L80,33 L75.4,34.4 L74,39 L72.6,34.4 L68,33 L72.6,31.6 Z" />
+</vector>

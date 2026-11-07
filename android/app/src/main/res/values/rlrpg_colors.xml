@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Fondo de la pantalla de inicio y de la ventana, igual que el tema «Lima Nocturna». -->
+    <color name="splash_background">#070908</color>
+</resources>

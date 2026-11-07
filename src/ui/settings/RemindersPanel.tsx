@@ -1,4 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
+import { BellRing, Check } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { db } from '../../data/appDb'
 import type { NotificationSettings } from '../../data/db'
@@ -13,7 +14,10 @@ import {
   type PermissionState,
 } from '../../platform/notifications'
 import { isBatteryUnrestricted, requestBatteryUnrestricted } from '../../platform/power'
-import { Panel, SmallButton } from '../parts'
+import { Badge } from '../kit/Badge'
+import { Button } from '../kit/Button'
+import { Card } from '../kit/Card'
+import { Input, SettingRow, Switch } from '../kit/controls'
 
 interface DeviceStatus {
   permission: PermissionState
@@ -42,31 +46,22 @@ function useDeviceStatus() {
   return { status, refresh }
 }
 
-function Switch(props: { label: string; checked: boolean; onChange: (checked: boolean) => void }) {
-  return (
-    <label className="flex min-h-11 items-center justify-between gap-3 text-sm">
-      <span>{props.label}</span>
-      <input
-        type="checkbox"
-        role="switch"
-        checked={props.checked}
-        onChange={(event) => props.onChange(event.target.checked)}
-        className="size-6 shrink-0 accent-signal"
-      />
-    </label>
-  )
-}
-
-function StatusRow(props: { label: string; ok: boolean | null; onFix: () => void }) {
+function PermissionRow(props: { label: string; description: string; ok: boolean | null; onFix: () => void }) {
   if (props.ok === null) return null
 
   return (
-    <div className="flex min-h-11 items-center justify-between gap-3 text-sm">
-      <span>
-        {props.label}: <span className={props.ok ? 'text-signal' : 'text-ember'}>{props.ok ? 'sí' : 'no'}</span>
-      </span>
-      {!props.ok && <SmallButton onClick={props.onFix}>Permitir</SmallButton>}
-    </div>
+    <SettingRow label={props.label} description={props.description}>
+      {props.ok ? (
+        <Badge tone="signal">
+          <Check aria-hidden />
+          Listo
+        </Badge>
+      ) : (
+        <Button size="sm" variant="outline" onClick={props.onFix}>
+          Permitir
+        </Button>
+      )}
+    </SettingRow>
   )
 }
 
@@ -76,16 +71,16 @@ const TIMES: Array<{ key: 'morning' | 'afternoon' | 'night'; label: string }> = 
   { key: 'night', label: 'Noche' },
 ]
 
-export function RemindersPanel() {
+export function RemindersPanel({ embedded, headingId }: { embedded?: boolean; headingId?: string } = {}) {
   const settings = useLiveQuery(() => getNotificationSettings(db), [])
   const { status, refresh } = useDeviceStatus()
   const [message, setMessage] = useState<string | null>(null)
 
   if (!notificationsSupported) {
     return (
-      <Panel label="Recordatorios">
+      <Card embedded={embedded} headingId={headingId} label="Recordatorios" icon={BellRing}>
         <p className="text-sm text-muted">Los recordatorios funcionan en la app de Android.</p>
-      </Panel>
+      </Card>
     )
   }
 
@@ -116,8 +111,10 @@ export function RemindersPanel() {
   const permissionLost = settings.enabled && status.permission !== 'granted'
 
   return (
-    <Panel label="Recordatorios">
-      <Switch label="Trilogía diaria" checked={settings.enabled} onChange={(checked) => void toggle(checked)} />
+    <Card embedded={embedded} headingId={headingId} label="Recordatorios" icon={BellRing}>
+      <SettingRow label="Trilogía diaria" description="Avisos en la mañana, la tarde y la noche">
+        <Switch label="Trilogía diaria" checked={settings.enabled} onChange={(checked) => void toggle(checked)} />
+      </SettingRow>
 
       {permissionLost && (
         <p className="mb-2 text-sm text-ember">
@@ -129,33 +126,45 @@ export function RemindersPanel() {
         {TIMES.map(({ key, label }) => (
           <label key={key} className="flex items-center justify-between gap-3 text-sm">
             {label}
-            <input
+            <Input
               type="time"
               value={settings[key]}
               disabled={!settings.enabled}
               onChange={(event) => event.target.value && void save({ [key]: event.target.value })}
-              className="min-h-11 w-40 rounded-md border border-line bg-void px-3 text-base text-ink disabled:opacity-40"
+              className="w-40"
             />
           </label>
         ))}
       </div>
 
-      <Switch
-        label="Respaldo semanal (domingo 20:00)"
-        checked={settings.weeklyBackupReminder}
-        onChange={(checked) => void save({ weeklyBackupReminder: checked })}
-      />
+      <SettingRow label="Respaldo semanal" description="Domingo a las 20:00">
+        <Switch
+          label="Respaldo semanal"
+          checked={settings.weeklyBackupReminder}
+          onChange={(checked) => void save({ weeklyBackupReminder: checked })}
+        />
+      </SettingRow>
 
       <div className="mt-2 border-t border-line pt-2">
-        <StatusRow label="Batería sin límites" ok={status.battery} onFix={() => void requestBatteryUnrestricted()} />
-        <StatusRow label="Hora exacta" ok={status.exact} onFix={() => void openExactAlarmSettings()} />
+        <PermissionRow
+          label="Batería sin límites"
+          description="Para que Samsung no retrase los avisos"
+          ok={status.battery}
+          onFix={() => void requestBatteryUnrestricted()}
+        />
+        <PermissionRow
+          label="Hora exacta"
+          description="Para que lleguen a la hora indicada"
+          ok={status.exact}
+          onFix={() => void openExactAlarmSettings()}
+        />
       </div>
 
-      <div className="mt-2">
-        <SmallButton onClick={() => void test()}>Probar notificación</SmallButton>
-      </div>
+      <Button size="sm" onClick={() => void test()} className="mt-2">
+        Probar notificación
+      </Button>
 
       {message && <p className="mt-3 text-sm text-muted">{message}</p>}
-    </Panel>
+    </Card>
   )
 }

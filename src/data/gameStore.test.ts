@@ -15,10 +15,13 @@ import {
   getCampaignProgress,
   getHud,
   getMissions,
+  getTaskDetail,
   getTodayBounties,
+  getWeek,
   undoBounty,
   undoSideQuest,
   updateBounty,
+  updateSideQuest,
 } from './gameStore'
 
 /** Mediodía del día `offset`, contado desde el 2 de noviembre de 2026. */
@@ -249,6 +252,75 @@ describe('Side Quests y campañas', () => {
 
     expect(await getMissions(db)).toEqual({ campaigns: [], looseSideQuests: [] })
     expect((await hudOn(0)).xpIntoLevel).toBe(70)
+  })
+})
+
+describe('Semana de racha', () => {
+  it('marca cada día de lunes a domingo', async () => {
+    // El 2 de noviembre de 2026 es lunes.
+    const bounty = await createBounty(db, { title: 'Hábito', difficulty: 1 }, day(0))
+    await completeBounty(db, bounty.id, day(0))
+    await completeBounty(db, bounty.id, day(1))
+    await completeBounty(db, bounty.id, day(3))
+
+    const week = await getWeek(db, gameDayOf(day(4)))
+
+    expect(week.map(({ label, status }) => `${label}:${status}`)).toEqual([
+      'L:done',
+      'M:done',
+      'X:missed',
+      'J:done',
+      'V:today',
+      'S:future',
+      'D:future',
+    ])
+
+    await completeBounty(db, bounty.id, day(4))
+    expect((await getWeek(db, gameDayOf(day(4))))[4].status).toBe('today-done')
+  })
+
+  it('los días sin contratos cuentan como descanso', async () => {
+    const week = await getWeek(db, gameDayOf(day(2)))
+    expect(week.slice(0, 3).map((weekDay) => weekDay.status)).toEqual(['rest', 'rest', 'today'])
+  })
+
+  it('cuenta las tareas completadas', async () => {
+    const bounty = await createBounty(db, { title: 'Hábito', difficulty: 1 }, day(0))
+    await completeDays(bounty.id, 0, 2)
+    expect((await hudOn(2)).completedTasks).toBe(3)
+  })
+})
+
+describe('Detalle de misión', () => {
+  it('reúne descripción, objetivos, estado y campaña', async () => {
+    const bounty = await createBounty(
+      db,
+      { title: 'Leer', difficulty: 2, description: 'Lee un capítulo.', steps: ['Lee 10 páginas'] },
+      day(0),
+    )
+    await completeBounty(db, bounty.id, day(0))
+    const campaign = await createCampaign(db, 'Aprender magia', day(0))
+    const quest = await createSideQuest(db, { title: 'Doble lift', difficulty: 3, campaignId: campaign.id }, day(0))
+
+    expect(await getTaskDetail(db, { kind: 'bounty', id: bounty.id }, gameDayOf(day(0)))).toMatchObject({
+      kind: 'bounty',
+      task: { description: 'Lee un capítulo.', steps: ['Lee 10 páginas'] },
+      done: true,
+      xp: 50,
+      completions: 1,
+    })
+    expect(await getTaskDetail(db, { kind: 'sideQuest', id: quest.id }, gameDayOf(day(0)))).toMatchObject({
+      campaign: 'Aprender magia',
+      done: false,
+      xp: 90,
+    })
+    expect(await getTaskDetail(db, { kind: 'sideQuest', id: 'no-existe' }, gameDayOf(day(0)))).toBeNull()
+  })
+
+  it('guarda descripción y objetivos al editar', async () => {
+    const quest = await createSideQuest(db, { title: 'Doble lift', difficulty: 3 }, day(0))
+    await updateSideQuest(db, quest.id, { description: 'Practica frente al espejo.', steps: ['20 repeticiones'] })
+    expect(await db.sideQuests.get(quest.id)).toMatchObject({ steps: ['20 repeticiones'] })
   })
 })
 

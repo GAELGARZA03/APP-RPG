@@ -26,9 +26,19 @@ export function Sheet(props: {
       aria-labelledby={labelledBy}
       onClose={onClose}
       tabIndex={-1}
-      className="mx-auto mt-auto mb-0 max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-t-xl border border-b-0 border-line bg-panel px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] text-ink outline-none backdrop:bg-black/70"
+      className="sheet mx-auto mt-auto mb-0 max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-t-[2rem] border border-b-0 border-white/[0.08] bg-panel px-5 pt-3 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] text-ink outline-none"
     >
+      <div aria-hidden className="mx-auto mb-4 h-1 w-10 rounded-full bg-white/20" />
       {children}
     </dialog>
+  )
+}
+
+export function SheetTitle({ id, icon, children }: { id: string; icon?: ReactNode; children: ReactNode }) {
+  return (
+    <h2 id={id} className="flex items-center gap-2 font-display text-lg font-semibold">
+      {icon}
+      {children}
+    </h2>
   )
 }

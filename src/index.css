@@ -1,55 +1,78 @@
 @import 'tailwindcss';
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/fredoka';
 
+/*
+ * Paleta inicial «Lima Nocturna»: negro, verde lima y un toque de azul.
+ * void = fondo · panel = tarjetas · raised = filas dentro de tarjetas · line = bordes
+ * signal = XP, progreso, racha y acciones · info = dificultad e información · ember = avisos
+ */
 @theme {
-  --color-void: #0b0f14;
-  --color-panel: #141b23;
-  --color-line: #2a3644;
-  --color-ink: #e6edf3;
-  --color-muted: #8b9bab;
-  --color-signal: #4ade80;
-  --color-ember: #fb923c;
-  --font-console: ui-monospace, 'Cascadia Code', 'Roboto Mono', Menlo, Consolas, monospace;
+  --color-void: #070908;
+  --color-panel: #121614;
+  --color-raised: #1a201c;
+  --color-line: #262e29;
+  --color-ink: #f1f6ee;
+  --color-muted: #8d9891;
+  --color-signal: #8fe03a;
+  --color-on-signal: #0c1a00;
+  --color-info: #5aa9ff;
+  --color-ember: #ffb347;
+  --font-sans: 'Inter Variable', system-ui, sans-serif;
+  --font-display: 'Fredoka Variable', 'Inter Variable', system-ui, sans-serif;
 }
 
 /* Temas desbloqueables: redefinen los mismos colores que usa toda la interfaz. */
 [data-theme='amber'] {
   --color-void: #0f0a05;
   --color-panel: #1a1209;
+  --color-raised: #140e06;
   --color-line: #3b2a14;
   --color-ink: #ffe8c2;
   --color-muted: #b8946a;
   --color-signal: #ffb000;
+  --color-on-signal: #1a1000;
+  --color-info: #ffd580;
   --color-ember: #ff7a45;
 }
 
 [data-theme='neon'] {
   --color-void: #0a0614;
   --color-panel: #150d26;
+  --color-raised: #100a1d;
   --color-line: #34204f;
   --color-ink: #f0e8ff;
   --color-muted: #a594c8;
   --color-signal: #22d3ee;
+  --color-on-signal: #031418;
+  --color-info: #c084fc;
   --color-ember: #f472b6;
 }
 
 [data-theme='grey'] {
   --color-void: #16181c;
   --color-panel: #22262c;
+  --color-raised: #1b1e23;
   --color-line: #3a4048;
   --color-ink: #eef1f4;
   --color-muted: #9aa3ad;
   --color-signal: #a3e635;
+  --color-on-signal: #111a02;
+  --color-info: #7dd3fc;
   --color-ember: #f59e0b;
 }
 
 [data-theme='gold'] {
   --color-void: #0d0a14;
   --color-panel: #1a1426;
+  --color-raised: #130f1d;
   --color-line: #3a2d50;
   --color-ink: #fdf6e3;
   --color-muted: #b3a3c9;
   --color-signal: #fbbf24;
-  --color-ember: #c084fc;
+  --color-on-signal: #1a1200;
+  --color-info: #c4b5fd;
+  --color-ember: #fb923c;
 }
 
 /* Efecto CRT: líneas de escaneo y viñeta sobre toda la pantalla. */
@@ -63,10 +86,37 @@
     radial-gradient(ellipse at center, transparent 55%, rgb(0 0 0 / 0.45));
 }
 
-@keyframes toast-in {
-  from {
-    opacity: 0;
-    transform: translateY(0.5rem);
+/* Hojas inferiores: entran deslizándose desde abajo. */
+dialog.sheet {
+  transform: translateY(0);
+  transition:
+    transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    overlay 280ms allow-discrete,
+    display 280ms allow-discrete;
+}
+
+dialog.sheet::backdrop {
+  background: rgb(2 4 8 / 0.7);
+  transition:
+    background 280ms,
+    overlay 280ms allow-discrete,
+    display 280ms allow-discrete;
+}
+
+@starting-style {
+  dialog.sheet[open] {
+    transform: translateY(100%);
+  }
+
+  dialog.sheet[open]::backdrop {
+    background: rgb(2 4 8 / 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  dialog.sheet,
+  dialog.sheet::backdrop {
+    transition: none;
   }
 }
 
@@ -82,8 +132,13 @@ body,
 
 body {
   margin: 0;
-  background: var(--color-void);
+  /* Brillo suave del color principal en la parte superior; cambia con cada tema. */
+  background:
+    radial-gradient(120% 55% at 50% -12%, color-mix(in srgb, var(--color-signal) 26%, transparent), transparent 62%)
+      fixed,
+    var(--color-void);
   color: var(--color-ink);
-  font-family: var(--font-console);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
 }

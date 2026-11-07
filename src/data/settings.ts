@@ -1,6 +1,28 @@
 import { DEFAULT_GEMINI_MODEL } from '../ai/gemini'
 import { DEFAULT_COSMETICS, type CosmeticChoice } from '../game/cosmetics'
-import type { AiSettings, BackupInfo, CosmeticSettings, GameDatabase, NotificationSettings } from './db'
+import type {
+  AiSettings,
+  BackupInfo,
+  CosmeticSettings,
+  GameDatabase,
+  NotificationSettings,
+  ProfileSettings,
+} from './db'
+
+export const DEFAULT_PROFILE: ProfileSettings = { id: 'profile', name: '', photo: null }
+
+export async function getProfile(db: GameDatabase): Promise<ProfileSettings> {
+  const saved = await db.settings.get('profile')
+  return saved?.id === 'profile' ? saved : DEFAULT_PROFILE
+}
+
+export async function saveProfile(
+  db: GameDatabase,
+  changes: Partial<Omit<ProfileSettings, 'id'>>,
+): Promise<void> {
+  const profile: ProfileSettings = { ...(await getProfile(db)), ...changes }
+  await db.settings.put(profile)
+}
 
 /** Lo elegido por el jugador; la app aplica solo lo que está desbloqueado (ver effectiveCosmetics). */
 export async function getCosmetics(db: GameDatabase): Promise<CosmeticChoice> {

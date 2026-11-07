@@ -13,10 +13,19 @@
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:background">@null</item>
+        <!-- Evita un destello blanco antes de que cargue la interfaz. -->
+        <item name="android:windowBackground">@color/splash_background</item>
+        <!-- La app siempre es oscura: iconos claros en las barras de estado y navegación. -->
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
     </style>
 
 
+    <!-- Pantalla de inicio: fondo negro con el emblema de la app. -->
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
-        <item name="android:background">@drawable/splash</item>
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_rlrpg_foreground</item>
+        <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
+        <item name="android:background">@color/splash_background</item>
     </style>
 </resources>
