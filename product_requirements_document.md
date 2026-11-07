@@ -44,6 +44,7 @@ La identidad visual se inspira en las consolas clásicas, pero usa sonidos, tipo
 2. **Side Quests:** Tareas secundarias, normalmente vinculadas a campañas. Pueden existir sin campaña; en ese caso no mueven ninguna barra de progreso.
 3. **Bounties (Contratos Diarios):** Hábitos diarios repetibles (ej. medicamentos). Se pueden crear y editar manualmente desde el día uno, sin depender de la IA. En las Bounties manuales, el usuario elige la dificultad.
 4. **Previsualización:** Obligatorio revisar y editar las misiones generadas por IA, incluida su dificultad, antes de aceptarlas en el HUD.
+5. **Archivar y Borrar:** Las Bounties se archivan en lugar de borrarse, para conservar su historial. Borrar una campaña o una Side Quest conserva el XP ya ganado; para quitarlo, primero se deshace la tarea.
 
 ### C. Notificaciones (Trilogía Diaria)
 Para evitar el abandono de la app y el "cementerio de ideas", se programan notificaciones locales en tres momentos del día, con horarios configurables:

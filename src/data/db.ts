@@ -6,6 +6,7 @@ export interface Bounty {
   id: string
   title: string
   difficulty: Difficulty
+  createdAt: number
   createdDay: GameDay
   archivedDay: GameDay | null
 }
@@ -13,6 +14,7 @@ export interface Bounty {
 export interface Campaign {
   id: string
   title: string
+  createdAt: number
   createdDay: GameDay
 }
 
@@ -21,6 +23,7 @@ export interface SideQuest {
   title: string
   difficulty: Difficulty
   campaignId: string | null
+  createdAt: number
   createdDay: GameDay
   completedDay: GameDay | null
 }
