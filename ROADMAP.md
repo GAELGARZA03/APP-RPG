@@ -12,6 +12,10 @@
 
 ## Siguiente
 
+- **Fase 1: campañas con progresión y árbol de habilidades.** Preguntas antes de generar, análisis de la meta, actos que se desbloquean, misión jefe, generación acto por acto, modelo según la tarea (Gemini 4 Hydrogen para diseñar) y árbol de habilidades en el Perfil. Especificación completa en [docs/fase1-progresion-y-arbol.md](docs/fase1-progresion-y-arbol.md).
+- **Misión del día:** un reto pequeño diario ligado a tus campañas, generado con el modelo rápido; da XP extra y no afecta la racha.
+- **Revisión semanal con IA:** análisis de lo que completaste y lo que se atoró, con ajustes sugeridos.
+
 - **Fechas límite y recordatorios por tarea:** por ejemplo, "Vence el 8 de noviembre" o "Recuérdame a las 9:00". Si se vence, aviso al día siguiente, sin quitar XP. Se mostrará en la vista de detalle.
 - **Icono para Android 7 (opcional):** los teléfonos con Android 7 todavía usarían el icono antiguo de Capacitor en PNG. No afecta al Samsung actual.
 - **Nombre definitivo de la app** (si se cambia "Real Life RPG").
