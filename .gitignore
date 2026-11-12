@@ -18,3 +18,6 @@ keystore.properties
 .DS_Store
 Thumbs.db
 *.log
+
+# Referencias visuales para desarrollo: imágenes de terceros y capturas con datos personales
+docs/referencias/
