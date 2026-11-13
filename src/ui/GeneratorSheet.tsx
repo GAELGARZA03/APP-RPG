@@ -23,6 +23,7 @@ import {
   designCampaign,
   MAX_IDEA_LENGTH,
   type Answer,
+  type CallStatus,
   type CampaignDesign,
   type MissionPlan,
   type Question,
@@ -225,7 +226,7 @@ function MissionEditor(props: {
   )
 }
 
-function DesignProgress({ fast }: { fast: boolean }) {
+function DesignProgress({ fast, status }: { fast: boolean; status: CallStatus | null }) {
   const [stage, setStage] = useState(0)
 
   useEffect(() => {
@@ -276,11 +277,18 @@ function DesignProgress({ fast }: { fast: boolean }) {
           )
         })}
       </ol>
-      <p className="text-center text-xs text-muted">
-        {fast
-          ? 'Diseñando con el modelo rápido…'
-          : 'El modelo principal está pensando a fondo. Puede tardar hasta un minuto.'}
-      </p>
+      {/* Mientras todo va bien se explica la espera; si hay reintentos o respaldo, se cuenta qué pasa. */}
+      {status && (status.stage === 'retry' || status.stage === 'fallback') ? (
+        <p aria-live="polite" className="rounded-2xl border border-ember/40 bg-ember/10 p-3 text-center text-sm text-ember">
+          {status.message}
+        </p>
+      ) : (
+        <p className="text-center text-xs text-muted">
+          {fast
+            ? 'Diseñando con el modelo rápido…'
+            : 'El modelo principal está pensando a fondo. Puede tardar hasta un minuto.'}
+        </p>
+      )}
     </div>
   )
 }
@@ -364,6 +372,8 @@ export function GeneratorSheet(props: {
   const [draft, setDraftState] = useState<Draft | null>(memory.draft)
   const [step, setStep] = useState<Step>(memory.draft ? { kind: 'preview' } : { kind: 'idea' })
   const [saving, setSaving] = useState(false)
+  // Estado de la llamada en curso, en lenguaje para el jugador (reintentos, respaldo, listo).
+  const [status, setStatus] = useState<CallStatus | null>(null)
   const requestNumber = useRef(0)
   const scroller = useRef<HTMLDivElement>(null)
 
@@ -385,13 +395,26 @@ export function GeneratorSheet(props: {
   const answerList = (): Answer[] =>
     questions.map((question, index) => ({ question: question.question, answer: (answers[index] ?? '').trim() }))
 
+  /** Solo la llamada vigente actualiza el mensaje; «¡Listo!» se limpia solo tras un instante. */
+  const statusFor = (current: number) => (next: CallStatus) => {
+    if (current !== requestNumber.current) return
+    setStatus(next)
+    if (next.stage === 'done') setTimeout(() => setStatus((shown) => (shown === next ? null : shown)), 1800)
+    if (next.stage === 'failed') setStatus(null)
+  }
+
   async function ask() {
     if (!session || !idea.trim()) return
     const current = ++requestNumber.current
     setStep({ kind: 'asking' })
     setDraft(null)
     try {
-      const result = await askQuestions(httpRequest, { apiKey: session.apiKey, model: session.fastModel, idea: idea.trim() })
+      const result = await askQuestions(httpRequest, {
+        apiKey: session.apiKey,
+        model: session.fastModel,
+        idea: idea.trim(),
+        onStatus: statusFor(current),
+      })
       if (current !== requestNumber.current) return
       setQuestions(result)
       setAnswers({})
@@ -422,6 +445,9 @@ export function GeneratorSheet(props: {
         idea: idea.trim(),
         answers: answerList(),
         context,
+        // Si el modelo principal sigue saturado tras los reintentos, responde el rápido (y se avisa).
+        fallbackModel: fast ? null : session.fastModel,
+        onStatus: statusFor(current),
       })
       if (current !== requestNumber.current) return
       setDraft(toDraft(result))
@@ -440,6 +466,7 @@ export function GeneratorSheet(props: {
 
   function cancelLoading() {
     requestNumber.current += 1
+    setStatus(null)
     setStep(questions.length > 0 && step.kind === 'designing' ? { kind: 'questions' } : { kind: 'idea' })
   }
 
@@ -499,6 +526,13 @@ export function GeneratorSheet(props: {
         <SheetTitle id={headingId} icon={<Sparkles aria-hidden className="size-5 text-signal" />}>
           Generar campaña con IA
         </SheetTitle>
+
+        {status?.stage === 'done' && (step.kind === 'preview' || step.kind === 'questions') && (
+          <p role="status" className="-mt-2 flex items-center gap-1.5 text-sm font-medium text-signal">
+            <Check aria-hidden className="size-4" strokeWidth={3} />
+            {status.message}
+          </p>
+        )}
 
         {session === null && (
           <>
@@ -579,6 +613,9 @@ export function GeneratorSheet(props: {
                 <LoaderCircle aria-hidden className="size-9" />
               </motion.span>
               <p className="font-display tracking-wide">Leyendo tu meta…</p>
+              <p aria-live="polite" className="text-center text-sm text-muted">
+                {status?.message}
+              </p>
             </div>
             <Button onClick={cancelLoading}>Cancelar</Button>
           </>
@@ -616,7 +653,7 @@ export function GeneratorSheet(props: {
 
         {step.kind === 'designing' && (
           <>
-            <DesignProgress fast={step.fast} />
+            <DesignProgress fast={step.fast} status={status} />
             <Button onClick={cancelLoading}>Cancelar</Button>
           </>
         )}

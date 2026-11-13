@@ -6,6 +6,7 @@ import { cleanup, configure, render, screen, waitFor, within } from '@testing-li
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { resetActRuns } from '../ai/actRunner'
+import { retryConfig } from '../ai/gemini'
 import { resetDailyAttempts } from '../ai/dailyMission'
 import { App } from '../App'
 import { db } from '../data/appDb'
@@ -51,16 +52,21 @@ const isDaily = (sent: Sent) => bodyText(sent).includes('misión del día')
 const isAct = (sent: Sent) => bodyText(sent).includes('Diseña ahora las misiones del Acto')
 
 /** Gemini simulado: responde según la tarea que se le pide. `overrides` permite forzar fallos. */
-function gemini(overrides: Partial<Record<'questions' | 'design' | 'act' | 'daily', () => HttpResponse>> = {}) {
+function gemini(
+  overrides: Partial<Record<'questions' | 'design' | 'act' | 'daily', (sent: Sent) => HttpResponse | undefined>> = {},
+) {
   request.mockImplementation(async (sent) => {
-    if (isDaily(sent)) return overrides.daily?.() ?? ok(generateReply(DAILY))
-    if (isQuestions(sent)) return overrides.questions?.() ?? ok(generateReply(QUESTIONS))
+    if (isDaily(sent)) return overrides.daily?.(sent) ?? ok(generateReply(DAILY))
+    if (isQuestions(sent)) return overrides.questions?.(sent) ?? ok(generateReply(QUESTIONS))
     if (isAct(sent)) {
-      return overrides.act?.() ?? ok(isInteraction(sent) ? interactionReply({ missions: actTwoMissions }) : generateReply({ missions: actTwoMissions }))
+      return overrides.act?.(sent) ?? ok(isInteraction(sent) ? interactionReply({ missions: actTwoMissions }) : generateReply({ missions: actTwoMissions }))
     }
-    return overrides.design?.() ?? ok(isInteraction(sent) ? interactionReply(guitarDesign) : generateReply(guitarDesign))
+    return overrides.design?.(sent) ?? ok(isInteraction(sent) ? interactionReply(guitarDesign) : generateReply(guitarDesign))
   })
 }
+
+const BUSY: HttpResponse = { status: 503, data: { error: { message: 'The model is overloaded' } } }
+const SATURATED = /El servicio de IA está muy saturado en este momento/
 
 const calls = (filter: (sent: Sent) => boolean) => request.mock.calls.map(([sent]) => sent).filter(filter)
 
@@ -98,6 +104,10 @@ beforeEach(async () => {
   forgetGeneratorDraft()
   request.mockReset()
   gemini()
+  // Las esperas entre reintentos (1.5, 3 y 5 s) se saltan en las pruebas.
+  retryConfig.sleep = async () => {}
+  vi.spyOn(console, 'warn').mockImplementation(() => {})
+  vi.spyOn(console, 'error').mockImplementation(() => {})
 })
 
 afterEach(() => {
@@ -212,33 +222,61 @@ describe('Generar una campaña', () => {
     expect(calls(isAct)).toHaveLength(1)
   }, 30_000)
 
-  it('si el modelo principal falla, muestra el motivo, no crea nada y deja elegir el modelo rápido', async () => {
-    gemini({ design: () => ({ status: 503, data: { error: { message: 'The model is overloaded' } } }) })
+  it('si el modelo principal está saturado, reintenta y responde el modelo de respaldo sin que el jugador haga nada', async () => {
+    gemini({ design: (sent) => (isInteraction(sent) ? BUSY : undefined) })
     render(<App />)
     await startGenerator('Publicar mi app')
     await user.click(await screen.findByRole('button', { name: '2 horas' }))
     await user.click(screen.getByRole('button', { name: /Diseñar campaña/ }))
 
-    // El error real, sin cambiar de modelo en silencio.
-    expect(await screen.findByText(/El modelo de Gemini está saturado/)).toBeTruthy()
+    // 1 intento + 3 reintentos con el modelo principal, y un último intento con el rápido.
+    expect(await screen.findByDisplayValue('Del silencio al escenario')).toBeTruthy()
+    expect(await screen.findByText('¡Listo!')).toBeTruthy()
+    const designCalls = calls((sent) => !isQuestions(sent) && !isDaily(sent))
+    expect(designCalls.map((sent) => (isInteraction(sent) ? 'principal' : 'respaldo'))).toEqual([
+      'principal',
+      'principal',
+      'principal',
+      'principal',
+      'respaldo',
+    ])
+    expect(designCalls[4].url).toContain('gemini-3.5-flash-lite:generateContent')
+    expect(bodyText(designCalls[4])).toContain('Publicar mi app')
+    expect(bodyText(designCalls[4])).toContain('¿Cuánto tiempo tienes a la semana? → 2 horas')
+    expect(screen.queryByText(/503|429/)).toBeNull()
+  }, 30_000)
+
+  it('si todo sigue saturado, avisa en lenguaje claro, no crea nada y deja reintentar', async () => {
+    gemini({ design: () => BUSY })
+    render(<App />)
+    await startGenerator('Publicar mi app')
+    await user.click(await screen.findByRole('button', { name: '2 horas' }))
+    await user.click(screen.getByRole('button', { name: /Diseñar campaña/ }))
+
+    expect(await screen.findByText(SATURATED)).toBeTruthy()
     expect(screen.getByText(/No se creó nada. Tu meta y tus respuestas siguen aquí/)).toBeTruthy()
-    expect(calls((sent) => !isQuestions(sent) && !isDaily(sent))).toHaveLength(1)
+    expect(screen.queryByText(/503|429|overloaded/i)).toBeNull()
+    expect(calls((sent) => !isQuestions(sent) && !isDaily(sent))).toHaveLength(5)
     expect(await db.campaigns.count()).toBe(0)
     expect(await db.skills.count()).toBe(0)
 
-    // Reintentar repite con el mismo modelo.
-    await user.click(screen.getByRole('button', { name: 'Reintentar' }))
-    expect(await screen.findByText(/El modelo de Gemini está saturado/)).toBeTruthy()
-    expect(calls(isInteraction)).toHaveLength(2)
-
-    // Solo al pedirlo se usa el modelo rápido, con la misma meta y respuestas.
+    // Al reintentar, ya con el servicio disponible, se conservan la meta y las respuestas.
     gemini()
-    await user.click(screen.getByRole('button', { name: 'Usar modelo rápido' }))
+    await user.click(screen.getByRole('button', { name: 'Reintentar' }))
     expect(await screen.findByDisplayValue('Del silencio al escenario')).toBeTruthy()
-    const fastCall = calls((sent) => !isInteraction(sent) && !isQuestions(sent) && !isDaily(sent)).at(-1)!
-    expect(fastCall.url).toContain('gemini-3.5-flash-lite:generateContent')
-    expect(bodyText(fastCall)).toContain('Publicar mi app')
-    expect(bodyText(fastCall)).toContain('¿Cuánto tiempo tienes a la semana? → 2 horas')
+    const lastCall = calls(isInteraction).at(-1)!
+    expect(bodyText(lastCall)).toContain('Publicar mi app')
+    expect(bodyText(lastCall)).toContain('¿Cuánto tiempo tienes a la semana? → 2 horas')
+  }, 30_000)
+
+  it('una llave rechazada se muestra de inmediato, sin reintentos ni respaldo', async () => {
+    gemini({ design: () => ({ status: 403, data: { error: { message: 'The caller does not have permission' } } }) })
+    render(<App />)
+    await startGenerator('Publicar mi app')
+    await user.click(await screen.findByRole('button', { name: /Saltar y diseñar/ }))
+
+    expect(await screen.findByText(/Tu llave no tiene permiso para usar este modelo/)).toBeTruthy()
+    expect(calls((sent) => !isQuestions(sent) && !isDaily(sent))).toHaveLength(1)
   }, 30_000)
 
   it('sin internet en las preguntas no se pierde la idea y se puede continuar sin ellas', async () => {
@@ -289,7 +327,7 @@ describe('Generar el siguiente acto', () => {
     return campaign
   }
 
-  it('si falla, el acto queda pendiente con reintento y sin actos fantasma', async () => {
+  it('si falla del todo, el acto queda pendiente con reintento y sin actos fantasma', async () => {
     const campaign = await campaignAtActTwo()
     gemini({ act: () => ({ status: 429, data: {} }) })
     render(<App />)
@@ -297,36 +335,36 @@ describe('Generar el siguiente acto', () => {
     await user.click(await screen.findByRole('button', { name: /Abrir el mapa de Del silencio/ }))
 
     await user.click(await screen.findByRole('button', { name: /Generar Acto 2/ }))
-    expect(await screen.findByText(/Se alcanzó el límite de uso de Gemini/)).toBeTruthy()
+    expect(await screen.findByText(SATURATED)).toBeTruthy()
     expect(screen.getByText('El acto sigue pendiente.')).toBeTruthy()
     let view = (await getCampaign(db, campaign.id))!
     expect(view.actViews[1]).toMatchObject({ status: 'planned', state: 'current' })
     expect(view.actViews[1].quests).toHaveLength(0)
+    // 4 intentos con el modelo principal y uno con el de respaldo.
+    expect(calls(isAct)).toHaveLength(5)
 
-    // Reintentar con el modelo principal; al funcionar, aparecen las misiones una sola vez.
+    // Al reintentar con el servicio disponible, aparecen las misiones una sola vez.
     gemini()
     await user.click(screen.getByRole('button', { name: 'Reintentar' }))
     expect(await screen.findByRole('button', { name: /Misión: Cambia de acorde sin mirar/ })).toBeTruthy()
     view = (await getCampaign(db, campaign.id))!
     expect(view.actViews[1].quests).toHaveLength(2)
     expect(view.actViews).toHaveLength(3)
-    expect(calls(isAct)).toHaveLength(2)
+    expect(calls(isAct)).toHaveLength(6)
   }, 30_000)
 
-  it('el modelo rápido solo se usa si el jugador lo elige', async () => {
-    await campaignAtActTwo()
-    gemini({ act: () => ({ status: 503, data: { error: { message: 'overloaded' } } }) })
+  it('si el modelo principal está saturado, el acto lo genera el modelo de respaldo', async () => {
+    const campaign = await campaignAtActTwo()
+    gemini({ act: (sent) => (isInteraction(sent) ? BUSY : undefined) })
     render(<App />)
     await openMissions()
     await user.click(await screen.findByRole('button', { name: /Abrir el mapa de Del silencio/ }))
     await user.click(await screen.findByRole('button', { name: /Generar Acto 2/ }))
-    await screen.findByText(/El modelo de Gemini está saturado/)
-    expect(calls(isAct).every(isInteraction)).toBe(true)
 
-    gemini()
-    await user.click(screen.getByRole('button', { name: 'Usar modelo rápido' }))
     expect(await screen.findByRole('button', { name: /Misión: Rasguea abajo-arriba/ })).toBeTruthy()
     expect(calls(isAct).at(-1)!.url).toContain('gemini-3.5-flash-lite:generateContent')
+    expect(calls(isAct)).toHaveLength(5)
+    expect((await getCampaign(db, campaign.id))!.actViews[1].quests).toHaveLength(2)
   }, 30_000)
 })
 

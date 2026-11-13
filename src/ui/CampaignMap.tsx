@@ -299,8 +299,12 @@ function GenerateAct({ campaignId, act, onAddQuest }: { campaignId: string; act:
             <LoaderCircle aria-hidden className="size-8" />
           </motion.span>
           <p className="font-display">Diseñando el Acto {act.number} según cómo te fue…</p>
-          <p className="text-xs text-muted">
-            {run.fast ? 'Usando el modelo rápido.' : 'El modelo principal está pensando. Puede tardar hasta un minuto.'}
+          <p aria-live="polite" className={cn('text-xs', run.retrying ? 'text-ember' : 'text-muted')}>
+            {run.retrying && run.message
+              ? run.message
+              : run.fast
+                ? 'Usando el modelo rápido.'
+                : 'El modelo principal está pensando. Puede tardar hasta un minuto.'}
           </p>
         </div>
       ) : (

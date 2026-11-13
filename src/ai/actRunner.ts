@@ -6,7 +6,7 @@ import { AiError, generateAct, type ActBrief } from './gemini'
 import { aiSession } from './session'
 
 export type ActRunState =
-  | { status: 'running'; fast: boolean }
+  | { status: 'running'; fast: boolean; message?: string; retrying?: boolean }
   | { status: 'error'; message: string; offerFast: boolean; noKey?: boolean }
 
 /**
@@ -75,6 +75,12 @@ export async function generateNextAct(campaignId: string, fast = false): Promise
       model: fast ? session.fastModel : session.mainModel,
       thinking: fast ? undefined : 'medium',
       brief,
+      fallbackModel: fast ? null : session.fastModel,
+      // Reintentos y respaldo se le cuentan al jugador en el mapa.
+      onStatus: ({ stage, message }) => {
+        if (states.get(campaignId)?.status !== 'running') return
+        setState(campaignId, { status: 'running', fast, message, retrying: stage === 'retry' || stage === 'fallback' })
+      },
     })
     // Si mientras tanto el acto dejó de estar pendiente, no se guarda nada.
     const saved = await addActMissions(db, campaignId, report.next.id, missions)

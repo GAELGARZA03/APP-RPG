@@ -43,7 +43,13 @@ async function run(now: Date, manual: boolean): Promise<DailyStatus> {
 
   markAttempt(today)
   try {
-    const plan = await generateDaily(httpRequest, { apiKey: session.apiKey, model: session.fastModel, context })
+    const plan = await generateDaily(httpRequest, {
+      apiKey: session.apiKey,
+      model: session.fastModel,
+      context,
+      // Es una llamada de fondo y sigue siendo una sola por día: si falla, se ofrece reintentar a mano.
+      retry: false,
+    })
     await saveDaily(db, { ...plan, campaignId: context.campaignId, branchId: context.branchId }, now)
     return 'ready'
   } catch {

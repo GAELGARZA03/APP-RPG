@@ -6,7 +6,7 @@ Documento de traspaso. Resume lo hecho a partir de [fase1-progresion-y-arbol.md]
 
 | Qué | Estado |
 |---|---|
-| Pruebas (`npm test`) | 123 pasan (antes de la fase eran 58) |
+| Pruebas (`npm test`) | 145 pasan (antes de la fase eran 58) |
 | `npx tsc --noEmit` y `npm run build` | Sin errores |
 | APK debug | Instalado en el Galaxy S24 Ultra |
 | PRD y ROADMAP | Actualizados |
@@ -23,13 +23,18 @@ Documento de traspaso. Resume lo hecho a partir de [fase1-progresion-y-arbol.md]
 - **Bitácora** (Perfil y detalle de cada misión): fotos de cámara o galería y notas.
 - **Misión del día** (Hoy): un reto de 15 a 30 minutos, una llamada automática por día de juego.
 - **Vibración**, con interruptor en Ajustes.
-- **Dos modelos** en Ajustes › Inteligencia artificial. Si el principal falla se muestra el motivo, con «Reintentar» y «Usar modelo rápido»; nunca cambia solo.
+- **Dos modelos** en Ajustes › Inteligencia artificial.
+- **Reintentos y respaldo automáticos**: ante saturación, límite de frecuencia o un fallo de red, la app reintenta sola y, si hace falta, responde el modelo rápido. El jugador ve mensajes claros en cada etapa.
+- **Estado y cuota de modelos** (Ajustes › Inteligencia artificial): llamadas restantes por modelo, con ajuste manual y un botón «Actualizar estado».
 - **Restablecer progreso** (Ajustes): deja el juego en cero.
 - **Borrar una campaña** se lleva todo lo suyo.
 
 ## 3. Reglas y decisiones (lo que la especificación no definía)
 
 - **API de Gemini**: el modelo principal (`gemini-4-hydrogen`) se llama por la API Interactions (`POST v1beta/interactions`, `generation_config.thinking_level`, `response_format` con esquema JSON). Nivel `high` para diseñar y `medium` para cada acto. El modelo rápido (`gemini-3.5-flash-lite`) sigue en `generateContent`. Comprobado con llamadas reales el 12 de noviembre.
+- **Reintentos** (`callJson` en `src/ai/gemini.ts`): 503, 429 y errores de red se reintentan hasta 3 veces con esperas de 1.5, 3 y 5 segundos (`retryConfig`). Si el modelo principal sigue con 503 o 429, se hace un último intento con el modelo rápido configurado, por `generateContent` y sin nivel de razonamiento. Sin conexión no se cambia de modelo. Los errores 400, 401, 403 y 404 no se reintentan. La misión del día no reintenta (`retry: false`) porque es una llamada de fondo. Cada etapa llega a la interfaz por `onStatus` con los textos de `STATUS_MESSAGES`; el código HTTP, el modelo y el número de intento van solo a `console.warn` / `console.error`.
+- **Modelo de respaldo**: se pidió `gemini-2.5-flash`, pero con la llave del usuario responde 404 («ya no está disponible para usuarios nuevos; usa `gemini-3.8-flash`», comprobado el 13 de noviembre). Por eso el respaldo es el modelo rápido configurado en Ajustes. Las llamadas que ya usan el modelo rápido no tienen respaldo.
+- **Cuota** (`src/ai/quota.ts`, en `localStorage`): cada respuesta exitosa suma 1 al modelo que respondió; los intentos fallidos no cuentan. Un 429 marca «Agotado por hoy» solo si el contador local ya llegó al límite; si no, «Límite por minuto». Un 503 marca «Saturado temporalmente». Los contadores se reinician a medianoche del Pacífico, que es cuando Google renueva la cuota. «Actualizar estado» consulta `v1beta/models` con la llave en la cabecera (no en la URL) y no gasta cuota. No entra en el respaldo ni lo borra «Restablecer progreso».
 - **Bloqueo**: se deriva siempre de las misiones (`campaignState` en `src/game/rules.ts`); no se guarda. Por eso deshacer una misión de un acto cerrado vuelve a bloquear lo siguiente sin tocar el XP ya ganado.
 - **Campañas antiguas** (sin `acts`): cuentan como un solo acto, sin bloqueo ni jefe.
 - **XP de habilidades**: cada evento de XP guarda su `skillId`. Dominio: Novato 0, Aprendiz 100, Competente 300, Experto 700, Maestro 1500 XP.
@@ -109,6 +114,8 @@ Orden recomendado para una sesión de pruebas: `phone:save` → `phone:demo` →
 ## 7. Problemas conocidos y pendientes
 
 - El tamaño del respaldo con muchas fotos no se midió.
+- Los reintentos y el respaldo solo están comprobados con Gemini simulado: no se provocó un 503 o un 429 real.
+- Los límites diarios del panel de cuota (20, 20, 20 y 500) los dio el usuario; Google no los publica por modelo, así que son editables y el conteo es una estimación local.
 - Los contratos antiguos (sin campaña guardada) no se archivan al borrar su campaña.
 - La variante de «Restablecer» que conserva XP y desbloqueos está pendiente.
 - Los actos generados no tienen vista previa antes de guardarse.

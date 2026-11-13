@@ -65,6 +65,7 @@ function useAiDetail(view: TaskDetailView | null | undefined) {
   const [state, setState] = useState<{
     loading: boolean
     error: string | null
+    status?: string
   }>({ loading: false, error: null })
   const [hasKey, setHasKey] = useState(false)
 
@@ -84,6 +85,8 @@ function useAiDetail(view: TaskDetailView | null | undefined) {
         title: view.task.title,
         campaign: view.campaign,
         daily: view.kind === 'bounty',
+        onStatus: ({ stage, message }) =>
+          stage === 'retry' && setState((current) => (current.loading ? { ...current, status: message } : current)),
       })
       if (view.kind === 'bounty') await updateBounty(db, view.task.id, detail)
       else await updateSideQuest(db, view.task.id, detail)
@@ -406,6 +409,11 @@ export function TaskDetail(props: {
                   )}
                   {ai.loading ? 'Escribiendo detalles…' : hasDetail ? 'Regenerar detalles con IA' : 'Detallar con IA'}
                 </Button>
+              )}
+              {ai.loading && ai.status && (
+                <p aria-live="polite" className="text-sm text-ember">
+                  {ai.status}
+                </p>
               )}
               {ai.error && <p className="text-sm text-ember">{ai.error}</p>}
 

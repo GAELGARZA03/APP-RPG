@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { HttpRequest } from '../platform/http'
 import { actTwoMissions, generateReply, guitarDesign, interactionReply } from '../test/fixtures'
 import {
@@ -12,7 +12,9 @@ import {
   detailTask,
   generateAct,
   generateDaily,
+  retryConfig,
   type ActBrief,
+  type CallStatus,
   type PlayerContext,
 } from './gemini'
 
@@ -28,6 +30,23 @@ const credentials = { apiKey: 'llave-secreta', model: 'gemini-4-hydrogen' }
 const replying = (data: unknown, status = 200) => vi.fn<HttpRequest>().mockResolvedValue({ status, data })
 const design = (request: HttpRequest, thinking: 'high' | null = 'high') =>
   designCampaign(request, { ...credentials, idea: 'Aprender guitarra', answers: [], context, thinking: thinking ?? undefined })
+
+let sleep: ReturnType<typeof vi.fn<(ms: number) => Promise<void>>>
+let warn: ReturnType<typeof vi.spyOn>
+let error: ReturnType<typeof vi.spyOn>
+const realSleep = retryConfig.sleep
+
+beforeEach(() => {
+  sleep = vi.fn(async () => {})
+  retryConfig.sleep = sleep
+  warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  error = vi.spyOn(console, 'error').mockImplementation(() => {})
+})
+
+afterEach(() => {
+  retryConfig.sleep = realSleep
+  vi.restoreAllMocks()
+})
 
 async function expectKind(action: Promise<unknown>, kind: AiError['kind']) {
   await expect(action).rejects.toBeInstanceOf(AiError)
@@ -206,11 +225,7 @@ describe('Diseñar la campaña', () => {
 })
 
 describe('Errores de Gemini', () => {
-  it('traduce errores de red y de estado sin cambiar de modelo', async () => {
-    const offline = vi.fn<HttpRequest>().mockRejectedValue(new TypeError('Failed to fetch'))
-    await expectKind(design(offline), 'network')
-    expect(offline).toHaveBeenCalledTimes(1)
-
+  it('los errores de llave, permiso o formato no se reintentan', async () => {
     const disabled = {
       error: { message: 'Gemini API has not been used in project 123 before or it is disabled. Enable it by visiting...' },
     }
@@ -222,15 +237,15 @@ describe('Errores de Gemini', () => {
       [403, disabled, 'api-disabled'],
       [403, { error: { message: 'The caller does not have permission' } }, 'no-permission'],
       [404, {}, 'model'],
-      [429, {}, 'quota'],
-      [503, {}, 'busy'],
       [500, {}, 'server'],
     ] as const) {
       const failing = replying(data, status)
-      await expectKind(design(failing), kind)
-      // Nunca se reintenta con otro modelo en silencio.
+      const action = designCampaign(failing, { ...credentials, idea: 'x', answers: [], context, fallbackModel: 'respaldo' })
+      await expectKind(action, kind)
+      // Ni reintentos ni modelo de respaldo: el error se muestra directamente.
       expect(failing).toHaveBeenCalledTimes(1)
     }
+    expect(sleep).not.toHaveBeenCalled()
   })
 
   it('distingue los errores en los que ayuda probar el modelo rápido', () => {
@@ -249,6 +264,111 @@ describe('Errores de Gemini', () => {
       method: 'POST',
       url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-4-hydrogen:generateContent',
     })
+  })
+})
+
+describe('Reintentos y modelo de respaldo', () => {
+  const busy = { status: 503, data: { error: { message: 'The model is overloaded' } } }
+  const limited = { status: 429, data: { error: { message: 'Resource exhausted' } } }
+  const success = { status: 200, data: interactionReply(guitarDesign) }
+  const run = (request: HttpRequest, extra: object = {}) => {
+    const statuses: CallStatus[] = []
+    const result = designCampaign(request, {
+      ...credentials,
+      idea: 'Guitarra',
+      answers: [],
+      context,
+      thinking: 'high',
+      onStatus: (status) => statuses.push(status),
+      ...extra,
+    })
+    return { result, statuses }
+  }
+
+  it('reintenta hasta 3 veces esperando 1.5, 3 y 5 segundos, y sigue en cuanto responde', async () => {
+    const request = vi
+      .fn<HttpRequest>()
+      .mockResolvedValueOnce(busy)
+      .mockResolvedValueOnce(limited)
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      .mockResolvedValueOnce(success)
+    const { result, statuses } = run(request)
+
+    expect((await result).campaign).toBe('Del silencio al escenario')
+    expect(request).toHaveBeenCalledTimes(4)
+    expect(sleep.mock.calls.map(([ms]) => ms)).toEqual([1500, 3000, 5000])
+    expect(statuses.map((status) => status.message)).toEqual([
+      'Procesando tu solicitud...',
+      'Los servidores de IA están un poco saturados, reintentando automáticamente (intento 1 de 3)...',
+      'Demasiadas peticiones seguidas, esperando unos segundos para continuar...',
+      'La conexión falló un momento, reintentando automáticamente (intento 3 de 3)...',
+      '¡Listo!',
+    ])
+    // Todos los intentos van al mismo modelo: aún no se activó el respaldo.
+    expect(request.mock.calls.every(([sent]) => sent.url.endsWith('/interactions'))).toBe(true)
+  })
+
+  it('si sigue saturado tras los reintentos, hace un último intento con el modelo de respaldo', async () => {
+    const request = vi.fn<HttpRequest>(async (sent) =>
+      sent.url.endsWith('/interactions') ? busy : { status: 200, data: generateReply(guitarDesign) },
+    )
+    const { result, statuses } = run(request, { fallbackModel: 'gemini-3.5-flash-lite' })
+
+    expect((await result).campaign).toBe('Del silencio al escenario')
+    expect(request).toHaveBeenCalledTimes(5)
+    const last = request.mock.calls[4][0]
+    expect(last.url).toContain('gemini-3.5-flash-lite:generateContent')
+    expect(JSON.stringify(last.body)).not.toContain('thinking_level')
+    expect(statuses.at(-2)).toEqual({ stage: 'fallback', message: 'Activando el motor rápido de respaldo para darte respuesta...' })
+    expect(statuses.at(-1)).toEqual({ stage: 'done', message: '¡Listo!' })
+  })
+
+  it('si también falla el respaldo, termina con un mensaje amigable y sin códigos técnicos', async () => {
+    const request = vi.fn<HttpRequest>().mockResolvedValue(limited)
+    const { result, statuses } = run(request, { fallbackModel: 'gemini-3.5-flash-lite' })
+
+    await expectKind(result, 'overloaded')
+    expect(request).toHaveBeenCalledTimes(5)
+    expect(statuses.at(-1)).toEqual({
+      stage: 'failed',
+      message: 'El servicio de IA está muy saturado en este momento. Por favor, intenta de nuevo en unos segundos.',
+    })
+    // Al jugador nunca le llegan códigos HTTP ni nombres técnicos del error.
+    for (const { message } of statuses) expect(message).not.toMatch(/503|429|HTTP|exhausted|overloaded/i)
+  })
+
+  it('sin modelo de respaldo, o si es el mismo modelo, se rinde tras los reintentos', async () => {
+    const without = vi.fn<HttpRequest>().mockResolvedValue(busy)
+    await expectKind(run(without).result, 'overloaded')
+    expect(without).toHaveBeenCalledTimes(4)
+
+    const same = vi.fn<HttpRequest>().mockResolvedValue(busy)
+    await expectKind(run(same, { fallbackModel: credentials.model }).result, 'overloaded')
+    expect(same).toHaveBeenCalledTimes(4)
+  })
+
+  it('sin conexión reintenta, pero no cambia de modelo: el aviso sigue siendo de red', async () => {
+    const offline = vi.fn<HttpRequest>().mockRejectedValue(new TypeError('Failed to fetch'))
+    const { result } = run(offline, { fallbackModel: 'gemini-3.5-flash-lite' })
+
+    await expectKind(result, 'network')
+    expect(offline).toHaveBeenCalledTimes(4)
+  })
+
+  it('las llamadas de fondo pueden pedir que no se insista', async () => {
+    const request = vi.fn<HttpRequest>().mockResolvedValue(busy)
+    await expectKind(run(request, { retry: false, fallbackModel: 'gemini-3.5-flash-lite' }).result, 'overloaded')
+    expect(request).toHaveBeenCalledTimes(1)
+    expect(sleep).not.toHaveBeenCalled()
+  })
+
+  it('deja en la consola el código HTTP, el modelo y el número de intento', async () => {
+    const request = vi.fn<HttpRequest>().mockResolvedValueOnce(busy).mockResolvedValueOnce(success)
+    await run(request).result
+
+    expect(warn).toHaveBeenCalledWith('[Gemini] intento 1 de 4 · modelo gemini-4-hydrogen · HTTP 503 · busy')
+    // La llave nunca aparece en los registros.
+    expect(JSON.stringify([...warn.mock.calls, ...error.mock.calls])).not.toContain('llave-secreta')
   })
 })
 

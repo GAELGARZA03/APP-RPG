@@ -11,6 +11,8 @@
 - **Icono propio y logotipo:** emblema hexagonal con flechas de "subir de nivel", también en la pantalla de inicio de la app. Incluye versión monocroma para los iconos temáticos de Android 13+.
 
 - **Fase 1: campañas con progresión y árbol de habilidades.** Preguntas antes de generar, análisis de la meta, actos que se desbloquean, misión jefe, generación acto por acto, mapa de campaña tipo videojuego, objetivos marcables, bitácora de evidencias con fotos, misión del día, vibración, modelo según la tarea (Gemini 4 Hydrogen para diseñar) y árbol de habilidades en el Perfil. Especificación en [docs/fase1-progresion-y-arbol.md](docs/fase1-progresion-y-arbol.md). Pruebas del flujo completo con `npm run test:flow`. Resumen de lo construido y cómo retomarlo en [docs/fase1-entrega.md](docs/fase1-entrega.md).
+- **Estado y cuota de modelos:** tarjeta en Ajustes con las llamadas restantes por modelo, ajuste manual y verificación bajo demanda.
+- **Llamadas a la IA más resistentes:** reintentos automáticos ante saturación o límite de frecuencia, modelo de respaldo y mensajes claros en cada etapa.
 - **Restablecer progreso y limpieza:** opción en Ajustes para dejar el juego en cero; borrar una campaña se lleva sus misiones, evidencias, su rama del árbol y sus contratos; las campañas terminadas se agrupan en «Completadas». Datos de prueba por USB con `npm run phone:demo`.
 
 ## Siguiente
