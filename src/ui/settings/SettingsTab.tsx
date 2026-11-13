@@ -6,8 +6,10 @@ import {
   Cpu,
   DatabaseBackup,
   Pencil,
+  RotateCcw,
   ScrollText,
   Sparkles,
+  Vibrate,
   type LucideIcon,
 } from 'lucide-react'
 import { motion } from 'motion/react'
@@ -15,19 +17,22 @@ import { useEffect, useId, useState } from 'react'
 import { GEMINI_KEY_SECRET } from '../../ai/gemini'
 import { db } from '../../data/appDb'
 import type { Hud } from '../../data/gameStore'
-import { getLastBackupAt, getNotificationSettings, getProfile } from '../../data/settings'
+import { getLastBackupAt, getNotificationSettings, getPrefs, getProfile, savePrefs } from '../../data/settings'
+import { haptic, setHapticsEnabled } from '../../platform/haptics'
 import { baseXp, type Difficulty } from '../../game/rules'
 import { getSecret } from '../../platform/secrets'
 import { Avatar } from '../kit/Avatar'
 import { Button } from '../kit/Button'
 import { Card, cardSurface } from '../kit/Card'
 import { cn } from '../kit/cn'
+import { Switch } from '../kit/controls'
 import { Sheet } from '../Sheet'
 import { BackupPanel } from './BackupPanel'
 import { GeminiPanel } from './GeminiPanel'
 import { RemindersPanel } from './RemindersPanel'
+import { ResetPanel } from './ResetPanel'
 
-export type SettingsSection = 'reminders' | 'backup' | 'ai' | 'rules' | 'about'
+export type SettingsSection = 'reminders' | 'backup' | 'ai' | 'rules' | 'about' | 'reset'
 
 const DIFFICULTIES: Difficulty[] = [1, 2, 3, 4, 5]
 
@@ -36,6 +41,10 @@ const RULES = [
   'Cada día de racha da +5% de XP en contratos, hasta +50%.',
   'Fallar un día reduce la racha a la mitad.',
   'El día cierra a las 4:00 a. m.',
+  'En una campaña solo está abierto el primer acto sin terminar; nunca se bloquea por tu nivel.',
+  'La misión jefe da el doble de XP y pide una foto o una nota como evidencia.',
+  'Saltar una misión («Ya sé hacer esto») cuenta para avanzar, pero no da XP.',
+  'La misión del día da 50% más de XP y no afecta tu racha.',
 ]
 
 function RulesPanel({ headingId }: { headingId: string }) {
@@ -80,6 +89,7 @@ export function SettingsSectionSheet({ section, onClose }: { section: SettingsSe
       {section === 'ai' && <GeminiPanel embedded headingId={headingId} />}
       {section === 'rules' && <RulesPanel headingId={headingId} />}
       {section === 'about' && <AboutPanel headingId={headingId} />}
+      {section === 'reset' && <ResetPanel headingId={headingId} onDone={onClose} />}
       <Button onClick={onClose} className="mt-5 w-full">
         Listo
       </Button>
@@ -123,6 +133,7 @@ export function SettingsTab(props: {
   const profile = useLiveQuery(() => getProfile(db), [])
   const notifications = useLiveQuery(() => getNotificationSettings(db), [])
   const lastBackupAt = useLiveQuery(() => getLastBackupAt(db), [])
+  const prefs = useLiveQuery(() => getPrefs(db), [])
   const [hasKey, setHasKey] = useState<boolean | null>(null)
 
   useEffect(() => {
@@ -184,6 +195,25 @@ export function SettingsTab(props: {
           summary={hasKey === null ? 'Gemini' : hasKey ? 'Gemini conectado' : 'Falta tu API key'}
           onClick={() => props.onOpenSection('ai')}
         />
+        <div className="flex items-center gap-3 px-4 py-3.5">
+          <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-signal/15 text-signal">
+            <Vibrate aria-hidden className="size-5" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-medium">Vibración</span>
+            <span className="block truncate text-sm text-muted">Al completar, desbloquear y subir de nivel</span>
+          </span>
+          <Switch
+            label="Vibración"
+            checked={prefs?.haptics ?? true}
+            onChange={(haptics) => {
+              // Se aplica de inmediato para que el interruptor mismo ya vibre (o deje de vibrar).
+              setHapticsEnabled(haptics)
+              if (haptics) haptic('complete')
+              void savePrefs(db, { haptics })
+            }}
+          />
+        </div>
       </nav>
 
       <nav aria-label="Información" className={cn(cardSurface, 'divide-y divide-white/[0.05] overflow-hidden')}>
@@ -191,7 +221,7 @@ export function SettingsTab(props: {
           icon={ScrollText}
           tone="bg-ember/15 text-ember"
           label="Reglas del juego"
-          summary="XP, rachas y cierre del día"
+          summary="XP, rachas, actos y cierre del día"
           onClick={() => props.onOpenSection('rules')}
         />
         <MenuRow
@@ -200,6 +230,13 @@ export function SettingsTab(props: {
           label="Acerca de"
           summary="Versión y datos"
           onClick={() => props.onOpenSection('about')}
+        />
+        <MenuRow
+          icon={RotateCcw}
+          tone="bg-ember/15 text-ember"
+          label="Restablecer progreso"
+          summary="Empezar de cero: misiones, árbol, XP y nivel"
+          onClick={() => props.onOpenSection('reset')}
         />
       </nav>
     </>

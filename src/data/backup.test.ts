@@ -3,16 +3,31 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { gameDayOf } from '../game/gameDay'
 import { backupFileName, BackupError, createBackup, parseBackup, restoreBackup, summarizeBackup } from './backup'
 import { GameDatabase } from './db'
+import { guitarDesign } from '../test/fixtures'
 import {
+  acceptCampaignPlan,
+  addEvidence,
   completeBounty,
+  completeDaily,
   completeSideQuest,
   createBounty,
   createCampaign,
   createSideQuest,
+  getCampaign,
+  getDaily,
   getHud,
+  getJournal,
+  getMissions,
+  getSkillTree,
+  saveDaily,
+  skipSideQuest,
 } from './gameStore'
 import {
+  getAiSettings,
   getCosmetics,
+  getPrefs,
+  saveAiModels,
+  savePrefs,
   getLastBackupAt,
   getProfile,
   getNotificationSettings,
@@ -73,8 +88,78 @@ describe('Respaldo', () => {
       bounties: 1,
       campaigns: 1,
       sideQuests: 1,
+      skills: 0,
+      evidence: 0,
       totalXp: 140,
     })
+  })
+
+  it('incluye actos, análisis, habilidades, bitácora y misión del día', async () => {
+    const campaign = await acceptCampaignPlan(source, guitarDesign, noon)
+    const [quest] = (await getCampaign(source, campaign.id))!.sideQuests
+    await skipSideQuest(source, quest.id, noon)
+    await addEvidence(source, { kind: 'sideQuest', id: quest.id }, { photo: 'data:image/jpeg;base64,AAAA' }, noon)
+    await addEvidence(source, { kind: 'sideQuest', id: quest.id }, { note: 'Ya lo sabía' }, noon)
+    const daily = await saveDaily(
+      source,
+      { title: 'Reto', difficulty: 1, steps: ['Uno'], skill: 'Ritmo', branchId: campaign.skillId, campaignId: campaign.id },
+      noon,
+    )
+    await completeDaily(source, daily.id, noon)
+    await savePrefs(source, { haptics: false })
+    await saveAiModels(target, { mainModel: 'modelo-de-este-telefono' })
+
+    const backup = parseBackup(JSON.stringify(await createBackup(source, noon)))
+    expect(backup.version).toBe(2)
+    await restoreBackup(target, backup)
+
+    expect(await getCampaign(target, campaign.id)).toEqual(await getCampaign(source, campaign.id))
+    expect(await getSkillTree(target)).toEqual(await getSkillTree(source))
+    expect(await getJournal(target)).toEqual(await getJournal(source))
+    expect(await getDaily(target, today)).toEqual(await getDaily(source, today))
+    expect(await getHud(target, today)).toEqual(await getHud(source, today))
+    expect((await getPrefs(target)).haptics).toBe(false)
+    // Los modelos de IA no viajan en el respaldo: se conservan los del teléfono que importa.
+    expect((await getAiSettings(target)).mainModel).toBe('modelo-de-este-telefono')
+  })
+
+  it('importa respaldos antiguos (versión 1) como campañas de un solo acto', async () => {
+    await fillSource()
+    const current = await createBackup(source, noon)
+    const { skills: _skills, evidence: _evidence, dailies: _dailies, ...oldData } = current.data
+    const old = JSON.stringify({ ...current, version: 1, data: oldData })
+
+    const backup = parseBackup(old)
+    await restoreBackup(target, backup)
+
+    expect(backup.data.skills).toEqual([])
+    expect(await getHud(target, today)).toEqual(await getHud(source, today))
+    const [campaign] = (await getMissions(target)).campaigns
+    expect(campaign).toMatchObject({ title: 'Lanzar la app', legacy: true, progress: 100 })
+    expect(campaign.sideQuests.every((quest) => quest.lock === null)).toBe(true)
+  })
+
+  it('rechaza respaldos con referencias rotas o fotos que no son imágenes', async () => {
+    const campaign = await acceptCampaignPlan(source, guitarDesign, noon)
+    const [quest] = (await getCampaign(source, campaign.id))!.sideQuests
+    await addEvidence(source, { kind: 'sideQuest', id: quest.id }, { photo: 'data:image/jpeg;base64,AAAA' }, noon)
+    const backup = JSON.parse(JSON.stringify(await createBackup(source, noon)))
+
+    const orphanAct = structuredClone(backup)
+    orphanAct.data.sideQuests[0].actId = 'acto-que-no-existe'
+    expect(() => parseBackup(JSON.stringify(orphanAct))).toThrow('incompleto o dañado')
+
+    const orphanSkill = structuredClone(backup)
+    orphanSkill.data.skills[1].parentId = 'rama-que-no-existe'
+    expect(() => parseBackup(JSON.stringify(orphanSkill))).toThrow('incompleto o dañado')
+
+    const badPhoto = structuredClone(backup)
+    badPhoto.data.evidence[0].photo = 'javascript:alert(1)'
+    expect(() => parseBackup(JSON.stringify(badPhoto))).toThrow(BackupError)
+
+    const badAct = structuredClone(backup)
+    badAct.data.campaigns[0].acts[0].status = 'inventado'
+    expect(() => parseBackup(JSON.stringify(badAct))).toThrow(BackupError)
   })
 
   it('reemplaza los datos que ya había', async () => {

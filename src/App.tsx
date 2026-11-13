@@ -5,7 +5,9 @@ import {
   BellRing,
   ChevronRight,
   Flame,
+  Lock,
   Settings,
+  Skull,
   Sparkles,
   Sun,
   Swords,
@@ -13,9 +15,10 @@ import {
   UserRound,
   type LucideIcon,
 } from 'lucide-react'
-import { motion, MotionConfig } from 'motion/react'
+import { AnimatePresence, motion, MotionConfig } from 'motion/react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast, Toaster } from 'sonner'
+import { generateNextAct } from './ai/actRunner'
 import { db } from './data/appDb'
 import type { Bounty, Campaign, SideQuest } from './data/db'
 import {
@@ -30,19 +33,27 @@ import {
   updateBounty,
   getTaskDetail,
   updateSideQuest,
+  type ActCompletion,
+  type Outcome,
   type TaskDetailView,
   type TaskRef,
 } from './data/gameStore'
-import { getCosmetics, getNotificationSettings, getProfile } from './data/settings'
+import { getCosmetics, getNotificationSettings, getPrefs, getProfile } from './data/settings'
 import { effectiveCosmetics, THEMES, titleName, unlocksBetween } from './game/cosmetics'
+import { haptic, setHapticsEnabled } from './platform/haptics'
 import { applyNotificationSettings, notificationsSupported } from './platform/notifications'
+import { ActCelebration } from './ui/ActCelebration'
+import { runBack } from './ui/backStack'
+import { CampaignMap } from './ui/CampaignMap'
 import { FormSheet, type FormSheetProps } from './ui/FormSheet'
 import { GeneratorSheet } from './ui/GeneratorSheet'
+import { JournalScreen } from './ui/Journal'
 import { cn } from './ui/kit/cn'
 import { Logo } from './ui/kit/Logo'
 import { MissionsTab } from './ui/MissionsTab'
 import { ProfileTab } from './ui/ProfileTab'
 import { ProfileSheet } from './ui/settings/ProfileSheet'
+import { SkillTreeScreen } from './ui/SkillTree'
 import { SettingsSectionSheet, SettingsTab, type SettingsSection } from './ui/settings/SettingsTab'
 import { TaskDetail } from './ui/TaskDetail'
 import { playComplete, playLevelUp, setSoundPack } from './ui/sound'
@@ -68,6 +79,9 @@ type Sheet =
   | { kind: 'generate' }
   | { kind: 'settings'; section: SettingsSection }
   | { kind: 'profile' }
+
+/** Pantallas completas que se abren sobre las pestañas. */
+type FullScreen = { kind: 'map'; campaignId: string } | { kind: 'tree' } | { kind: 'journal' }
 
 type FormSheetKind = Exclude<Sheet, { kind: 'generate' | 'settings' | 'profile' }>
 
@@ -111,13 +125,13 @@ function sheetProps(sheet: FormSheetKind): Omit<FormSheetProps, 'onClose'> {
         onSubmit: ({ title }) => renameCampaign(db, sheet.campaign.id, title),
         danger: {
           label: 'Borrar campaña',
-          confirmLabel: 'Toca otra vez: se borran sus Side Quests (conservas el XP)',
+          confirmLabel: 'Toca otra vez: se borran sus misiones, evidencias y su rama del árbol (conservas el XP)',
           action: () => deleteCampaign(db, sheet.campaign.id),
         },
       }
     case 'newQuest':
       return {
-        heading: sheet.campaignId ? 'Nueva Side Quest' : 'Nueva Side Quest suelta',
+        heading: sheet.campaignId ? 'Nueva misión de la campaña' : 'Nueva Side Quest suelta',
         submitLabel: 'Crear',
         initialDifficulty: 2,
         withDetails: true,
@@ -154,13 +168,21 @@ export function App() {
   const notificationSettings = useLiveQuery(() => getNotificationSettings(db), [])
   const cosmeticChoice = useLiveQuery(() => getCosmetics(db), [])
   const profile = useLiveQuery(() => getProfile(db), [])
+  const prefs = useLiveQuery(() => getPrefs(db), [])
   const cosmetics = hud && cosmeticChoice ? effectiveCosmetics(cosmeticChoice, hud.level) : null
   const [tab, setTab] = useState<Tab>('today')
   const [sheet, setSheet] = useState<Sheet | null>(null)
   const [detail, setDetail] = useState<{ ref: TaskRef; initial: TaskDetailView } | null>(null)
+  const [screen, setScreen] = useState<FullScreen | null>(null)
+  const [celebration, setCelebration] = useState<ActCompletion | null>(null)
   const previousLevel = useRef<number | null>(null)
+  const covered = screen !== null || detail !== null || celebration !== null
 
-  const closeDetail = useCallback(() => setDetail(null), [])
+  const closeDetail = useCallback(
+    (taskId: string) => setDetail((current) => (current?.ref.id === taskId ? null : current)),
+    [],
+  )
+  const closeScreen = useCallback(() => setScreen(null), [])
 
   // Se cargan los datos antes de abrir: así la tarjeta crece una sola vez, ya con su contenido.
   async function openDetail(ref: TaskRef) {
@@ -168,13 +190,49 @@ export function App() {
     if (initial) setDetail({ ref, initial })
   }
 
-  function reward(xp: number | null) {
-    if (xp === null) return
-    playComplete()
-    toast(`+${xp} XP`, {
-      icon: <Sparkles aria-hidden className="size-5 text-signal" />,
-      duration: 1800,
-    })
+  /** Respuesta a completar, saltar o marcar un objetivo: aviso, sonido, vibración y celebración de acto. */
+  function handleOutcome(outcome: Outcome, ref: TaskRef, fromDetail: boolean) {
+    if (outcome.blocked === 'evidence') {
+      toast('El jefe pide evidencia', {
+        description: 'Agrega una foto o una nota para derrotarlo.',
+        icon: <Skull aria-hidden className="size-5 text-ember" />,
+        duration: 3500,
+      })
+      if (!fromDetail) void openDetail(ref)
+      return
+    }
+    if (outcome.blocked === 'locked') {
+      toast('Misión bloqueada', {
+        description: 'Completa lo anterior para desbloquearla.',
+        icon: <Lock aria-hidden className="size-5 text-muted" />,
+        duration: 2500,
+      })
+      return
+    }
+    if (!outcome.ok) return
+
+    if (outcome.xp > 0) {
+      playComplete()
+      haptic(outcome.boss ? 'boss' : 'complete')
+      toast(outcome.boss ? `¡Jefe derrotado! +${outcome.xp} XP` : `+${outcome.xp} XP`, {
+        icon: outcome.boss ? (
+          <Skull aria-hidden className="size-5 text-ember" />
+        ) : (
+          <Sparkles aria-hidden className="size-5 text-signal" />
+        ),
+        duration: fromDetail || ref.kind === 'bounty' ? 1800 : 4000,
+        // Desde una fila se ofrece dejar evidencia; en el detalle la bitácora ya está a la vista.
+        action:
+          !fromDetail && ref.kind !== 'bounty'
+            ? { label: 'Añadir evidencia', onClick: () => void openDetail(ref) }
+            : undefined,
+      })
+    }
+    if (outcome.act) {
+      playLevelUp()
+      haptic('unlock')
+      setCelebration(outcome.act)
+    }
   }
 
   useEffect(() => {
@@ -182,6 +240,7 @@ export function App() {
     const previous = previousLevel.current
     if (previous !== null && hud.level > previous) {
       playLevelUp()
+      haptic('levelUp')
       const unlocked = unlocksBetween(previous, hud.level)
       toast(`¡Subiste al nivel ${hud.level}!`, {
         description: unlocked.length > 0 ? `Desbloqueaste: ${unlocked.join(', ')}` : undefined,
@@ -205,6 +264,10 @@ export function App() {
     if (soundId) setSoundPack(soundId)
   }, [soundId])
 
+  useEffect(() => {
+    if (prefs) setHapticsEnabled(prefs.haptics)
+  }, [prefs])
+
   // Cada pestaña empieza desde arriba, no donde se quedó la anterior.
   useEffect(() => {
     window.scrollTo({ top: 0 })
@@ -215,11 +278,14 @@ export function App() {
     if (notificationSettings) applyNotificationSettings(notificationSettings).catch(console.error)
   }, [notificationSettings])
 
-  // Botón atrás de Android: cierra la hoja, vuelve a "Hoy" o minimiza la app.
+  // Botón atrás de Android: primero lo más reciente (un paso del generador, una foto, un panel),
+  // luego la hoja, el detalle y la pantalla completa; al final vuelve a "Hoy" o minimiza la app.
   const handleBack = useRef(() => {})
   handleBack.current = () => {
+    if (runBack()) return
     if (sheet) setSheet(null)
     else if (detail) setDetail(null)
+    else if (screen) setScreen(null)
     else if (tab !== 'today') setTab('today')
     else void NativeApp.minimizeApp()
   }
@@ -236,7 +302,10 @@ export function App() {
       {/* Fondo bajo la barra de estado para que el contenido no se vea detrás de los iconos. */}
       <div aria-hidden className="fixed inset-x-0 top-0 z-10 h-[env(safe-area-inset-top)] bg-void" />
 
-      <main className="mx-auto flex min-h-dvh max-w-md flex-col gap-4 px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)] pb-[calc(env(safe-area-inset-bottom)+6.5rem)]">
+      {/* Con una pantalla o un detalle encima, lo de atrás no recibe toques ni lo leen los lectores de pantalla. */}
+      <main
+        inert={covered}
+        className="mx-auto flex min-h-dvh max-w-md flex-col gap-4 px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)] pb-[calc(env(safe-area-inset-bottom)+6.5rem)]">
         <header className="flex items-center py-1">
           <Logo />
         </header>
@@ -280,20 +349,27 @@ export function App() {
                   duration: 6000,
                 })
               }
-              onReward={reward}
+              onOutcome={handleOutcome}
             />
           )}
           {tab === 'missions' && (
             <MissionsTab
               onGenerate={() => setSheet({ kind: 'generate' })}
               onCreateCampaign={() => setSheet({ kind: 'newCampaign' })}
-              onEditCampaign={(campaign) => setSheet({ kind: 'editCampaign', campaign })}
+              onOpenCampaign={(campaignId) => setScreen({ kind: 'map', campaignId })}
               onCreateQuest={(campaignId) => setSheet({ kind: 'newQuest', campaignId })}
               onOpen={(ref) => void openDetail(ref)}
-              onReward={reward}
+              onOutcome={handleOutcome}
             />
           )}
-          {tab === 'profile' && hud && cosmeticChoice && <ProfileTab hud={hud} choice={cosmeticChoice} />}
+          {tab === 'profile' && hud && cosmeticChoice && (
+            <ProfileTab
+              hud={hud}
+              choice={cosmeticChoice}
+              onOpenTree={() => setScreen({ kind: 'tree' })}
+              onOpenJournal={() => setScreen({ kind: 'journal' })}
+            />
+          )}
           {tab === 'settings' && (
             <SettingsTab
               hud={hud}
@@ -316,11 +392,15 @@ export function App() {
               'flex w-full items-center gap-3 rounded-2xl border border-signal/50 bg-panel px-4 py-3 text-ink shadow-xl shadow-black/40',
             title: 'font-display text-base font-semibold',
             description: 'text-sm text-muted',
+            content: 'min-w-0 flex-1',
+            actionButton:
+              'min-h-11 shrink-0 rounded-full border border-signal/50 bg-signal/10 px-3 text-xs font-semibold text-signal',
           },
         }}
       />
 
       <nav
+        inert={covered}
         aria-label="Secciones"
         className="fixed inset-x-0 bottom-0 z-20 border-t border-white/[0.06] bg-void/85 pb-[env(safe-area-inset-bottom)] backdrop-blur-md"
       >
@@ -352,6 +432,19 @@ export function App() {
         </div>
       </nav>
 
+      {screen?.kind === 'map' && (
+        <CampaignMap
+          key={screen.campaignId}
+          campaignId={screen.campaignId}
+          onClose={closeScreen}
+          onOpen={(ref) => void openDetail(ref)}
+          onEdit={(campaign) => setSheet({ kind: 'editCampaign', campaign })}
+          onAddQuest={(campaignId) => setSheet({ kind: 'newQuest', campaignId })}
+        />
+      )}
+      {screen?.kind === 'tree' && <SkillTreeScreen onClose={closeScreen} />}
+      {screen?.kind === 'journal' && <JournalScreen onClose={closeScreen} onOpen={(ref) => void openDetail(ref)} />}
+
       {detail && (
         <TaskDetail
           key={detail.ref.id}
@@ -359,14 +452,11 @@ export function App() {
           initialView={detail.initial}
           today={today}
           onClose={closeDetail}
-          onReward={reward}
-          onEdit={(view) =>
-            setSheet(
-              view.kind === 'bounty'
-                ? { kind: 'editBounty', bounty: view.task }
-                : { kind: 'editQuest', quest: view.task },
-            )
-          }
+          onOutcome={handleOutcome}
+          onEdit={(view) => {
+            if (view.kind === 'bounty') setSheet({ kind: 'editBounty', bounty: view.task })
+            else if (view.kind === 'sideQuest') setSheet({ kind: 'editQuest', quest: view.task })
+          }}
         />
       )}
 
@@ -379,10 +469,13 @@ export function App() {
           }}
           onCreated={(campaign) => {
             playComplete()
+            haptic('unlock')
             toast('Campaña creada', {
-              description: campaign,
+              description: campaign.title,
               icon: <Sparkles aria-hidden className="size-5 text-signal" />,
             })
+            // La campaña nueva se abre directamente en su mapa.
+            setScreen({ kind: 'map', campaignId: campaign.id })
           }}
         />
       )}
@@ -391,6 +484,23 @@ export function App() {
       {sheet && sheet.kind !== 'generate' && sheet.kind !== 'settings' && sheet.kind !== 'profile' && (
         <FormSheet key={JSON.stringify(sheet)} {...sheetProps(sheet)} onClose={() => setSheet(null)} />
       )}
+
+      <AnimatePresence>
+        {celebration && (
+          <ActCelebration
+            key={`${celebration.campaignId}-${celebration.actNumber}`}
+            act={celebration}
+            onClose={() => setCelebration(null)}
+            onContinue={() => {
+              const { campaignId, next } = celebration
+              setCelebration(null)
+              setDetail(null)
+              setScreen({ kind: 'map', campaignId })
+              if (next?.planned) void generateNextAct(campaignId).then((ready) => ready && haptic('unlock'))
+            }}
+          />
+        )}
+      </AnimatePresence>
     </MotionConfig>
   )
 }

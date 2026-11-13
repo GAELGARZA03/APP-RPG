@@ -11,13 +11,18 @@
     "android:open": "cap open android",
     "android:run": "npm run build && cap run android",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:flow": "vitest run src/flow",
+    "test:watch": "vitest",
+    "seed:build": "vitest run src/test/buildSeed.test.ts",
+    "phone:save": "node scripts/telefono/datos.mjs guardar",
+    "phone:demo": "npm run seed:build && node scripts/telefono/datos.mjs cargar scripts/telefono/datos-demo.json"
   },
   "dependencies": {
     "@capacitor/android": "^8.6.0",
     "@capacitor/app": "^8.1.2",
     "@capacitor/core": "^8.6.0",
     "@capacitor/filesystem": "^8.1.5",
+    "@capacitor/haptics": "^8.0.2",
     "@capacitor/local-notifications": "^8.3.1",
     "@capacitor/share": "^8.0.3",
     "@fontsource-variable/fredoka": "^5.3.0",
@@ -37,10 +42,13 @@
   "devDependencies": {
     "@capacitor/cli": "^8.6.0",
     "@tailwindcss/vite": "^4.3.4",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.10",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.2.1",
     "fake-indexeddb": "^6.2.7",
+    "jsdom": "^31.0.0",
     "tailwindcss": "^4.3.4",
     "typescript": "^7.0.2",
     "vite": "^8.3.6",

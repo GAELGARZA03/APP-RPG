@@ -10,9 +10,13 @@
 - **Campañas plegables:** cerradas por defecto; se abren al tocar su nombre.
 - **Icono propio y logotipo:** emblema hexagonal con flechas de "subir de nivel", también en la pantalla de inicio de la app. Incluye versión monocroma para los iconos temáticos de Android 13+.
 
+- **Fase 1: campañas con progresión y árbol de habilidades.** Preguntas antes de generar, análisis de la meta, actos que se desbloquean, misión jefe, generación acto por acto, mapa de campaña tipo videojuego, objetivos marcables, bitácora de evidencias con fotos, misión del día, vibración, modelo según la tarea (Gemini 4 Hydrogen para diseñar) y árbol de habilidades en el Perfil. Especificación en [docs/fase1-progresion-y-arbol.md](docs/fase1-progresion-y-arbol.md). Pruebas del flujo completo con `npm run test:flow`. Resumen de lo construido y cómo retomarlo en [docs/fase1-entrega.md](docs/fase1-entrega.md).
+- **Restablecer progreso y limpieza:** opción en Ajustes para dejar el juego en cero; borrar una campaña se lleva sus misiones, evidencias, su rama del árbol y sus contratos; las campañas terminadas se agrupan en «Completadas». Datos de prueba por USB con `npm run phone:demo`.
+
 ## Siguiente
 
-- **Fase 1: campañas con progresión y árbol de habilidades.** Preguntas antes de generar, análisis de la meta, actos que se desbloquean, misión jefe, generación acto por acto, mapa de campaña tipo videojuego, objetivos marcables, bitácora de evidencias con fotos, misión del día, vibración, modelo según la tarea (Gemini 4 Hydrogen para diseñar) y árbol de habilidades en el Perfil. Especificación completa en [docs/fase1-progresion-y-arbol.md](docs/fase1-progresion-y-arbol.md).
+- **Restablecer conservando lo ganado:** una variante que borre misiones y campañas pero conserve XP, nivel y desbloqueos.
+- **Pendientes de la Fase 1:** probar en el teléfono la foto de evidencia de principio a fin y la misión jefe real; revisar las pantallas nuevas con los cinco temas; editar las misiones de un acto antes de aceptarlas (hoy se editan después, una por una).
 - **Revisión semanal con IA:** análisis de lo que completaste y lo que se atoró, con ajustes sugeridos.
 - **Logros:** pensar cómo generarlos (por ejemplo, con IA a partir de lo que haces) en lugar de una lista fija.
 - **Widget de Android** con los contratos de hoy.

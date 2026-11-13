@@ -21,3 +21,7 @@ Thumbs.db
 
 # Referencias visuales para desarrollo: imágenes de terceros y capturas con datos personales
 docs/referencias/
+
+# Copias de los datos del teléfono (personales) y datos de demostración generados
+.respaldos/
+scripts/telefono/datos-demo.json

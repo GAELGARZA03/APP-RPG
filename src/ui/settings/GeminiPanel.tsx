@@ -2,8 +2,9 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { Check, Sparkles, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { AiError, checkConnection, GEMINI_KEY_SECRET } from '../../ai/gemini'
+import { DEFAULT_FAST_MODEL, DEFAULT_MAIN_MODEL } from '../../ai/models'
 import { db } from '../../data/appDb'
-import { getAiSettings, saveAiModel } from '../../data/settings'
+import { getAiSettings, saveAiModels } from '../../data/settings'
 import { httpRequest } from '../../platform/http'
 import { getSecret, removeSecret, secretsPersist, setSecret } from '../../platform/secrets'
 import { Badge } from '../kit/Badge'
@@ -47,13 +48,23 @@ export function GeminiPanel({ embedded, headingId }: { embedded?: boolean; headi
   async function test() {
     const key = await getSecret(GEMINI_KEY_SECRET)
     if (!key || !aiSettings) return
-    setMessage({ error: false, text: 'Probando conexión…' })
-    try {
-      await checkConnection(httpRequest, { apiKey: key, model: aiSettings.model })
-      setMessage({ error: false, text: `Conexión correcta con ${aiSettings.model}.` })
-    } catch (error) {
-      setMessage({ error: true, text: error instanceof AiError ? error.message : 'No se pudo conectar.' })
+    setMessage({ error: false, text: 'Probando los dos modelos…' })
+    // Se prueban los dos por separado: uno puede estar saturado o sin permiso y el otro no.
+    const results: string[] = []
+    let failed = false
+    for (const [label, model] of [
+      ['Rápido', aiSettings.fastModel],
+      ['Principal', aiSettings.mainModel],
+    ]) {
+      try {
+        await checkConnection(httpRequest, { apiKey: key, model })
+        results.push(`${label} (${model}): conexión correcta.`)
+      } catch (error) {
+        failed = true
+        results.push(`${label} (${model}): ${error instanceof AiError ? error.message : 'no se pudo conectar.'}`)
+      }
     }
+    setMessage({ error: failed, text: results.join(' ') })
   }
 
   if (hasKey === null || !aiSettings) return null
@@ -121,16 +132,38 @@ export function GeminiPanel({ embedded, headingId }: { embedded?: boolean; headi
           )}
         </div>
 
-        <Field label="Modelo">
+        <Field
+          label="Modelo principal"
+          hint={`Diseña las campañas y genera cada acto, pensando a fondo. Por defecto: ${DEFAULT_MAIN_MODEL}.`}
+        >
           <Input
-            key={aiSettings.model}
-            defaultValue={aiSettings.model}
-            onBlur={(event) => void saveAiModel(db, event.target.value)}
+            key={aiSettings.mainModel}
+            defaultValue={aiSettings.mainModel}
+            onBlur={(event) => void saveAiModels(db, { mainModel: event.target.value })}
             autoComplete="off"
+            autoCapitalize="off"
             spellCheck={false}
             className="text-sm"
           />
         </Field>
+        <Field
+          label="Modelo rápido"
+          hint={`Preguntas previas, detallar misiones y misión del día. Por defecto: ${DEFAULT_FAST_MODEL}.`}
+        >
+          <Input
+            key={aiSettings.fastModel}
+            defaultValue={aiSettings.fastModel}
+            onBlur={(event) => void saveAiModels(db, { fastModel: event.target.value })}
+            autoComplete="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            className="text-sm"
+          />
+        </Field>
+        <p className="text-xs text-muted">
+          Si el modelo principal falla, la app te muestra el motivo y te deja reintentar o usar el rápido: nunca cambia
+          de modelo sin avisarte. En el nivel gratuito, Google puede usar lo que envías para mejorar sus productos.
+        </p>
 
         {message && (
           <p role="status" className={`text-sm ${message.error ? 'text-ember' : 'text-signal'}`}>

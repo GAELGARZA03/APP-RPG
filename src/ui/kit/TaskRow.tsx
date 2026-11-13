@@ -16,10 +16,12 @@ export function TaskRow(props: {
   xp: number
   done: boolean
   stepCount: number
+  /** Objetivos ya marcados; se muestra como "2 / 3". */
+  stepsDone?: number
   onToggle: () => void
   onOpen: () => void
 }) {
-  const { layoutId, title, difficulty, xp, done, stepCount, onToggle, onOpen } = props
+  const { layoutId, title, difficulty, xp, done, stepCount, stepsDone = 0, onToggle, onOpen } = props
 
   return (
     <motion.li
@@ -53,9 +55,9 @@ export function TaskRow(props: {
             <DifficultyPips value={difficulty} />
             <Badge tone="signal">+{xp} XP</Badge>
             {stepCount > 0 && (
-              <Badge>
+              <Badge tone={stepsDone > 0 ? 'info' : 'muted'}>
                 <ListChecks aria-hidden />
-                {stepCount}
+                {done ? stepCount : stepsDone} / {stepCount}
               </Badge>
             )}
           </span>

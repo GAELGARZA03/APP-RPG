@@ -2,8 +2,18 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { CalendarCheck, CheckCheck, Plus } from 'lucide-react'
 import { db } from '../data/appDb'
 import type { ProfileSettings } from '../data/db'
-import { completeBounty, getTodayBounties, getWeek, undoBounty, type Hud, type TaskRef, type TodayBounty } from '../data/gameStore'
+import {
+  completeBounty,
+  getTodayBounties,
+  getWeek,
+  undoBounty,
+  type Hud,
+  type Outcome,
+  type TaskRef,
+  type TodayBounty,
+} from '../data/gameStore'
 import type { GameDay } from '../game/gameDay'
+import { DailyCard } from './DailyCard'
 import { HudCard, StreakCard } from './HudCard'
 import { Badge } from './kit/Badge'
 import { Button } from './kit/Button'
@@ -19,15 +29,18 @@ export function TodayTab(props: {
   onCreate: () => void
   onOpen: (ref: TaskRef) => void
   onStreakInfo: () => void
-  onReward: (xp: number | null) => void
+  onOutcome: (outcome: Outcome, ref: TaskRef, fromDetail: boolean) => void
 }) {
-  const { today, hud, title, profile, onProfile, onCreate, onOpen, onStreakInfo, onReward } = props
+  const { today, hud, title, profile, onProfile, onCreate, onOpen, onStreakInfo, onOutcome } = props
   const bounties = useLiveQuery(() => getTodayBounties(db, today), [today])
   const week = useLiveQuery(() => getWeek(db, today), [today])
 
   async function toggle(bounty: TodayBounty) {
     if (bounty.doneToday) await undoBounty(db, bounty.id)
-    else onReward(await completeBounty(db, bounty.id))
+    else {
+      const xp = await completeBounty(db, bounty.id)
+      onOutcome({ ok: xp !== null, xp: xp ?? 0 }, { kind: 'bounty', id: bounty.id }, false)
+    }
   }
 
   const doneCount = bounties?.filter((bounty) => bounty.doneToday).length ?? 0
@@ -36,6 +49,7 @@ export function TodayTab(props: {
     <>
       <HudCard hud={hud} title={title} profile={profile} onOpen={onProfile} />
       <StreakCard hud={hud} week={week} onInfo={onStreakInfo} />
+      <DailyCard today={today} onOpen={onOpen} onOutcome={onOutcome} />
 
       <Card
         label="Contratos de hoy"
@@ -70,6 +84,7 @@ export function TodayTab(props: {
               xp={bounty.xp}
               done={bounty.doneToday}
               stepCount={bounty.steps?.length ?? 0}
+              stepsDone={bounty.stepsDoneToday}
               onToggle={() => void toggle(bounty)}
               onOpen={() => onOpen({ kind: 'bounty', id: bounty.id })}
             />

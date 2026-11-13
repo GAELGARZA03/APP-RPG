@@ -1,4 +1,4 @@
-import { DEFAULT_GEMINI_MODEL } from '../ai/gemini'
+import { DEFAULT_FAST_MODEL, DEFAULT_MAIN_MODEL } from '../ai/models'
 import { DEFAULT_COSMETICS, type CosmeticChoice } from '../game/cosmetics'
 import type {
   AiSettings,
@@ -6,6 +6,7 @@ import type {
   CosmeticSettings,
   GameDatabase,
   NotificationSettings,
+  PrefsSettings,
   ProfileSettings,
 } from './db'
 
@@ -39,12 +40,36 @@ export async function saveCosmetics(db: GameDatabase, changes: Partial<CosmeticC
 
 export async function getAiSettings(db: GameDatabase): Promise<AiSettings> {
   const saved = await db.settings.get('ai')
-  return saved?.id === 'ai' && saved.model.trim() ? saved : { id: 'ai', model: DEFAULT_GEMINI_MODEL }
+  const stored = saved?.id === 'ai' ? saved : null
+  return {
+    id: 'ai',
+    fastModel: stored?.fastModel?.trim() || DEFAULT_FAST_MODEL,
+    mainModel: stored?.mainModel?.trim() || DEFAULT_MAIN_MODEL,
+  }
 }
 
-export async function saveAiModel(db: GameDatabase, model: string): Promise<void> {
-  const settings: AiSettings = { id: 'ai', model: model.trim() || DEFAULT_GEMINI_MODEL }
+export async function saveAiModels(
+  db: GameDatabase,
+  changes: Partial<Pick<AiSettings, 'fastModel' | 'mainModel'>>,
+): Promise<void> {
+  const current = await getAiSettings(db)
+  const settings: AiSettings = {
+    id: 'ai',
+    fastModel: (changes.fastModel ?? current.fastModel).trim() || DEFAULT_FAST_MODEL,
+    mainModel: (changes.mainModel ?? current.mainModel).trim() || DEFAULT_MAIN_MODEL,
+  }
   await db.settings.put(settings)
+}
+
+export const DEFAULT_PREFS: PrefsSettings = { id: 'prefs', haptics: true }
+
+export async function getPrefs(db: GameDatabase): Promise<PrefsSettings> {
+  const saved = await db.settings.get('prefs')
+  return saved?.id === 'prefs' ? saved : DEFAULT_PREFS
+}
+
+export async function savePrefs(db: GameDatabase, changes: Partial<Omit<PrefsSettings, 'id'>>): Promise<void> {
+  await db.settings.put({ ...(await getPrefs(db)), ...changes })
 }
 
 export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {

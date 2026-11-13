@@ -43,8 +43,21 @@ La identidad visual se inspira en las consolas clásicas, pero usa sonidos, tipo
 1. **Campañas Principales (Main Quests):** Metas grandes desglosadas en *Side Quests*. Su barra de progreso se calcula con el XP completado de sus sub-tareas.
 2. **Side Quests:** Tareas secundarias, normalmente vinculadas a campañas. Pueden existir sin campaña; en ese caso no mueven ninguna barra de progreso.
 3. **Bounties (Contratos Diarios):** Hábitos diarios repetibles (ej. medicamentos). Se pueden crear y editar manualmente desde el día uno, sin depender de la IA. En las Bounties manuales, el usuario elige la dificultad.
-4. **Previsualización:** Obligatorio revisar y editar las misiones generadas por IA, incluida su dificultad, antes de aceptarlas en el HUD. Gemini propone una campaña con 3 a 8 Side Quests y hasta 3 contratos diarios; los contratos sugeridos aparecen desmarcados porque, si se aceptan, cuentan para la racha. El modelo es configurable en Ajustes (por defecto `gemini-3.5-flash-lite`).
-5. **Archivar y Borrar:** Las Bounties se archivan en lugar de borrarse, para conservar su historial. Borrar una campaña o una Side Quest conserva el XP ya ganado; para quitarlo, primero se deshace la tarea.
+4. **Generación en varios pasos:** idea → preguntas previas (modelo rápido) → diseño (modelo principal, razonando a fondo) → vista previa editable. El diseño trae análisis (diagnóstico, criterio de éxito, obstáculos y duración), de 2 a 5 actos, las misiones del Acto 1, una misión jefe, la rama de habilidades y de 0 a 3 contratos diarios, que aparecen desmarcados porque cuentan para la racha. Es obligatorio revisar y poder editar antes de aceptar; todo se crea en una sola transacción.
+5. **Actos y bloqueo:** en una campaña solo está abierto el primer acto sin terminar; dentro de él las misiones se hacen en cualquier orden. Un acto se completa cuando todas sus misiones están completadas o saltadas. **Nunca se bloquea por nivel del jugador, pero sí por progreso dentro de una campaña.** Las campañas creadas antes de los actos quedan en un solo acto, sin bloqueo ni jefe.
+6. **Generación acto por acto:** las misiones de cada acto siguiente se generan al llegar, con un botón, usando cómo le fue al jugador (qué saltó, cuánto tardó, qué deshizo). Si falla, el acto queda pendiente con reintento.
+7. **Misión jefe:** cierra el último acto, se abre al resolver las demás misiones de ese acto, da el doble de XP y pide al menos una foto o una nota.
+8. **«Ya sé hacer esto»:** saltar una misión cuenta para avanzar y para el progreso, pero no da XP ni crea evento. Se puede deshacer.
+9. **Objetivos marcables:** marcar el último objetivo completa la misión; desmarcar uno de una misión completada la deshace. En los contratos, las casillas se reinician cada día de juego.
+10. **Misión del día:** un reto de 15 a 30 minutos generado una vez por día de juego con el modelo rápido. Da 50% más de XP, suma a su habilidad, no afecta la racha y caduca a las 4:00 a. m.
+11. **Modelos:** rápido (`gemini-3.5-flash-lite`) y principal (`gemini-4-hydrogen`), configurables en Ajustes. Si el principal falla, se muestra el motivo con «Reintentar» y «Usar modelo rápido»; nunca se cambia de modelo en silencio.
+12. **Archivar y Borrar:** Las Bounties se archivan en lugar de borrarse, para conservar su historial. Borrar una campaña borra sus actos, misiones y evidencias, quita su rama del árbol (salvo que otra campaña la comparta) y archiva los contratos creados con ella; el XP ya ganado se conserva. Las campañas terminadas se agrupan en una sección plegable «Completadas».
+13. **Restablecer progreso:** en Ajustes, deja el juego en cero (campañas, misiones, árbol, bitácora, XP, nivel, racha y desbloqueos), con opción de conservar los contratos diarios. No toca la llave de Gemini, el perfil ni los recordatorios.
+
+### B2. Árbol de habilidades y bitácora
+- **Árbol:** la raíz es el jugador; las ramas son áreas y sus sub-ramas, habilidades concretas. Cada misión completada suma su XP a su habilidad, y cada rama suma el de sus sub-ramas. Niveles de dominio: Novato (0), Aprendiz (100), Competente (300), Experto (700) y Maestro (1500 XP). Vive en el Perfil, con pantalla completa que se mueve y acerca con los dedos.
+- **Bitácora:** fotos (comprimidas a 1280 px, máximo 4 por misión) y notas por misión, reunidas en orden cronológico en el Perfil. Entran en el respaldo.
+- **Vibración:** al completar una misión u objetivo, al desbloquear un acto, al derrotar al jefe y al subir de nivel. Se apaga en Ajustes.
 
 ### C. Notificaciones (Trilogía Diaria)
 Para evitar el abandono de la app y el "cementerio de ideas", se programan notificaciones locales en tres momentos del día, con horarios configurables:
@@ -77,7 +90,7 @@ Horarios iniciales: 8:00, 15:00 y 22:30. Además, un recordatorio semanal opcion
 ---
 
 ## 5. Fuera de Alcance en Esta Versión
-- Árbol de habilidades y sistema de logros (*achievements*).
+- Sistema de logros (*achievements*), revisión semanal con IA, mentor, widget y video en la bitácora.
 - Bounties con frecuencia distinta a la diaria (ej. tres veces por semana).
 
 ---
@@ -89,3 +102,4 @@ Horarios iniciales: 8:00, 15:00 y 22:30. Además, un recordatorio semanal opcion
 - **Sprint 3:** Sistema de respaldos en JSON y notificaciones locales.
 - **Sprint 4:** Conexión y validación de respuestas de la API de Gemini para generación de misiones.
 - **Sprint 5:** Progresión estética.
+- **Fase 1:** Campañas con progresión (actos, jefe, generación acto por acto), mapa de campaña, objetivos marcables, árbol de habilidades, bitácora, misión del día y vibración.
