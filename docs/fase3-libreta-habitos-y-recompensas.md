@@ -91,6 +91,7 @@ Al terminar una parte:
 4. **Hoy:** desaparece "Contratos de hoy". En su lugar, un bloque compacto **"Hábitos de hoy"** con los hábitos programados para hoy y marcado de un toque, que lleva a la libreta. La misión del día actual se queda como está (la parte 3 la cambia).
 5. **Rachas:** la racha general (sección 2) sustituye a la de contratos en el HUD y en la fila semanal de días. Cada hábito muestra su propia racha.
 6. **Generador de campañas:** donde hoy sugiere contratos diarios, ahora sugiere **hábitos**, que al aceptarse se agregan a la libreta.
+7. **Revisión semanal (de la fase 2):** analiza el cumplimiento de los hábitos en lugar del de los contratos, y sus ajustes proponen archivar, agregar o cambiar la frecuencia de un hábito. Las revisiones ya guardadas se siguen viendo bien.
 
 ### Criterios de aceptación
 
@@ -101,6 +102,7 @@ Al terminar una parte:
 - [ ] Hoy y ayer dan XP y cuentan para la racha; los días anteriores solo se registran.
 - [ ] La racha general y la racha por hábito funcionan como dice la sección 2, con pruebas.
 - [ ] El generador sugiere hábitos en lugar de contratos.
+- [ ] La revisión semanal usa hábitos en lugar de contratos.
 
 ---
 
