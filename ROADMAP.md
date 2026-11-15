@@ -19,7 +19,7 @@
 
 - **Restablecer conservando lo ganado:** una variante que borre misiones y campañas pero conserve XP, nivel y desbloqueos.
 - **Pendientes de la Fase 1:** probar en el teléfono la foto de evidencia de principio a fin y la misión jefe real; revisar las pantallas nuevas con los cinco temas; editar las misiones de un acto antes de aceptarlas (hoy se editan después, una por una).
-- **Revisión semanal con IA:** análisis de lo que completaste y lo que se atoró, con ajustes sugeridos.
+- **Fase 2: verificación, orden interno y revisión semanal con IA.** Probar en el teléfono los pendientes de la fase 1, dividir los archivos grandes y cargar las pantallas pesadas bajo demanda, y una revisión semanal con ajustes aplicables con un toque. Especificación en [docs/fase2-verificacion-y-revision-semanal.md](docs/fase2-verificacion-y-revision-semanal.md).
 - **Logros:** pensar cómo generarlos (por ejemplo, con IA a partir de lo que haces) en lugar de una lista fija.
 - **Widget de Android** con los contratos de hoy.
 - **Video en la bitácora** y un **mentor** con IA para dudas de cada misión (por decidir).
@@ -27,6 +27,19 @@
 - **Fechas límite y recordatorios por tarea:** por ejemplo, "Vence el 8 de noviembre" o "Recuérdame a las 9:00". Si se vence, aviso al día siguiente, sin quitar XP. Se mostrará en la vista de detalle.
 - **Icono para Android 7 (opcional):** los teléfonos con Android 7 todavía usarían el icono antiguo de Capacitor en PNG. No afecta al Samsung actual.
 - **Nombre definitivo de la app** (si se cambia "Real Life RPG").
+
+- **Fase 3: libreta de hábitos, bitácora y recompensas**, en cuatro partes para hacerlas por separado. Especificación en [docs/fase3-libreta-habitos-y-recompensas.md](docs/fase3-libreta-habitos-y-recompensas.md).
+  1. Navegación con cinco pestañas y menú lateral, y libreta mensual de hábitos (sustituye a los contratos diarios).
+  2. Diario de momentos, bitácora unificada y registro de sueño.
+  3. Tres misiones del día, oro, tienda de premios reales y racha por campaña.
+  4. Ruta progresiva de hábitos y recordatorios por hábito.
+
+## Ideas
+
+- **Coach de evidencias con IA:** Gemini mira la foto de tu evidencia y te da retroalimentación, como un profesor. Su utilidad depende de la habilidad, así que hay que pensar bien en cuáles aplica.
+- **Pruebas de dominio:** para subir una habilidad a "Experto", una prueba (cuestionario o reto con evidencia).
+- **Integraciones:** Health Connect para completar solas las misiones de ejercicio, y Google Calendar para agendar misiones.
+- **Preparar la app para el público:** cuentas, sincronización y la IA desde un servidor, sin que cada usuario necesite su llave.
 
 ## Futuro
 
