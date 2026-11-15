@@ -12,13 +12,14 @@ import { markBackupDone } from './settings'
 
 const BACKUP_APP = 'real-life-rpg'
 /**
+ * Versión 6: registro de sueño.
  * Versión 5: notas diarias de la bitácora.
  * Versión 4: los contratos diarios pasan a ser hábitos, con registro por día.
  * Versión 3: revisiones semanales. Versión 2: actos, análisis, habilidades, bitácora y misión del día.
  * Las versiones 1 a 3 se siguen importando: sus contratos se convierten en hábitos diarios (`upgradeLegacy`).
  */
-const BACKUP_VERSION = 5
-const SUPPORTED_VERSIONS = [1, 2, 3, 4, BACKUP_VERSION] as const
+const BACKUP_VERSION = 6
+const SUPPORTED_VERSIONS = [1, 2, 3, 4, 5, BACKUP_VERSION] as const
 
 const id = z.string().min(1).max(100)
 const title = z.string().trim().min(1).max(200)
@@ -197,6 +198,8 @@ const dataSchema = z.object({
       }),
     )
     .default([]),
+  // No existe en los respaldos de las versiones 1 a 5.
+  sleep: z.array(z.object({ id: day, hours: z.number().min(0).max(14).multipleOf(0.5) })).default([]),
   // No existe en los respaldos de las versiones 1 a 4.
   dailyNotes: z
     .array(z.object({ id: day, text: text(2000), photo: photo.optional(), createdAt: timestamp, updatedAt: timestamp }))
@@ -261,6 +264,7 @@ function tables(db: GameDatabase) {
     db.reviews,
     db.habitLogs,
     db.dailyNotes,
+    db.sleep,
   ]
 }
 
@@ -276,6 +280,7 @@ export async function createBackup(db: GameDatabase, now = new Date()): Promise<
         habits: await db.habits.toArray(),
         habitLogs: await db.habitLogs.toArray(),
         dailyNotes: await db.dailyNotes.toArray(),
+        sleep: await db.sleep.toArray(),
         campaigns: await db.campaigns.toArray(),
         sideQuests: await db.sideQuests.toArray(),
         xpEvents: await db.xpEvents.toArray(),
@@ -399,6 +404,7 @@ export async function restoreBackup(db: GameDatabase, backup: Backup): Promise<v
       await db.habits.bulkAdd(backup.data.habits)
       await db.habitLogs.bulkAdd(backup.data.habitLogs)
       await db.dailyNotes.bulkAdd(backup.data.dailyNotes)
+      await db.sleep.bulkAdd(backup.data.sleep)
       await db.campaigns.bulkAdd(backup.data.campaigns)
       await db.sideQuests.bulkAdd(backup.data.sideQuests)
       await db.xpEvents.bulkAdd(backup.data.xpEvents)

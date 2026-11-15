@@ -742,3 +742,25 @@ describe('Migración del esquema', () => {
     }
   })
 })
+
+describe('Hitos automáticos', () => {
+  it('registra niveles, actos cerrados y dominio, y desaparecen al deshacer', async () => {
+    const { getMilestones } = await import('./gameStore')
+    const campaign = await guitar()
+    const [first, second, third] = (await getCampaign(db, campaign.id))!.actViews[0].quests
+    await completeQuest(db, first.id, day(0))
+    await completeQuest(db, second.id, day(1))
+    await completeQuest(db, third.id, day(2))
+
+    const milestones = await getMilestones(db)
+    expect(milestones.find((item) => item.kind === 'act')).toMatchObject({
+      day: gameDayOf(day(2)),
+      subtitle: campaign.title,
+    })
+    expect(milestones.some((item) => item.kind === 'level' && item.title === 'Subiste al nivel 2')).toBe(true)
+    expect(milestones[0].day >= milestones[milestones.length - 1].day).toBe(true)
+
+    await undoSideQuest(db, third.id)
+    expect((await getMilestones(db)).some((item) => item.kind === 'act')).toBe(false)
+  })
+})

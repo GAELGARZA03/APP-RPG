@@ -9,6 +9,7 @@ export {
   completeHabit,
   createHabit,
   dayAccess,
+  getArchivedHabits,
   getHabitGrid,
   getHabits,
   getNotebook,
@@ -16,6 +17,7 @@ export {
   habitStreak,
   moveHabit,
   nextHabitState,
+  restoreHabit,
   setHabitState,
   undoHabit,
   updateHabit,
@@ -84,4 +86,16 @@ export {
   weekStartOf,
 } from './store/review'
 export type { ApplyResult, ReviewCardView, ReviewPlan, ReviewRef, WeekReport } from './store/review'
-export { getDailyNote, getDiaryMonth, listDailyNotes, MAX_DAILY_NOTE_LENGTH, saveDailyNote } from './store/notes'
+export {
+  getDailyNote,
+  getDiaryMonth,
+  getDiaryRange,
+  getMemory,
+  listDailyNotes,
+  MAX_DAILY_NOTE_LENGTH,
+  saveDailyNote,
+} from './store/notes'
+export { clampSleep, getSleep, getSleepRange, MAX_SLEEP_HOURS, setSleep, SLEEP_GOAL_HOURS } from './store/sleep'
+export type { SleepRange } from './store/sleep'
+export { getMilestones } from './store/milestones'
+export type { Milestone, MilestoneKind } from './store/milestones'

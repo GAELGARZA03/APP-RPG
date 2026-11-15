@@ -134,6 +134,7 @@ export function allTables(db: GameDatabase) {
     db.reviews,
     db.habitLogs,
     db.dailyNotes,
+    db.sleep,
   ]
 }
 

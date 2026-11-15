@@ -40,9 +40,9 @@ function shiftMonth(month: string, amount: number): string {
 
 const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1)
 
-export function Diary({ today }: { today: GameDay }) {
-  const [selected, setSelected] = useState(today)
-  const [month, setMonth] = useState(today.slice(0, 7))
+export function Diary({ today, initialDay }: { today: GameDay; initialDay?: GameDay }) {
+  const [selected, setSelected] = useState(initialDay ?? today)
+  const [month, setMonth] = useState((initialDay ?? today).slice(0, 7))
   const notes = useLiveQuery(() => getDiaryMonth(db, month), [month])
   const selectedNotes = useLiveQuery(() => getDiaryMonth(db, selected.slice(0, 7)), [selected])
   const page = useRef<HTMLDivElement>(null)

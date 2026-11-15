@@ -193,6 +193,7 @@ export function App() {
   const [screen, setScreen] = useState<FullScreen | null>(null)
   const [celebration, setCelebration] = useState<ActCompletion | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [diaryFocus, setDiaryFocus] = useState<{ day: GameDay; key: number } | undefined>(undefined)
   const previousLevel = useRef<number | null>(null)
   const covered = screen !== null || detail !== null || celebration !== null || menuOpen
 
@@ -205,6 +206,12 @@ export function App() {
     () => setScreen((current) => (current?.kind === 'tree' && current.from ? { kind: current.from } : null)),
     [],
   )
+
+  /** Abre la Bitácora en el diario de ese día. */
+  function openDiary(day: GameDay) {
+    setDiaryFocus({ day, key: Date.now() })
+    setTab('journal')
+  }
 
   // Se cargan los datos antes de abrir: así la tarjeta crece una sola vez, ya con su contenido.
   async function openDetail(ref: TaskRef) {
@@ -378,6 +385,7 @@ export function App() {
               onProfile={() => setScreen({ kind: 'profile' })}
               onCreate={() => setSheet({ kind: 'newHabit' })}
               onNotebook={() => setTab('notebook')}
+              onOpenDiary={openDiary}
               onReview={(weekStart) => setSheet({ kind: 'review', weekStart })}
               onOpen={(ref) => void openDetail(ref)}
               onStreakInfo={() =>
@@ -406,6 +414,7 @@ export function App() {
               <NotebookTab
                 today={today}
                 onManage={() => setSheet({ kind: 'habits' })}
+                onOpenDiary={openDiary}
                 onCreate={() => setSheet({ kind: 'newHabit' })}
                 onOutcome={handleOutcome}
               />
@@ -413,7 +422,7 @@ export function App() {
           )}
           {tab === 'journal' && (
             <Suspense fallback={null}>
-              <JournalTab today={today} onOpen={(ref) => void openDetail(ref)} />
+              <JournalTab today={today} focus={diaryFocus} onOpen={(ref) => void openDetail(ref)} />
             </Suspense>
           )}
         </motion.div>

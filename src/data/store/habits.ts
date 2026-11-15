@@ -105,6 +105,21 @@ export async function archiveHabit(db: GameDatabase, id: string, now = new Date(
   await db.habits.update(id, { archivedDay: gameDayOf(now) })
 }
 
+/** Hábitos archivados, del más reciente al más antiguo. */
+export async function getArchivedHabits(db: GameDatabase) {
+  return (await db.habits.toArray())
+    .filter((habit) => habit.archivedDay !== null)
+    .sort((a, b) => b.archivedDay!.localeCompare(a.archivedDay!))
+}
+
+/** Vuelve a activar un hábito archivado, con su historial. Vuelve al final de la libreta. */
+export async function restoreHabit(db: GameDatabase, id: string): Promise<void> {
+  await db.transaction('rw', db.habits, async () => {
+    const last = (await db.habits.toArray()).reduce((max, habit) => Math.max(max, habit.order), -1)
+    await db.habits.update(id, { archivedDay: null, order: last + 1 })
+  })
+}
+
 /** Mueve un hábito un lugar a la izquierda (-1) o a la derecha (+1) en la libreta. */
 export async function moveHabit(db: GameDatabase, id: string, direction: -1 | 1, now = new Date()): Promise<void> {
   await db.transaction('rw', db.habits, async () => {
@@ -214,9 +229,10 @@ export async function getHabitGrid(db: GameDatabase, first: GameDay, last: GameD
     const days: GameDay[] = []
     for (let day = first; day <= last; day = addDays(day, 1)) days.push(day)
 
-    // Hábitos que existieron en algún momento del rango (incluidos los archivados durante el rango).
+    // Solo los hábitos activos que ya existían en el rango: los archivados no se muestran (se restauran desde
+    // Libreta › Hábitos). Su historial y su XP se conservan.
     const habits = (await db.habits.toArray())
-      .filter((habit) => habit.createdDay <= last && (habit.archivedDay === null || habit.archivedDay > first))
+      .filter((habit) => habit.createdDay <= last && habit.archivedDay === null)
       .sort(byOrder)
     const logs = await db.habitLogs
       .where('habitId')

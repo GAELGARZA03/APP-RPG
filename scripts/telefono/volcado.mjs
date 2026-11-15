@@ -17,6 +17,7 @@ const GAME_STORES = [
   'dailies',
   'reviews',
   'dailyNotes',
+  'sleep',
 ]
 
 const OPEN = `const idb = await new Promise((resolve, reject) => { const request = indexedDB.open(${JSON.stringify(DATABASE)}); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error) })`

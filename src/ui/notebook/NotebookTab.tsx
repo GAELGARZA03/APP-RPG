@@ -1,11 +1,12 @@
 // Libreta de hábitos: una fila por hábito y una casilla por día, con vistas de 3 días, 7 días o el mes.
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Check, ChevronLeft, ChevronRight, Flame, ListChecks, Plus, X } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, Flame, ListChecks, NotebookPen, Plus, X } from 'lucide-react'
 import { motion } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
 import { db } from '../../data/appDb'
 import type { HabitState } from '../../data/db'
 import {
+  getDiaryRange,
   getHabitGrid,
   nextHabitState,
   setHabitState,
@@ -18,6 +19,7 @@ import { addDays, type GameDay } from '../../game/gameDay'
 import { haptic } from '../../platform/haptics'
 import { Button } from '../kit/Button'
 import { cn } from '../kit/cn'
+import { SleepChart } from '../sleep/SleepChart'
 
 const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
 const MONTH_NAMES = [
@@ -76,6 +78,7 @@ function periodLabel(view: View, [first, last]: [GameDay, GameDay]): string {
 export function NotebookTab(props: {
   today: GameDay
   onManage: () => void
+  onOpenDiary: (day: GameDay) => void
   onCreate: () => void
   onOutcome: (outcome: Outcome, ref: TaskRef, fromDetail: boolean) => void
 }) {
@@ -85,6 +88,7 @@ export function NotebookTab(props: {
   const [anchor, setAnchor] = useState(today)
   const range = rangeOf(view, anchor)
   const grid = useLiveQuery(() => getHabitGrid(db, range[0], range[1], today), [range[0], range[1], today])
+  const diary = useLiveQuery(() => getDiaryRange(db, range[0], range[1]), [range[0], range[1]])
   const scroller = useRef<HTMLDivElement>(null)
   const todayHeader = useRef<HTMLDivElement>(null)
 
@@ -229,6 +233,54 @@ export function NotebookTab(props: {
                 ))}
               </div>
 
+              {/* Fila del diario: los días con nota llevan su marca; tocar un día abre su página. */}
+              <div role="row" className="flex border-b border-white/[0.06]">
+                <div
+                  role="rowheader"
+                  className={cn(
+                    'sticky left-0 z-10 flex shrink-0 items-center gap-2 bg-panel/95 py-1 pr-1 pl-3 text-[13px] font-medium',
+                    view === '3' ? 'w-32' : view === '7' ? 'w-[6.5rem]' : 'w-28',
+                  )}
+                >
+                  <NotebookPen aria-hidden className="size-4 text-info" />
+                  Diario
+                </div>
+                {grid.days.map((info) => {
+                  const note = diary?.get(info.day)
+                  return (
+                    <div
+                      key={info.day}
+                      role="gridcell"
+                      className={cn(
+                        'grid place-items-center py-1',
+                        view === 'month' ? 'w-9 shrink-0' : 'min-w-0 flex-1',
+                        info.isToday && 'bg-signal/[0.07]',
+                      )}
+                    >
+                      <button
+                        type="button"
+                        disabled={info.future}
+                        onClick={() => props.onOpenDiary(info.day)}
+                        aria-label={`Diario del día ${dayNumber(info.day)}${note ? ', con nota' : ', sin nota'}`}
+                        className={cn(
+                          'relative grid place-items-center overflow-hidden rounded-md',
+                          view === '3' ? 'size-12' : view === '7' ? 'size-[26px]' : 'size-7',
+                          note ? 'bg-info/20 text-info' : 'text-muted/40',
+                        )}
+                      >
+                        {note?.photo ? (
+                          <img src={note.photo} alt="" className="absolute inset-0 size-full object-cover" />
+                        ) : note ? (
+                          <NotebookPen aria-hidden className="size-3.5" />
+                        ) : (
+                          !info.future && <span aria-hidden className="size-1 rounded-full bg-current" />
+                        )}
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+
               {habits.map((habit, row) => (
                 <div
                   key={habit.id}
@@ -272,6 +324,8 @@ export function NotebookTab(props: {
           <Legend />
         </>
       )}
+
+      {grid && <SleepChart first={range[0]} last={range[1]} today={today} />}
     </>
   )
 }

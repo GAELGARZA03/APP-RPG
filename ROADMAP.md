@@ -31,7 +31,7 @@
 
 - **Fase 3: libreta de hábitos, bitácora y recompensas**, en cuatro partes para hacerlas por separado. Especificación en [docs/fase3-libreta-habitos-y-recompensas.md](docs/fase3-libreta-habitos-y-recompensas.md).
   1. ~~Navegación con cinco pestañas y menú lateral, y libreta mensual de hábitos (sustituye a los contratos diarios).~~ Hecha: ver [docs/fase3-parte1-entrega.md](docs/fase3-parte1-entrega.md).
-  2. Diario de momentos, bitácora unificada y registro de sueño.
+  2. ~~Diario de momentos, bitácora unificada y registro de sueño.~~ Hecha: ver [docs/fase3-parte2-entrega.md](docs/fase3-parte2-entrega.md).
   3. Tres misiones del día, oro, tienda de premios reales y racha por campaña.
   4. Ruta progresiva de hábitos y recordatorios por hábito.
 

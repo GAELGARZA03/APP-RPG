@@ -1,9 +1,16 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { BookHeart, Flag, NotebookPen, Skull, Trophy } from 'lucide-react'
+import { Award, BookHeart, Flag, NotebookPen, Skull, Star, Trophy, type LucideIcon } from 'lucide-react'
 import { AnimatePresence } from 'motion/react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { db } from '../data/appDb'
-import { deleteEvidence, getJournal, type JournalEntry, type TaskRef } from '../data/gameStore'
+import {
+  deleteEvidence,
+  getJournal,
+  getMilestones,
+  type JournalEntry,
+  type MilestoneKind,
+  type TaskRef,
+} from '../data/gameStore'
 import type { GameDay } from '../game/gameDay'
 import { Diary } from './Diary'
 import { formatDay } from './formatDay'
@@ -40,8 +47,17 @@ function savedSection(): Section {
  * Pestaña Bitácora, con dos partes: el Diario (una nota por día con algo épico o algo por lo que das gracias)
  * y el Progreso (las fotos y notas de tus misiones).
  */
-export function JournalTab({ today, onOpen }: { today: GameDay; onOpen: (ref: TaskRef) => void }) {
-  const [section, setSectionState] = useState<Section>(savedSection)
+export function JournalTab(props: {
+  today: GameDay
+  /** Abre el diario en este día (desde la libreta o un recuerdo de Hoy). */
+  focus?: { day: GameDay; key: number }
+  onOpen: (ref: TaskRef) => void
+}) {
+  const { today, focus, onOpen } = props
+  const [section, setSectionState] = useState<Section>(focus ? 'diary' : savedSection)
+  useEffect(() => {
+    if (focus) setSectionState('diary')
+  }, [focus])
   function setSection(next: Section) {
     setSectionState(next)
     try {
@@ -81,46 +97,109 @@ export function JournalTab({ today, onOpen }: { today: GameDay; onOpen: (ref: Ta
           </button>
         ))}
       </div>
-      {section === 'diary' ? <Diary today={today} /> : <Progress onOpen={onOpen} />}
+      {section === 'diary' ? (
+        <Diary key={focus?.key} today={today} initialDay={focus?.day} />
+      ) : (
+        <Progress onOpen={onOpen} />
+      )}
     </>
   )
 }
 
 /** Progreso: todas las fotos y notas de tus misiones, de la más reciente a la más antigua. */
+type ProgressFilter = 'all' | 'evidence' | 'milestones'
+const FILTERS: Array<{ id: ProgressFilter; label: string }> = [
+  { id: 'all', label: 'Todo' },
+  { id: 'evidence', label: 'Evidencias' },
+  { id: 'milestones', label: 'Hitos' },
+]
+const MILESTONE_ICON: Record<MilestoneKind, LucideIcon> = { level: Star, act: Flag, boss: Skull, mastery: Award }
+
 function Progress({ onOpen }: { onOpen: (ref: TaskRef) => void }) {
-  const entries = useLiveQuery(() => getJournal(db), [])
+  const allEntries = useLiveQuery(() => getJournal(db), [])
+  const allMilestones = useLiveQuery(() => getMilestones(db), [])
+  const [filter, setFilter] = useState<ProgressFilter>('all')
   const [viewing, setViewing] = useState<JournalEntry | null>(null)
-  const photoCount = entries?.filter((entry) => entry.photo).length ?? 0
-  const noteCount = (entries?.length ?? 0) - photoCount
+  const entries = filter === 'milestones' ? [] : allEntries
+  const milestones = filter === 'evidence' ? [] : (allMilestones ?? [])
+  const photoCount = allEntries?.filter((entry) => entry.photo).length ?? 0
+  const noteCount = (allEntries?.length ?? 0) - photoCount
+  const groups = groupEntries(entries ?? [])
+  const days = [...new Set([...groups.map((group) => group.day), ...milestones.map((item) => item.day)])].sort((a, b) =>
+    b.localeCompare(a),
+  )
 
   return (
     <>
-      {entries && entries.length > 0 && (
-        <p className="-mt-2 text-sm text-muted">
-          {photoCount} {photoCount === 1 ? 'foto' : 'fotos'} · {noteCount} {noteCount === 1 ? 'nota' : 'notas'} de tus
-          misiones
-        </p>
-      )}
+      <div className="-mt-1 flex flex-wrap items-center gap-2">
+        {FILTERS.map((option) => (
+          <button
+            key={option.id}
+            type="button"
+            aria-pressed={filter === option.id}
+            onClick={() => setFilter(option.id)}
+            className={cn(
+              'min-h-9 rounded-full border px-3.5 text-sm',
+              filter === option.id
+                ? 'border-signal bg-signal/15 text-signal'
+                : 'border-white/[0.08] bg-void/50 text-muted active:border-signal',
+            )}
+          >
+            {option.label}
+          </button>
+        ))}
+        {allEntries && allEntries.length > 0 && (
+          <span className="text-xs text-muted">
+            {photoCount} {photoCount === 1 ? 'foto' : 'fotos'} · {noteCount} {noteCount === 1 ? 'nota' : 'notas'}
+          </span>
+        )}
+      </div>
       <div className="flex flex-col gap-5">
-        {entries && entries.length === 0 && (
+        {allEntries && allMilestones && days.length === 0 && (
           <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
             <span className="grid size-20 place-items-center rounded-full bg-signal/15 ring-2 ring-signal/40">
               <NotebookPen aria-hidden className="size-9 text-signal" />
             </span>
             <p className="font-display text-xl font-semibold">Aún no hay progreso registrado</p>
             <p className="text-sm text-muted">
-              Al completar una misión, agrega una foto o una nota desde su detalle. Aquí quedará el registro de tu
-              aventura.
+              Aquí aparecen tus logros (niveles, actos, jefes y habilidades) y las fotos y notas de tus misiones.
             </p>
           </div>
         )}
 
-        {groupEntries(entries ?? []).map((group) => (
-          <section key={group.day} aria-label={formatDay(group.day)} className="flex flex-col gap-2.5">
+        {days.map((day) => (
+          <section key={day} aria-label={formatDay(day)} className="flex flex-col gap-2.5">
             <h2 className="sticky top-[env(safe-area-inset-top)] z-10 -mx-4 bg-void/85 px-4 py-1.5 font-display text-sm font-semibold tracking-wide text-muted uppercase backdrop-blur">
-              {formatDay(group.day)}
+              {formatDay(day)}
             </h2>
-            {group.tasks.map((task) => {
+            {milestones
+              .filter((item) => item.day === day)
+              .map((item) => {
+                const Icon = MILESTONE_ICON[item.kind]
+                return (
+                  <div
+                    key={item.id}
+                    className={cn(
+                      'flex items-center gap-3 rounded-2xl border px-3 py-2.5',
+                      item.kind === 'boss' ? 'border-ember/40 bg-ember/[0.06]' : 'border-signal/25 bg-signal/[0.05]',
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        'grid size-9 shrink-0 place-items-center rounded-xl',
+                        item.kind === 'boss' ? 'bg-ember/15 text-ember' : 'bg-signal/15 text-signal',
+                      )}
+                    >
+                      <Icon aria-hidden className="size-4.5" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-sm font-semibold">{item.title}</span>
+                      {item.subtitle && <span className="block truncate text-xs text-muted">{item.subtitle}</span>}
+                    </span>
+                  </div>
+                )
+              })}
+            {(groups.find((group) => group.day === day)?.tasks ?? []).map((task) => {
               const [first] = task.entries
               const photos = task.entries.filter((entry) => entry.photo)
               const notes = task.entries.filter((entry) => entry.note)

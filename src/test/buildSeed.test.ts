@@ -21,6 +21,7 @@ import {
   saveDaily,
   saveDailyNote,
   saveReview,
+  setSleep,
   skipSideQuest,
   toggleStep,
   weekStartOf,
@@ -54,6 +55,7 @@ async function exportScenario(db: GameDatabase, name: string) {
     db.reviews,
     db.habitLogs,
     db.dailyNotes,
+    db.sleep,
   ]) {
     stores[table.name] = await table.toArray()
   }
@@ -196,8 +198,31 @@ async function buildDemo(db: GameDatabase) {
   )
   await saveDailyNote(db, gameDayOf(ago(6)), { text: 'Gracias a mi hermano por prestarme su guitarra.' }, ago(6, 23))
 
+  // Recuerdo para Hoy: una nota del mismo día de hace un mes (si ese día existe).
+  const monthAgo = new Date(ago(0))
+  monthAgo.setMonth(monthAgo.getMonth() - 1)
+  if (monthAgo.getDate() === ago(0).getDate()) {
+    await saveDailyNote(
+      db,
+      gameDayOf(monthAgo),
+      { text: 'Compré mi primera guitarra. Hoy empieza la aventura.' },
+      ago(0),
+    )
+  }
+
+  await addSleep(db, 14)
+
   const hud = await getHud(db, gameDayOf(new Date()))
   expect(hud.streak).toBeGreaterThanOrEqual(3)
+}
+
+/** Horas de sueño de los últimos `days` días (sin hoy), variadas y repetibles. */
+async function addSleep(db: GameDatabase, days: number) {
+  const pattern = [7.5, 6, 8, 7, 5.5, 9, 7.5, 6.5, 8, 7, 6, 8.5, 7, 6.5]
+  for (let offset = 1; offset <= days; offset++) {
+    if (offset % 9 === 0) continue
+    await setSleep(db, gameDayOf(ago(offset)), pattern[offset % pattern.length], ago(0))
+  }
 }
 
 it.runIf(building)('escenario demo', async () => {
@@ -480,5 +505,6 @@ it.runIf(building)('escenario libreta', async () => {
       if (state) await setHabitState(db, habit.id, day, state, noonOf(day))
     }
   }
+  await addSleep(db, 30)
   await exportScenario(db, 'libreta')
 })

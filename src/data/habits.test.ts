@@ -117,12 +117,20 @@ describe('Libreta', () => {
     expect(gymColumn.rate).toBe(50)
   })
 
-  it('incluye un hábito archivado durante el mes, pero no los del mes siguiente', async () => {
+  it('no muestra los archivados ni los del mes siguiente; un archivado se puede restaurar con su historial', async () => {
+    const { getArchivedHabits, restoreHabit } = await import('./gameStore')
     const old = await createHabit(db, { title: 'Viejo', difficulty: 1 }, at(0))
+    await completeHabit(db, old.id, at(0))
     await archiveHabit(db, old.id, at(10))
+    await createHabit(db, { title: 'Activo', difficulty: 1 }, at(0))
     await createHabit(db, { title: 'Diciembre', difficulty: 1 }, new Date(2026, 11, 3, 12))
+    expect((await getNotebook(db, '2026-11', dayOf(12))).habits.map((habit) => habit.title)).toEqual(['Activo'])
+    expect((await getArchivedHabits(db)).map((habit) => habit.title)).toEqual(['Viejo'])
+
+    await restoreHabit(db, old.id)
     const notebook = await getNotebook(db, '2026-11', dayOf(12))
-    expect(notebook.habits.map((habit) => [habit.title, habit.archived])).toEqual([['Viejo', true]])
+    expect(notebook.habits.map((habit) => habit.title)).toEqual(['Activo', 'Viejo'])
+    expect(notebook.habits[1].cells[1]).toMatchObject({ state: 'done', scheduled: true })
   })
 
   it('se pueden reordenar', async () => {
@@ -230,5 +238,48 @@ describe('Notas diarias', () => {
     await restoreBackup(target, parseBackup(JSON.stringify(await createBackup(db))))
     expect(await getDailyNote(target, dayOf(0))).toEqual(await getDailyNote(db, dayOf(0)))
     await target.delete()
+  })
+})
+
+describe('Sueño', () => {
+  it('redondea a la media hora, no admite el futuro, se borra con null y da el promedio del periodo', async () => {
+    const { getSleepRange, setSleep } = await import('./gameStore')
+    expect(await setSleep(db, dayOf(0), 7.3, at(0))).toBe(true)
+    await setSleep(db, dayOf(1), 20, at(1))
+    await setSleep(db, dayOf(2), 6, at(2))
+    expect(await setSleep(db, dayOf(5), 8, at(2))).toBe(false)
+
+    let range = await getSleepRange(db, dayOf(0), dayOf(3))
+    expect(range.days.map((item) => item.hours)).toEqual([7.5, 14, 6, null])
+    expect(range.average).toBe(9.2)
+    await setSleep(db, dayOf(1), null, at(2))
+    range = await getSleepRange(db, dayOf(0), dayOf(3))
+    expect(range.average).toBe(6.8)
+  })
+
+  it('viaja en el respaldo y no da XP', async () => {
+    const { createBackup } = await import('./backup')
+    const { setSleep } = await import('./gameStore')
+    await setSleep(db, dayOf(0), 8, at(0))
+    expect(await totalXp(0)).toBe(0)
+    const target = new GameDatabase(`habitos-${crypto.randomUUID()}`)
+    await restoreBackup(target, parseBackup(JSON.stringify(await createBackup(db))))
+    expect(await target.sleep.toArray()).toEqual([{ id: dayOf(0), hours: 8 }])
+    await target.delete()
+  })
+})
+
+describe('Recuerdos', () => {
+  it('prefiere la nota de hace un año y, si no hay, la de hace un mes', async () => {
+    const { getMemory, saveDailyNote } = await import('./gameStore')
+    const today = '2026-11-15'
+    const now = new Date(2026, 10, 15, 12)
+    expect(await getMemory(db, today)).toBeNull()
+    await saveDailyNote(db, '2026-10-15', { text: 'Primer día de guitarra' }, now)
+    expect(await getMemory(db, today)).toMatchObject({ label: 'Hace un mes', note: { text: 'Primer día de guitarra' } })
+    await saveDailyNote(db, '2025-11-15', { text: 'Corrí mi primer 5 km' }, now)
+    expect(await getMemory(db, today)).toMatchObject({ label: 'Hace un año', note: { text: 'Corrí mi primer 5 km' } })
+    // El 31 de marzo no tiene «mismo día» en febrero.
+    expect(await getMemory(db, '2026-03-31')).toBeNull()
   })
 })

@@ -19,7 +19,9 @@ import { Badge } from './kit/Badge'
 import { Button } from './kit/Button'
 import { Card } from './kit/Card'
 import { TaskRow } from './kit/TaskRow'
+import { MemoryCard } from './MemoryCard'
 import { ReviewCard } from './review/ReviewCard'
+import { SleepCard } from './sleep/SleepCard'
 
 export function TodayTab(props: {
   today: GameDay
@@ -29,6 +31,7 @@ export function TodayTab(props: {
   onProfile: () => void
   onCreate: () => void
   onNotebook: () => void
+  onOpenDiary: (day: GameDay) => void
   onReview: (weekStart: GameDay) => void
   onOpen: (ref: TaskRef) => void
   onStreakInfo: () => void
@@ -52,8 +55,10 @@ export function TodayTab(props: {
     <>
       <HudCard hud={hud} title={title} profile={profile} onOpen={onProfile} />
       <StreakCard hud={hud} week={week} onInfo={onStreakInfo} />
+      <SleepCard today={today} />
       <DailyCard today={today} onOpen={onOpen} onOutcome={onOutcome} />
       <ReviewCard today={today} onOpen={props.onReview} />
+      <MemoryCard today={today} onOpen={props.onOpenDiary} />
 
       <Card
         label="Hábitos de hoy"

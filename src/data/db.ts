@@ -156,6 +156,12 @@ export interface DailyNote {
   updatedAt: number
 }
 
+/** Horas dormidas la noche anterior a `id` (el día de juego en que despertaste). No da XP: es solo registro. */
+export interface SleepLog {
+  id: GameDay
+  hours: number
+}
+
 /** Una misión propuesta por la IA, sin el resto de campos de una misión guardada. */
 export interface PlannedMission {
   title: string
@@ -265,6 +271,7 @@ export class GameDatabase extends Dexie {
   reviews!: EntityTable<WeeklyReview, 'id'>
   habitLogs!: EntityTable<HabitLog, 'id'>
   dailyNotes!: EntityTable<DailyNote, 'id'>
+  sleep!: EntityTable<SleepLog, 'id'>
 
   constructor(name = 'real-life-rpg') {
     super(name)
@@ -332,6 +339,8 @@ export class GameDatabase extends Dexie {
     this.version(6).stores({ bounties: null })
     // v7: notas diarias de la bitácora.
     this.version(7).stores({ dailyNotes: 'id' })
+    // v8: registro de sueño.
+    this.version(8).stores({ sleep: 'id' })
   }
 }
 

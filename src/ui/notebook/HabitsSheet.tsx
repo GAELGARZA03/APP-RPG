@@ -1,10 +1,10 @@
 // Administrar hábitos: orden de las columnas, editar, archivar y crear.
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ArrowDown, ArrowUp, ListChecks, Pencil, Plus } from 'lucide-react'
-import { useId } from 'react'
+import { Archive, ArrowDown, ArrowUp, ListChecks, Pencil, Plus, RotateCcw } from 'lucide-react'
+import { useId, useState } from 'react'
 import { db } from '../../data/appDb'
 import type { Habit, HabitFrequency } from '../../data/db'
-import { getHabits, moveHabit } from '../../data/gameStore'
+import { getArchivedHabits, getHabits, moveHabit, restoreHabit } from '../../data/gameStore'
 import type { GameDay } from '../../game/gameDay'
 import { Button } from '../kit/Button'
 import { DifficultyPips } from '../kit/controls'
@@ -25,6 +25,8 @@ export function HabitsSheet(props: {
 }) {
   const headingId = useId()
   const habits = useLiveQuery(() => getHabits(db, props.today), [props.today])
+  const archived = useLiveQuery(() => getArchivedHabits(db), [])
+  const [showArchived, setShowArchived] = useState(false)
 
   return (
     <Sheet labelledBy={headingId} focusSheet onClose={props.onClose}>
@@ -85,6 +87,34 @@ export function HabitsSheet(props: {
           <Plus aria-hidden />
           Nuevo hábito
         </Button>
+
+        {archived && archived.length > 0 && (
+          <section aria-label="Hábitos archivados" className="flex flex-col gap-2 border-t border-white/[0.06] pt-3">
+            <button
+              type="button"
+              onClick={() => setShowArchived(!showArchived)}
+              aria-expanded={showArchived}
+              className="flex min-h-11 items-center gap-2 text-left text-sm text-muted"
+            >
+              <Archive aria-hidden className="size-4" />
+              Archivados · {archived.length}
+            </button>
+            {showArchived &&
+              archived.map((habit) => (
+                <div
+                  key={habit.id}
+                  className="flex items-center gap-2 rounded-2xl border border-white/[0.06] bg-void/30 p-2 pl-3 text-muted"
+                >
+                  <span className="w-6 text-center text-lg">{habit.emoji ?? '•'}</span>
+                  <span className="min-w-0 flex-1 truncate text-sm">{habit.title}</span>
+                  <Button size="sm" variant="ghost" onClick={() => void restoreHabit(db, habit.id)}>
+                    <RotateCcw aria-hidden />
+                    Restaurar
+                  </Button>
+                </div>
+              ))}
+          </section>
+        )}
       </div>
     </Sheet>
   )

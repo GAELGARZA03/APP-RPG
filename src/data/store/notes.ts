@@ -46,3 +46,32 @@ export async function getDiaryMonth(db: GameDatabase, month: string): Promise<Ma
   const notes = await db.dailyNotes.where('id').between(`${month}-01`, `${month}-32`).toArray()
   return new Map(notes.map((note) => [note.id, note]))
 }
+
+/** Notas entre dos días (inclusive), por día. */
+export async function getDiaryRange(db: GameDatabase, first: GameDay, last: GameDay): Promise<Map<GameDay, DailyNote>> {
+  const notes = await db.dailyNotes.where('id').between(first, last, true, true).toArray()
+  return new Map(notes.map((note) => [note.id, note]))
+}
+
+/** Mismo día de otro mes (`months` atrás); si ese mes es más corto, `null`. */
+function sameDayMonthsAgo(day: GameDay, months: number): GameDay | null {
+  const [year, month, date] = day.split('-').map(Number)
+  const target = new Date(Date.UTC(year, month - 1 - months, date))
+  return target.getUTCDate() === date ? target.toISOString().slice(0, 10) : null
+}
+
+/**
+ * Recuerdo para Hoy: la nota del mismo día de hace un año o, si no hay, de hace un mes.
+ * `null` si no hay ninguna.
+ */
+export async function getMemory(db: GameDatabase, today: GameDay) {
+  for (const [months, label] of [
+    [12, 'Hace un año'],
+    [1, 'Hace un mes'],
+  ] as const) {
+    const day = sameDayMonthsAgo(today, months)
+    const note = day ? await db.dailyNotes.get(day) : undefined
+    if (note) return { label, note }
+  }
+  return null
+}
