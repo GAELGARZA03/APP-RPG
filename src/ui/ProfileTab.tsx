@@ -16,7 +16,7 @@ import {
   Trophy,
 } from 'lucide-react'
 import { motion } from 'motion/react'
-import type { ReactNode } from 'react'
+import { Suspense, type ReactNode } from 'react'
 import { db } from '../data/appDb'
 import { getJournal, getSkillTree, type Hud } from '../data/gameStore'
 import { saveCosmetics } from '../data/settings'
@@ -34,7 +34,7 @@ import { Badge } from './kit/Badge'
 import { Card, cardSurface } from './kit/Card'
 import { cn } from './kit/cn'
 import { SettingRow, Switch } from './kit/controls'
-import { SkillTreePreview } from './SkillTree'
+import { SkillTreePreview } from './lazyScreens'
 import { playComplete } from './sound'
 
 function Option(props: {
@@ -155,7 +155,10 @@ export function ProfileTab(props: {
         </span>
         {tree && tree.nodes.length > 0 ? (
           <>
-            <SkillTreePreview tree={tree} />
+            {/* Mismo alto que la vista previa, para que nada salte mientras se descarga el árbol. */}
+            <Suspense fallback={<div aria-hidden className="h-[170px]" />}>
+              <SkillTreePreview tree={tree} />
+            </Suspense>
             <span className="flex items-center justify-between gap-2 border-t border-white/[0.06] bg-void/40 px-4 py-3 text-sm">
               <span className="text-muted">
                 <span className="font-display text-lg font-semibold text-signal tabular-nums">{litSkills}</span> de{' '}
@@ -192,7 +195,12 @@ export function ProfileTab(props: {
         {lastPhotos.length > 0 && (
           <span aria-hidden className="flex -space-x-3">
             {lastPhotos.map((entry) => (
-              <img key={entry.id} src={entry.photo} alt="" className="size-10 rounded-xl object-cover ring-2 ring-panel" />
+              <img
+                key={entry.id}
+                src={entry.photo}
+                alt=""
+                className="size-10 rounded-xl object-cover ring-2 ring-panel"
+              />
             ))}
           </span>
         )}

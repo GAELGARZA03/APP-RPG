@@ -22,7 +22,7 @@ import { gameDayOf } from '../game/gameDay'
 import type { HttpRequest, HttpResponse } from '../platform/http'
 import { httpRequest } from '../platform/http'
 import { actTwoMissions, generateReply, guitarDesign, interactionReply } from '../test/fixtures'
-import { forget as forgetGeneratorDraft } from '../ui/GeneratorSheet'
+import { forget as forgetGeneratorDraft } from '../ui/generator/draft'
 
 vi.mock('../platform/http', () => ({ httpRequest: vi.fn() }))
 

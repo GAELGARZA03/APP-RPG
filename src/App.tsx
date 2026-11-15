@@ -16,7 +16,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { AnimatePresence, motion, MotionConfig } from 'motion/react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { toast, Toaster } from 'sonner'
 import { generateNextAct } from './ai/actRunner'
 import { db } from './data/appDb'
@@ -44,16 +44,13 @@ import { haptic, setHapticsEnabled } from './platform/haptics'
 import { applyNotificationSettings, notificationsSupported } from './platform/notifications'
 import { ActCelebration } from './ui/ActCelebration'
 import { runBack } from './ui/backStack'
-import { CampaignMap } from './ui/CampaignMap'
 import { FormSheet, type FormSheetProps } from './ui/FormSheet'
-import { GeneratorSheet } from './ui/GeneratorSheet'
-import { JournalScreen } from './ui/Journal'
 import { cn } from './ui/kit/cn'
+import { CampaignMap, GeneratorSheet, JournalScreen, preloadScreens, SkillTreeScreen } from './ui/lazyScreens'
 import { Logo } from './ui/kit/Logo'
 import { MissionsTab } from './ui/MissionsTab'
 import { ProfileTab } from './ui/ProfileTab'
 import { ProfileSheet } from './ui/settings/ProfileSheet'
-import { SkillTreeScreen } from './ui/SkillTree'
 import { SettingsSectionSheet, SettingsTab, type SettingsSection } from './ui/settings/SettingsTab'
 import { TaskDetail } from './ui/TaskDetail'
 import { playComplete, playLevelUp, setSoundPack } from './ui/sound'
@@ -238,6 +235,9 @@ export function App() {
     }
   }
 
+  // Las pantallas pesadas no van en el paquete inicial; se descargan en cuanto la app queda libre.
+  useEffect(() => preloadScreens(), [])
+
   useEffect(() => {
     if (!hud) return
     const previous = previousLevel.current
@@ -308,7 +308,8 @@ export function App() {
       {/* Con una pantalla o un detalle encima, lo de atrás no recibe toques ni lo leen los lectores de pantalla. */}
       <main
         inert={covered}
-        className="mx-auto flex min-h-dvh max-w-md flex-col gap-4 px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)] pb-[calc(env(safe-area-inset-bottom)+6.5rem)]">
+        className="mx-auto flex min-h-dvh max-w-md flex-col gap-4 px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)] pb-[calc(env(safe-area-inset-bottom)+6.5rem)]"
+      >
         <header className="flex items-center py-1">
           <Logo />
         </header>
@@ -435,18 +436,20 @@ export function App() {
         </div>
       </nav>
 
-      {screen?.kind === 'map' && (
-        <CampaignMap
-          key={screen.campaignId}
-          campaignId={screen.campaignId}
-          onClose={closeScreen}
-          onOpen={(ref) => void openDetail(ref)}
-          onEdit={(campaign) => setSheet({ kind: 'editCampaign', campaign })}
-          onAddQuest={(campaignId) => setSheet({ kind: 'newQuest', campaignId })}
-        />
-      )}
-      {screen?.kind === 'tree' && <SkillTreeScreen onClose={closeScreen} />}
-      {screen?.kind === 'journal' && <JournalScreen onClose={closeScreen} onOpen={(ref) => void openDetail(ref)} />}
+      <Suspense fallback={null}>
+        {screen?.kind === 'map' && (
+          <CampaignMap
+            key={screen.campaignId}
+            campaignId={screen.campaignId}
+            onClose={closeScreen}
+            onOpen={(ref) => void openDetail(ref)}
+            onEdit={(campaign) => setSheet({ kind: 'editCampaign', campaign })}
+            onAddQuest={(campaignId) => setSheet({ kind: 'newQuest', campaignId })}
+          />
+        )}
+        {screen?.kind === 'tree' && <SkillTreeScreen onClose={closeScreen} />}
+        {screen?.kind === 'journal' && <JournalScreen onClose={closeScreen} onOpen={(ref) => void openDetail(ref)} />}
+      </Suspense>
 
       {detail && (
         <TaskDetail
@@ -463,25 +466,27 @@ export function App() {
         />
       )}
 
-      {sheet?.kind === 'generate' && (
-        <GeneratorSheet
-          onClose={() => setSheet(null)}
-          onOpenSettings={() => {
-            setSheet(null)
-            setTab('settings')
-          }}
-          onCreated={(campaign) => {
-            playComplete()
-            haptic('unlock')
-            toast('Campaña creada', {
-              description: campaign.title,
-              icon: <Sparkles aria-hidden className="size-5 text-signal" />,
-            })
-            // La campaña nueva se abre directamente en su mapa.
-            setScreen({ kind: 'map', campaignId: campaign.id })
-          }}
-        />
-      )}
+      <Suspense fallback={null}>
+        {sheet?.kind === 'generate' && (
+          <GeneratorSheet
+            onClose={() => setSheet(null)}
+            onOpenSettings={() => {
+              setSheet(null)
+              setTab('settings')
+            }}
+            onCreated={(campaign) => {
+              playComplete()
+              haptic('unlock')
+              toast('Campaña creada', {
+                description: campaign.title,
+                icon: <Sparkles aria-hidden className="size-5 text-signal" />,
+              })
+              // La campaña nueva se abre directamente en su mapa.
+              setScreen({ kind: 'map', campaignId: campaign.id })
+            }}
+          />
+        )}
+      </Suspense>
       {sheet?.kind === 'settings' && <SettingsSectionSheet section={sheet.section} onClose={() => setSheet(null)} />}
       {sheet?.kind === 'profile' && <ProfileSheet onClose={() => setSheet(null)} />}
       {sheet && sheet.kind !== 'generate' && sheet.kind !== 'settings' && sheet.kind !== 'profile' && (

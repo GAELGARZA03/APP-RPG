@@ -129,7 +129,7 @@ Antes de darla por buena, haz al menos una revisión real con datos de demostrac
 ## 7. Restricciones
 
 - **No hagas commit.** El usuario hace sus commits.
-- **Datos del usuario:** `phone:save` antes de cualquier prueba con datos de demostración, y restaurar al terminar (ver la sección 3). No uses `pm clear`.
+- **Pruebas en el teléfono:** desde el 15 de noviembre se siguen las reglas de [pruebas-en-telefono.md](pruebas-en-telefono.md): el usuario hace las comprobaciones en la app «RPG Pruebas» con escenarios que se le entregan. No toques la app personal. No uses `pm clear`.
 - **Cuota de Gemini:** el nivel gratuito es limitado (ver Ajustes › Inteligencia artificial). Haz como máximo unas 10 llamadas reales al modelo principal en toda la sesión. Para lo demás, usa Gemini simulado.
 - **Seguridad:** nunca imprimas la API key; solo viaja en la cabecera. La app la lee del `SecretStore`.
 - **Diseño:** pantallas nuevas con el kit de `src/ui/kit`, tokens de color (que funcionen con los cinco temas), animaciones con Motion que respeten la reducción de movimiento, y botón atrás por capas (`src/ui/backStack.ts`). Referencias visuales en `docs/referencias/`.

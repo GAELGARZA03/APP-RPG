@@ -1,6 +1,13 @@
-# Fase 2: verificación y corrección (sección 3)
+# Fase 2: entrega
 
-Documento de traspaso de la sección 3 de [fase2-verificacion-y-revision-semanal.md](fase2-verificacion-y-revision-semanal.md). Fecha: 15 de noviembre de 2026. Las secciones 4 (orden interno) y 5 (revisión semanal) **no se han empezado**. Nada de esto está en commit.
+Documento de traspaso de [fase2-verificacion-y-revision-semanal.md](fase2-verificacion-y-revision-semanal.md). Fecha: 15 de noviembre de 2026.
+
+| Sección | Estado |
+|---|---|
+| 3. Verificación y corrección | Hecha (secciones 1 a 7 de este documento) |
+| Extra: app de pruebas y escenarios | Hecha (sección 8) |
+| 4. Orden interno | Hecha (sección 9) |
+| 5. Revisión semanal | Sin empezar |
 
 A mitad de la sesión el usuario decidió hacer él mismo las comprobaciones de funciones en el teléfono. Lo que quedó sin probar está en la sección 6, como lista para revisar a mano.
 
@@ -66,7 +73,7 @@ En `scripts/telefono/` (solo con la versión debug):
 | `evaluar.mjs` | Evalúa un archivo `.js` dentro de la app |
 | `estado.js` | Resumen de la base de datos, para usar con `evaluar.mjs` |
 | `pellizco.mjs` | Gesto de dos dedos en el árbol |
-| `datos-arbol.json` | Árbol grande de demostración; lo genera `npm run seed:build` |
+| `escenarios/` | Escenarios generados (fuera de git); ver [pruebas-en-telefono.md](pruebas-en-telefono.md) |
 
 `pantalla.mjs shot` guarda la captura junto al script: muévela o bórrala después. **No tomar capturas con el selector de fotos o de archivos abierto**: muestran contenido personal. En esta fase se tomó una por error y se borró de inmediato.
 
@@ -86,3 +93,42 @@ Sin probar en el teléfono:
 - Al desplazar la bitácora con 30 fotos pesadas, la medición dio 90 % de los cuadros en 10 ms y 99 % en 44 ms. La medición no es confiable (se hizo con una hoja abierta encima), así que conviene repetirla si la bitácora se siente lenta.
 - En el árbol, las misiones de una habilidad cuyo origen ya no existe aparecen como «Misión borrada».
 - Los pendientes de `fase1-entrega.md` que no aparecen aquí como verificados siguen igual; en particular, los reintentos y el modelo de respaldo solo están probados con Gemini simulado.
+
+## 8. App de pruebas, escenarios y modo ahorro
+
+Se agregó a petición del usuario, antes de la sección 4. Desde ahora **el usuario hace las comprobaciones en el teléfono** y cada función se entrega con un escenario. Todo está explicado en [pruebas-en-telefono.md](pruebas-en-telefono.md).
+
+- **«RPG Pruebas»**: variante `pruebas` de Gradle (`android/app/build.gradle`, id `com.gaelgarza.realliferpg.pruebas`), con nombre e icono naranja propios en `android/app/src/pruebas/res/`. Se instala junto a la app personal y tiene sus propios datos.
+- **Modo ahorro** (`saver` en los ajustes de IA, `src/ai/session.ts`, `src/platform/build.ts`): todo usa el modelo rápido sin razonamiento, incluido diseñar campañas y actos. Está activo por defecto solo en la app de pruebas y tiene interruptor en Ajustes › Inteligencia artificial. Pruebas en `src/ai/session.test.ts`.
+- **Escenarios** (`npm run escenario <nombre>`): `demo`, `temas`, `jefe`, `acto`, `arbol` y `vacio`. Se generan al momento en `src/test/buildSeed.test.ts` con las funciones reales del juego.
+- **Scripts** en `scripts/telefono/`: `app.mjs` (adb y elección de app; por defecto la de pruebas, `--personal` para la otra), `volcado.mjs`, `instalar.mjs` (`npm run phone:pruebas` y `npm run phone:instalar`), `llave.mjs` (`npm run phone:llave`) y `escenario.mjs`. `phone:demo` desapareció; `phone:save` ahora respalda la app personal.
+
+## 9. Orden interno (sección 4)
+
+Sin cambios de comportamiento: pasan las mismas 151 pruebas (11 del flujo completo) y la compilación.
+
+| Antes | Ahora |
+|---|---|
+| `src/data/gameStore.ts` (1,374 líneas) | `src/data/store/`: `shared`, `hud`, `bounties`, `campaigns`, `detail`, `skills`, `quests`, `steps`, `journal`, `daily` (65 a 394 líneas cada uno) |
+| `src/ai/gemini.ts` (952) | `src/ai/gemini/`: `types`, `prompts`, `jsonSchemas`, `validation`, `transport`, `resilience`, `inputs`, `calls` |
+| `src/ui/GeneratorSheet.tsx` (842) | `src/ui/generator/`: `GeneratorSheet` (orquesta, 288 líneas), `IdeaStep`, `QuestionsStep`, `FailedStep`, `PreviewStep`, `DesignProgress`, `QuestionCard`, `MissionEditor`, `draft` |
+
+- **Cómo importar:** el resto de la app sigue importando de `data/gameStore` y `ai/gemini`, que ahora solo reexportan lo público. Las piezas internas de cada carpeta no salen de ahí. El generador se importa de `ui/generator/GeneratorSheet` (y `forget` de `ui/generator/draft`).
+- **Carga diferida** (`src/ui/lazyScreens.ts`): el mapa de campaña, el árbol (pantalla y vista previa del Perfil), la bitácora y el generador se cargan con `React.lazy`. Para que abrirlos siga siendo instantáneo, se descargan en segundo plano en cuanto la app queda libre (`preloadScreens`). La vista previa del árbol reserva su alto mientras carga, para que nada salte.
+- **Paquete inicial** (`npx vite build`, solo JavaScript):
+
+| | Sin comprimir | Comprimido |
+|---|---|---|
+| Antes | 836 KB | 257 KB |
+| Después | 791 KB | 248 KB |
+
+  La mayor parte del peso son las librerías (React, Motion, Dexie, zod, iconos), que se usan desde la primera pantalla, así que diferir pantallas solo ahorra unos 45 KB. Como la app se carga desde el APK y no por red, no vale la pena ir más lejos por ahora. Rollup llama `Badge-*.js` al trozo compartido de librerías; es solo un nombre.
+
+### Qué revisar en el teléfono (RPG Pruebas)
+
+Nada debería verse distinto. Para comprobarlo:
+
+1. `npm run escenario demo`: abre una campaña (mapa), el árbol del Perfil y la bitácora. Deben abrir igual de rápido que antes.
+2. Con el mismo escenario, Misiones › Generar campaña con IA: escribe una meta, responde las preguntas y llega a la vista previa (usa el modelo rápido por el modo ahorro). Prueba el botón atrás en cada paso.
+3. `npm run escenario acto`: completa la misión que falta y genera el Acto 2 con IA, o agrega misiones a mano.
+

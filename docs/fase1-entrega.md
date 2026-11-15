@@ -83,20 +83,9 @@ cd android; .\gradlew.bat assembleDebug; cd ..
 & "$env:ANDROID_HOME\platform-tools\adb.exe" install -r android\app\build\outputs\apk\debug\app-debug.apk
 ```
 
-### Datos de prueba por USB (sin gastar llamadas a Gemini)
+### Datos de prueba
 
-Con el teléfono conectado, desbloqueado y la versión debug instalada:
-
-```bash
-npm run phone:save    # copia TODO lo del teléfono a .respaldos/ (fuera de git; son datos personales)
-npm run phone:demo    # genera datos de demostración y los carga; conserva la configuración del teléfono
-node scripts/telefono/datos.mjs resumen
-node scripts/telefono/datos.mjs cargar .respaldos/<archivo>.json   # volver a un estado guardado
-```
-
-Los datos de demostración (`src/test/buildSeed.test.ts`) traen una campaña a medio Acto 2, otra completada con jefe y evidencia, dos contratos con racha, una Side Quest suelta, la misión del día y el árbol con dos áreas. `cargar` reemplaza las tablas del juego, así que **primero `phone:save`**. La API key nunca se lee ni se copia.
-
-Orden recomendado para una sesión de pruebas: `phone:save` → `phone:demo` → probar → `cargar` el archivo guardado (o usar Ajustes › Restablecer progreso).
+Ver [pruebas-en-telefono.md](pruebas-en-telefono.md): app «RPG Pruebas» aparte, escenarios con `npm run escenario <nombre>` y modo ahorro de IA.
 
 ## 6. Qué se verificó y qué no
 

@@ -58,12 +58,13 @@ Máximo **cinco pestañas** abajo: **Hoy, Misiones, Libreta, Bitácora y Perfil*
 ## 3. Restricciones comunes
 
 - **No hagas commit.** El usuario hace sus commits.
-- **Datos del usuario:** antes de probar con datos de demostración, ejecuta `npm run phone:save`. Al terminar, restaura su respaldo **pasándolo por la importación de la app**, para que se le aplique la migración de la parte en curso. Comprueba que sus datos reales siguen ahí. No uses `pm clear`.
-- **Cuota de Gemini:** como máximo unas 8 llamadas reales al modelo principal por parte. Para lo demás, usa Gemini simulado.
+- **Pruebas en el teléfono:** sigue [pruebas-en-telefono.md](pruebas-en-telefono.md). No navegues el teléfono para verificar: el usuario prueba en la app «RPG Pruebas». Entrega **escenarios** (`npm run escenario <nombre>`) que dejen la app justo en lo que hay que probar, con una lista corta de qué mirar. No toques la app personal ni uses `pm clear`.
+- **Migración:** la migración de cada parte debe probarse con pruebas automáticas a partir de un respaldo real anonimizado (contratos con historial). El usuario la comprueba al instalar en su app personal.
+- **Gemini:** en desarrollo usa Gemini simulado. La app de pruebas usa el modo ahorro (solo el modelo rápido); no hagas llamadas reales al modelo principal salvo que el usuario lo pida.
 - **Seguridad:** nunca imprimas la API key.
 - **Respaldo:** cada dato nuevo entra en el respaldo JSON, con un formato nuevo que siga importando los anteriores. Agrega pruebas.
 - **Diseño:** usa el kit de `src/ui/kit`, los tokens de color (que funcionen con los cinco temas), animaciones con Motion que respeten la reducción de movimiento, y botón atrás por capas. La libreta debe recordar a una libreta (por ejemplo, un fondo de puntos sutil o detalles de papel), pero dentro de la identidad visual actual, no como una foto de papel.
-- **Calidad:** al terminar deben pasar `npm test`, `npm run test:flow`, `npx tsc --noEmit` y `npm run build`, y la parte debe estar instalada y probada en el teléfono.
+- **Calidad:** al terminar deben pasar `npm test`, `npm run test:flow`, `npx tsc --noEmit` y `npm run build`, y la parte debe quedar instalada en RPG Pruebas (`npm run phone:pruebas`) con sus escenarios listos.
 
 ---
 
