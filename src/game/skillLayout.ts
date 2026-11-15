@@ -18,6 +18,10 @@ export interface LayoutNode {
 const MIN_RING = 104
 /** Separación mínima entre hojas vecinas en el anillo más externo, para que sus nombres no se encimen. */
 const LEAF_SPACING = 84
+/** Con muchas hojas se alternan dos alturas: caben más juntas sin que sus nombres se encimen. */
+const STAGGER_FROM = 14
+const STAGGERED_SPACING = 50
+const STAGGER_OFFSET = 34
 const UP = -Math.PI / 2
 
 export function layoutSkillTree(input: ReadonlyArray<LayoutInput>) {
@@ -38,17 +42,24 @@ export function layoutSkillTree(input: ReadonlyArray<LayoutInput>) {
 
   // El abanico se abre más cuantas más hojas haya, y los anillos se separan lo necesario.
   const span = Math.min((230 * Math.PI) / 180, Math.max((50 * Math.PI) / 180, totalLeaves * 0.4))
-  const ring = Math.max(MIN_RING, maxDepth === 0 ? 0 : (LEAF_SPACING * totalLeaves) / span / maxDepth)
+  const staggered = totalLeaves >= STAGGER_FROM
+  const spacing = staggered ? STAGGERED_SPACING : LEAF_SPACING
+  const ring = Math.max(MIN_RING, maxDepth === 0 ? 0 : (spacing * totalLeaves) / span / maxDepth)
+  let leafIndex = 0
 
   const nodes: LayoutNode[] = []
   const place = (node: LayoutInput, depth: number, from: number, to: number) => {
     const angle = (from + to) / 2
+    const isLeaf = (children.get(node.id) ?? []).length === 0
+    // Las hojas vecinas quedan una más adentro y otra más afuera.
+    const offset = staggered && isLeaf ? (leafIndex++ % 2 === 0 ? -STAGGER_OFFSET : STAGGER_OFFSET) : 0
+    const radius = ring * depth + offset
     nodes.push({
       id: node.id,
       parentId: node.parentId,
       depth,
-      x: Math.cos(angle) * ring * depth,
-      y: Math.sin(angle) * ring * depth,
+      x: Math.cos(angle) * radius,
+      y: Math.sin(angle) * radius,
       angle,
     })
     let cursor = from

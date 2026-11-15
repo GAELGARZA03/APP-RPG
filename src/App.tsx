@@ -196,6 +196,8 @@ export function App() {
       toast('El jefe pide evidencia', {
         description: 'Agrega una foto o una nota para derrotarlo.',
         icon: <Skull aria-hidden className="size-5 text-ember" />,
+        // Es una advertencia: borde del color de aviso, no el verde de las recompensas.
+        className: 'border-ember/60!',
         duration: 3500,
       })
       if (!fromDetail) void openDetail(ref)
@@ -205,6 +207,7 @@ export function App() {
       toast('Misión bloqueada', {
         description: 'Completa lo anterior para desbloquearla.',
         icon: <Lock aria-hidden className="size-5 text-muted" />,
+        className: 'border-ember/60!',
         duration: 2500,
       })
       return

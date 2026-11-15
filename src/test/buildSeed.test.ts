@@ -102,3 +102,70 @@ it.runIf(building)('genera los datos de demostración', async () => {
   writeFileSync(OUTPUT, JSON.stringify({ app: 'real-life-rpg', kind: 'volcado', createdAt: new Date().toISOString(), stores }, null, 1))
   await db.delete()
 })
+
+const AREAS: Record<string, Record<string, string[]>> = {
+  Música: {
+    Guitarra: ['Fundamentos', 'Acordes abiertos', 'Ritmo', 'Repertorio', 'Cejilla'],
+    Piano: ['Postura', 'Escalas', 'Lectura', 'Independencia de manos', 'Acompañamiento'],
+  },
+  Programación: {
+    'Apps Android': ['Interfaz', 'Datos locales', 'Pruebas', 'Publicación', 'Rendimiento'],
+    'Diseño web': ['Maquetación', 'Tipografía', 'Color', 'Accesibilidad', 'Animación'],
+  },
+  Cuerpo: {
+    Carrera: ['Resistencia', 'Técnica', 'Velocidad', 'Recuperación', 'Fuerza de piernas'],
+    Fútbol: ['Control', 'Pase', 'Definición', 'Desmarque', 'Lectura de juego'],
+  },
+  Arte: {
+    'Retrato a lápiz': ['Control de grafito', 'Anatomía facial', 'Luz y volumen', 'Texturas', 'Parecido'],
+    Fotografía: ['Exposición', 'Composición', 'Edición', 'Retrato', 'Luz natural'],
+  },
+  Mente: {
+    Lectura: ['Constancia', 'Comprensión', 'Notas', 'Velocidad lectora', 'Reseñas'],
+    Mentalismo: ['Forzajes', 'Lectura en frío', 'Presentación', 'Memoria', 'Rutinas'],
+  },
+  Vida: {
+    Cocina: ['Cortes', 'Salsas', 'Horneado', 'Planeación', 'Emplatado'],
+    Finanzas: ['Presupuesto', 'Ahorro', 'Inversión', 'Impuestos', 'Registro de gastos'],
+  },
+}
+
+/** Árbol grande (78 habilidades en 6 áreas) para medir la fluidez y revisar que nada se encime. */
+it.runIf(building)('genera el árbol grande de demostración', async () => {
+  const db = new GameDatabase('seed-tree')
+  const now = new Date(Date.now() - 4 * 60 * 60 * 1000)
+  // Dominios variados y repetibles: desde hojas apagadas hasta Maestro.
+  const levels = [0, 60, 150, 400, 900, 1600]
+  let index = 0
+
+  for (const [area, branches] of Object.entries(AREAS)) {
+    for (const [branch, leaves] of Object.entries(branches)) {
+      const campaign = await acceptCampaignPlan(
+        db,
+        {
+          ...guitarDesign,
+          campaign: `Camino de ${branch}`,
+          skills: { area, branch, leaves },
+          missions: leaves.map((leaf) => ({ ...guitarDesign.missions[0], title: `Practica ${leaf.toLowerCase()}`, skill: leaf })),
+          boss: { ...guitarDesign.boss, title: `Prueba final de ${branch}`, skill: leaves[leaves.length - 1] },
+          bounties: [],
+        },
+        now,
+      )
+      for (const quest of (await getCampaign(db, campaign.id))!.actViews[0].quests) {
+        const xp = levels[index++ % levels.length]
+        if (xp > 0 && quest.skillId) {
+          await db.xpEvents.add({ id: crypto.randomUUID(), kind: 'sideQuest', taskId: `demo-${quest.id}`, day: gameDayOf(now), xp, skillId: quest.skillId })
+        }
+      }
+    }
+  }
+  expect(await db.skills.count()).toBe(78)
+
+  const stores: Record<string, unknown[]> = {}
+  for (const table of [db.bounties, db.campaigns, db.sideQuests, db.xpEvents, db.player, db.skills, db.evidence, db.dailies]) {
+    stores[table.name] = await table.toArray()
+  }
+  writeFileSync('scripts/telefono/datos-arbol.json', JSON.stringify({ app: 'real-life-rpg', kind: 'volcado', createdAt: new Date().toISOString(), stores }, null, 1))
+  await db.delete()
+})

@@ -127,9 +127,22 @@ export function ProgressBar(props: { value: number; max: number; label: string; 
         transition={{ type: 'spring', stiffness: 110, damping: 20 }}
       />
       {large && props.text && (
-        <span className="absolute inset-0 grid place-items-center font-display text-sm font-semibold text-ink [text-shadow:0_1px_2px_rgb(0_0_0/0.6)]">
-          {props.text}
-        </span>
+        <>
+          <span className="absolute inset-0 grid place-items-center font-display text-sm font-semibold text-ink">
+            {props.text}
+          </span>
+          {/* Sobre la parte llena, el mismo texto en el color de contraste del tema: texto claro
+              sobre un relleno claro (ámbar, oro) no se leía. */}
+          <motion.span
+            aria-hidden
+            className="absolute inset-0 grid place-items-center font-display text-sm font-semibold text-on-signal"
+            initial={false}
+            animate={{ clipPath: `inset(0 ${100 - percent}% 0 0)` }}
+            transition={{ type: 'spring', stiffness: 110, damping: 20 }}
+          >
+            {props.text}
+          </motion.span>
+        </>
       )}
     </div>
   )

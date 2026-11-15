@@ -190,7 +190,7 @@ export function SettingsTab(props: {
         />
         <MenuRow
           icon={Sparkles}
-          tone="bg-violet-400/15 text-violet-300"
+          tone="bg-info/15 text-info"
           label="Inteligencia artificial"
           summary={hasKey === null ? 'Gemini' : hasKey ? 'Gemini conectado' : 'Falta tu API key'}
           onClick={() => props.onOpenSection('ai')}

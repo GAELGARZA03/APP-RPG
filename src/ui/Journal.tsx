@@ -33,11 +33,16 @@ export function JournalScreen({ onClose, onOpen }: { onClose: () => void; onOpen
   const entries = useLiveQuery(() => getJournal(db), [])
   const [viewing, setViewing] = useState<JournalEntry | null>(null)
   const photoCount = entries?.filter((entry) => entry.photo).length ?? 0
+  const noteCount = (entries?.length ?? 0) - photoCount
 
   return (
     <Screen
       title="Bitácora"
-      eyebrow={entries ? `${photoCount} fotos · ${entries.length - photoCount} notas` : undefined}
+      eyebrow={
+        entries
+          ? `${photoCount} ${photoCount === 1 ? 'foto' : 'fotos'} · ${noteCount} ${noteCount === 1 ? 'nota' : 'notas'}`
+          : undefined
+      }
       onClose={onClose}
     >
       <div className="mx-auto flex max-w-md flex-col gap-5 px-4">

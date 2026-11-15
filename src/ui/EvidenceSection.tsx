@@ -1,6 +1,6 @@
 import { Camera, ImagePlus, NotebookPen, Trash2, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
-import { useRef, useState, type ChangeEvent } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { db } from '../data/appDb'
 import type { Evidence } from '../data/db'
 import { addEvidence, deleteEvidence, MAX_NOTE_LENGTH, MAX_PHOTOS_PER_TASK, type TaskRef } from '../data/gameStore'
@@ -13,6 +13,13 @@ import { Textarea } from './kit/controls'
 /** Foto a pantalla completa. Se cierra al tocarla o con el botón atrás. */
 export function PhotoViewer({ photo, onClose, onDelete }: { photo: string; onClose: () => void; onDelete?: () => void }) {
   useBack(true, onClose)
+  const close = useRef<HTMLButtonElement>(null)
+
+  // El foco entra al visor para que los lectores de pantalla lo anuncien en lugar de lo que queda debajo.
+  useEffect(() => {
+    close.current?.focus()
+  }, [])
+
   return (
     <motion.div
       role="dialog"
@@ -31,7 +38,7 @@ export function PhotoViewer({ photo, onClose, onDelete }: { photo: string; onClo
         ) : (
           <span />
         )}
-        <Button variant="ghost" size="icon" aria-label="Cerrar foto" onClick={onClose}>
+        <Button ref={close} variant="ghost" size="icon" aria-label="Cerrar foto" onClick={onClose}>
           <X aria-hidden />
         </Button>
       </div>

@@ -1,6 +1,6 @@
 import { Crown, Lock, LockOpen, Sparkles, Trophy } from 'lucide-react'
 import { motion } from 'motion/react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ActCompletion } from '../data/gameStore'
 import { useBack } from './backStack'
 import { Button } from './kit/Button'
@@ -17,6 +17,12 @@ export function ActCelebration(props: {
   const { act, onClose, onContinue } = props
   const [unlocked, setUnlocked] = useState(false)
   useBack(true, onClose)
+  const primary = useRef<HTMLButtonElement>(null)
+
+  // El foco pasa a la celebración: si se queda en el detalle de abajo, un lector de pantalla no la anuncia.
+  useEffect(() => {
+    primary.current?.focus()
+  }, [])
 
   // El candado se abre un momento después, para que se note el cambio.
   useEffect(() => {
@@ -101,7 +107,7 @@ export function ActCelebration(props: {
         )}
 
         <div className="flex w-full flex-col gap-2">
-          <Button variant="primary" size="lg" onClick={onContinue}>
+          <Button ref={primary} variant="primary" size="lg" onClick={onContinue}>
             {act.next?.planned && <Sparkles aria-hidden />}
             {act.next?.planned ? `Generar Acto ${act.next.number}` : 'Ver el mapa'}
           </Button>

@@ -29,7 +29,11 @@ export function LogoMark({ className }: { className?: string }) {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <path d="M74,27 L75.4,31.6 L80,33 L75.4,34.4 L74,39 L72.6,34.4 L68,33 L72.6,31.6 Z" fill="#efffd9" />
+      {/* El destello toma un tono muy claro del color del tema (antes era un verde fijo). */}
+      <path
+        d="M74,27 L75.4,31.6 L80,33 L75.4,34.4 L74,39 L72.6,34.4 L68,33 L72.6,31.6 Z"
+        style={{ fill: 'color-mix(in srgb, var(--color-signal) 18%, white)' }}
+      />
     </svg>
   )
 }

@@ -15,9 +15,9 @@ import { ProgressBar } from './kit/controls'
 import { Screen } from './Screen'
 
 const PADDING = 72
-const MIN_SCALE = 0.3
+const MIN_SCALE = 0.15
 /** Por debajo de esta escala los nombres ya no se leen: el árbol grande empieza acercado a la raíz. */
-const READABLE_SCALE = 0.7
+const READABLE_SCALE = 0.6
 const MAX_SCALE = 3
 
 function nodeRadius(depth: number, level: number) {
@@ -84,7 +84,7 @@ function TreeArt(props: {
             pathLength={1}
             fill="none"
             strokeLinecap="round"
-            strokeWidth={lit ? 5 + level * 2.5 + (node.depth === 1 ? 2 : 0) : 3}
+            strokeWidth={lit ? 3.5 + level * 1.7 + (node.depth === 1 ? 1.5 : 0) : 2.5}
             className={cn(lit ? 'stroke-signal' : 'stroke-line', animate && 'tree-branch')}
             style={{ opacity: lit ? 0.5 + level * 0.12 : 1, animationDelay: `${(node.depth - 1) * 220}ms` }}
           />
@@ -95,12 +95,7 @@ function TreeArt(props: {
       <circle r={64} fill={`url(#${gradientId})`} />
       <circle r={22} className="fill-signal" />
       <circle r={22} fill="none" strokeWidth={3} className="stroke-void/40" />
-      <text
-        y={5}
-        textAnchor="middle"
-        className="fill-on-signal font-display font-bold"
-        style={{ fontSize: 14 }}
-      >
+      <text y={5} textAnchor="middle" className="fill-on-signal font-display font-bold" style={{ fontSize: 14 }}>
         TÚ
       </text>
 
@@ -159,7 +154,12 @@ function TreeArt(props: {
                     y={radius + 20 + index * 14}
                     textAnchor="middle"
                     className={cn(lit ? 'fill-ink' : 'fill-muted', node.depth === 1 && 'font-display font-semibold')}
-                    style={{ fontSize: node.depth === 1 ? 14 : 12, paintOrder: 'stroke', stroke: 'var(--color-void)', strokeWidth: 4 }}
+                    style={{
+                      fontSize: node.depth === 1 ? 14 : 12,
+                      paintOrder: 'stroke',
+                      stroke: 'var(--color-void)',
+                      strokeWidth: 4,
+                    }}
                   >
                     {line}
                   </text>
@@ -283,6 +283,7 @@ export function SkillTreeScreen({ onClose }: { onClose: () => void }) {
   const pointers = useRef(new Map<number, { x: number; y: number }>())
   const gesture = useRef({ moved: 0, pinch: 0 })
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const whole = useRef(false)
   const selected = tree?.nodes.find((node) => node.id === selectedId) ?? null
 
   // El gesto mueve el lienzo directamente, sin pasar por React: así se mantiene fluido.
@@ -291,31 +292,35 @@ export function SkillTreeScreen({ onClose }: { onClose: () => void }) {
     if (canvas.current) canvas.current.style.transform = `translate3d(${x}px, ${y}px, 0) scale(${scale})`
   }
 
-  const fit = () => {
+  /** `whole`: muestra el árbol entero aunque los nombres queden pequeños (botón de la esquina). */
+  const fit = (showWhole = false) => {
     const element = viewport.current
     if (!element || !layout) return
     const width = layout.bounds.maxX - layout.bounds.minX + PADDING * 2
     const height = layout.bounds.maxY - layout.bounds.minY + PADDING * 2
     const available = { width: element.clientWidth || 360, height: (element.clientHeight || 640) - 40 }
     const whole = Math.min(available.width / width, available.height / height)
-    const scale = Math.min(1.5, Math.max(READABLE_SCALE, whole))
+    const scale = Math.min(1.5, Math.max(showWhole ? MIN_SCALE : READABLE_SCALE, whole))
     // Si cabe entero se centra; si no, se muestra desde la raíz (abajo, al centro) y el resto se explora moviéndolo.
     const rootX = -(layout.bounds.minX - PADDING) * scale
     const rootY = -(layout.bounds.minY - PADDING) * scale
     view.current =
-      whole >= READABLE_SCALE
+      whole >= READABLE_SCALE || showWhole
         ? { scale, x: (available.width - width * scale) / 2, y: (available.height - height * scale) / 2 + 24 }
         : {
             scale,
             x: available.width / 2 - rootX,
             // Si a esta escala cabe de alto, se centra; si no, la raíz queda abajo.
-            y: height * scale <= available.height ? (available.height - height * scale) / 2 + 24 : available.height - 70 - rootY,
+            y:
+              height * scale <= available.height
+                ? (available.height - height * scale) / 2 + 24
+                : available.height - 70 - rootY,
           }
     apply()
   }
 
   const nodeCount = tree?.nodes.length ?? 0
-  useLayoutEffect(fit, [nodeCount > 0, layout?.ring])
+  useLayoutEffect(() => fit(), [nodeCount > 0, layout?.ring])
 
   useEffect(() => {
     const element = viewport.current
@@ -391,7 +396,16 @@ export function SkillTreeScreen({ onClose }: { onClose: () => void }) {
       fixed
       action={
         nodeCount > 0 ? (
-          <Button variant="ghost" size="icon" aria-label="Centrar el árbol" onClick={fit}>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Ver el árbol completo"
+            onClick={() => {
+              // Alterna entre el árbol completo y la vista inicial, legible.
+              whole.current = !whole.current
+              fit(whole.current)
+            }}
+          >
             <Maximize aria-hidden />
           </Button>
         ) : undefined
@@ -427,7 +441,7 @@ export function SkillTreeScreen({ onClose }: { onClose: () => void }) {
 
           <ul
             aria-label="Niveles de dominio"
-            className="pointer-events-none absolute inset-x-0 top-0 mx-auto flex max-w-md flex-wrap justify-center gap-x-3 gap-y-1 px-4 text-[11px] text-muted"
+            className="pointer-events-none absolute inset-x-3 top-0 mx-auto flex max-w-md flex-wrap justify-center gap-x-3 gap-y-1 rounded-2xl bg-void/75 px-3 py-1.5 text-[11px] text-muted backdrop-blur-sm"
           >
             {MASTERY_LEVELS.map((level, index) => (
               <li key={level.name} className="flex items-center gap-1">
