@@ -167,7 +167,7 @@ export async function deleteCampaign(db: GameDatabase, id: string, now = new Dat
 export async function resetProgress(db: GameDatabase, options: { keepBounties: boolean }): Promise<void> {
   await db.transaction('rw', [...allTables(db), db.settings], async () => {
     await Promise.all(
-      [db.campaigns, db.sideQuests, db.xpEvents, db.skills, db.evidence, db.dailies, db.player].map((table) =>
+      [db.campaigns, db.sideQuests, db.xpEvents, db.skills, db.evidence, db.dailies, db.player, db.reviews].map((table) =>
         table.clear(),
       ),
     )

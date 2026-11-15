@@ -21,6 +21,7 @@ import { toast, Toaster } from 'sonner'
 import { generateNextAct } from './ai/actRunner'
 import { db } from './data/appDb'
 import type { Bounty, Campaign, SideQuest } from './data/db'
+import type { GameDay } from './game/gameDay'
 import {
   archiveBounty,
   createBounty,
@@ -46,7 +47,14 @@ import { ActCelebration } from './ui/ActCelebration'
 import { runBack } from './ui/backStack'
 import { FormSheet, type FormSheetProps } from './ui/FormSheet'
 import { cn } from './ui/kit/cn'
-import { CampaignMap, GeneratorSheet, JournalScreen, preloadScreens, SkillTreeScreen } from './ui/lazyScreens'
+import {
+  CampaignMap,
+  GeneratorSheet,
+  JournalScreen,
+  preloadScreens,
+  ReviewSheet,
+  SkillTreeScreen,
+} from './ui/lazyScreens'
 import { Logo } from './ui/kit/Logo'
 import { MissionsTab } from './ui/MissionsTab'
 import { ProfileTab } from './ui/ProfileTab'
@@ -76,11 +84,12 @@ type Sheet =
   | { kind: 'generate' }
   | { kind: 'settings'; section: SettingsSection }
   | { kind: 'profile' }
+  | { kind: 'review'; weekStart: GameDay }
 
 /** Pantallas completas que se abren sobre las pestañas. */
 type FullScreen = { kind: 'map'; campaignId: string } | { kind: 'tree' } | { kind: 'journal' }
 
-type FormSheetKind = Exclude<Sheet, { kind: 'generate' | 'settings' | 'profile' }>
+type FormSheetKind = Exclude<Sheet, { kind: 'generate' | 'settings' | 'profile' | 'review' }>
 
 function sheetProps(sheet: FormSheetKind): Omit<FormSheetProps, 'onClose'> {
   switch (sheet.kind) {
@@ -344,6 +353,7 @@ export function App() {
               profile={profile}
               onProfile={() => setTab('profile')}
               onCreate={() => setSheet({ kind: 'newBounty' })}
+              onReview={(weekStart) => setSheet({ kind: 'review', weekStart })}
               onOpen={(ref) => void openDetail(ref)}
               onStreakInfo={() =>
                 toast('Cómo funciona la racha', {
@@ -372,6 +382,7 @@ export function App() {
               choice={cosmeticChoice}
               onOpenTree={() => setScreen({ kind: 'tree' })}
               onOpenJournal={() => setScreen({ kind: 'journal' })}
+              onOpenReview={(weekStart) => setSheet({ kind: 'review', weekStart })}
             />
           )}
           {tab === 'settings' && (
@@ -487,11 +498,31 @@ export function App() {
           />
         )}
       </Suspense>
+      {sheet?.kind === 'review' && (
+        <Suspense fallback={null}>
+          <ReviewSheet
+            weekStart={sheet.weekStart}
+            onClose={() => setSheet(null)}
+            onOpenQuest={(ref) => {
+              setSheet(null)
+              void openDetail(ref)
+            }}
+            onOpenSettings={() => {
+              setSheet(null)
+              setTab('settings')
+            }}
+          />
+        </Suspense>
+      )}
       {sheet?.kind === 'settings' && <SettingsSectionSheet section={sheet.section} onClose={() => setSheet(null)} />}
       {sheet?.kind === 'profile' && <ProfileSheet onClose={() => setSheet(null)} />}
-      {sheet && sheet.kind !== 'generate' && sheet.kind !== 'settings' && sheet.kind !== 'profile' && (
-        <FormSheet key={JSON.stringify(sheet)} {...sheetProps(sheet)} onClose={() => setSheet(null)} />
-      )}
+      {sheet &&
+        sheet.kind !== 'generate' &&
+        sheet.kind !== 'settings' &&
+        sheet.kind !== 'profile' &&
+        sheet.kind !== 'review' && (
+          <FormSheet key={JSON.stringify(sheet)} {...sheetProps(sheet)} onClose={() => setSheet(null)} />
+        )}
 
       <AnimatePresence>
         {celebration && (

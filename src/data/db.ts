@@ -127,6 +127,48 @@ export interface XpEvent {
   skillId?: string
 }
 
+/** Una misión propuesta por la IA, sin el resto de campos de una misión guardada. */
+export interface PlannedMission {
+  title: string
+  difficulty: Difficulty
+  description: string
+  steps: string[]
+}
+
+/** Ajuste que propone la revisión semanal; se aplica con un toque usando las funciones del juego. */
+export interface ReviewAdjustment {
+  id: string
+  /**
+   * `split`: reemplaza una misión atascada por 2 o 3 más pequeñas en su mismo acto.
+   * `difficulty`: cambia la dificultad de una misión pendiente.
+   * `archiveBounty` / `addBounty`: archiva un contrato o agrega uno nuevo.
+   */
+  kind: 'split' | 'difficulty' | 'archiveBounty' | 'addBounty'
+  reason: string
+  questId?: string
+  bountyId?: string
+  /** Título de la misión o contrato al momento de la revisión, por si después cambia. */
+  targetTitle?: string
+  difficulty?: Difficulty
+  parts?: PlannedMission[]
+  bounty?: Omit<PlannedMission, 'description'>
+  status: 'pending' | 'applied' | 'dismissed'
+}
+
+/** Revisión de una semana de juego (lunes a domingo). Su `id` es el lunes. */
+export interface WeeklyReview {
+  id: GameDay
+  createdAt: number
+  /** Semana sin actividad: no se llamó a la IA y solo se guarda que ya se vio. */
+  empty?: boolean
+  summary: string
+  wins: string[]
+  stuck: Array<{ title: string; cause: string }>
+  adjustments: ReviewAdjustment[]
+  focus: Array<{ title: string; why: string; questId?: string }>
+  model?: string
+}
+
 /** La racha guardada cubre hasta `lastSettledDay`; el día en curso aún no cuenta. */
 export interface Player {
   id: 'player'
@@ -176,7 +218,8 @@ export interface ProfileSettings {
   photo: string | null
 }
 
-export type Setting = NotificationSettings | BackupInfo | AiSettings | CosmeticSettings | ProfileSettings | PrefsSettings
+export type Setting =
+  NotificationSettings | BackupInfo | AiSettings | CosmeticSettings | ProfileSettings | PrefsSettings
 
 export class GameDatabase extends Dexie {
   bounties!: EntityTable<Bounty, 'id'>
@@ -188,6 +231,7 @@ export class GameDatabase extends Dexie {
   skills!: EntityTable<Skill, 'id'>
   evidence!: EntityTable<Evidence, 'id'>
   dailies!: EntityTable<Daily, 'id'>
+  reviews!: EntityTable<WeeklyReview, 'id'>
 
   constructor(name = 'real-life-rpg') {
     super(name)
@@ -219,5 +263,7 @@ export class GameDatabase extends Dexie {
             delete setting.model
           })
       })
+    // v4: revisiones semanales. Nada existente cambia.
+    this.version(4).stores({ reviews: 'id' })
   }
 }

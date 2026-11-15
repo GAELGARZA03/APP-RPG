@@ -32,6 +32,8 @@ En RPG Pruebas, la IA usa **solo el modelo rápido** (`gemini-3.5-flash-lite`), 
 
 ## Escenarios
 
+`npm run escenario` los lista. Hoy existen: `demo`, `temas`, `jefe`, `acto`, `arbol`, `vacio`, `semana`, `revision` y `semana-vacia`.
+
 Se definen en `src/test/buildSeed.test.ts`, armados con las funciones reales del juego, y se generan al momento con fechas relativas a hoy. Para agregar uno:
 
 1. Agrega un `it.runIf(building)('escenario <nombre>', …)` que construya los datos y llame a `exportScenario(db, '<nombre>')`.

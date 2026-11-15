@@ -98,7 +98,7 @@ export function gameTables(db: GameDatabase) {
 }
 
 export function allTables(db: GameDatabase) {
-  return [db.bounties, db.campaigns, db.sideQuests, db.xpEvents, db.player, db.skills, db.evidence, db.dailies]
+  return [db.bounties, db.campaigns, db.sideQuests, db.xpEvents, db.player, db.skills, db.evidence, db.dailies, db.reviews]
 }
 
 export type TaskRef = { kind: 'bounty' | 'sideQuest' | 'daily'; id: string }

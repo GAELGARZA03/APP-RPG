@@ -26,3 +26,4 @@ export {
   generateDaily,
   listModels,
 } from './gemini/calls'
+export { generateWeeklyReview, reviewInput } from './gemini/review'

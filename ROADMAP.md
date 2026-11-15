@@ -11,6 +11,7 @@
 - **Icono propio y logotipo:** emblema hexagonal con flechas de "subir de nivel", también en la pantalla de inicio de la app. Incluye versión monocroma para los iconos temáticos de Android 13+.
 
 - **Fase 1: campañas con progresión y árbol de habilidades.** Preguntas antes de generar, análisis de la meta, actos que se desbloquean, misión jefe, generación acto por acto, mapa de campaña tipo videojuego, objetivos marcables, bitácora de evidencias con fotos, misión del día, vibración, modelo según la tarea (Gemini 4 Hydrogen para diseñar) y árbol de habilidades en el Perfil. Especificación en [docs/fase1-progresion-y-arbol.md](docs/fase1-progresion-y-arbol.md). Pruebas del flujo completo con `npm run test:flow`. Resumen de lo construido y cómo retomarlo en [docs/fase1-entrega.md](docs/fase1-entrega.md).
+- **Fase 2: verificación, orden interno y revisión semanal con IA.** Los pendientes de la fase 1 se probaron en el teléfono, los archivos grandes se dividieron, las pantallas pesadas se cargan aparte y cada semana una revisión con IA propone ajustes aplicables con un toque. Ver [docs/fase2-entrega.md](docs/fase2-entrega.md).
 - **App de pruebas y escenarios:** «RPG Pruebas» se instala junto a la app personal, usa solo el modelo rápido (modo ahorro) y carga escenarios con `npm run escenario <nombre>`. Ver [docs/pruebas-en-telefono.md](docs/pruebas-en-telefono.md).
 - **Estado y cuota de modelos:** tarjeta en Ajustes con las llamadas restantes por modelo, ajuste manual y verificación bajo demanda.
 - **Llamadas a la IA más resistentes:** reintentos automáticos ante saturación o límite de frecuencia, modelo de respaldo y mensajes claros en cada etapa.
@@ -20,7 +21,6 @@
 
 - **Restablecer conservando lo ganado:** una variante que borre misiones y campañas pero conserve XP, nivel y desbloqueos.
 - **Pendientes de la Fase 1:** probar en el teléfono la foto de evidencia de principio a fin y la misión jefe real; revisar las pantallas nuevas con los cinco temas; editar las misiones de un acto antes de aceptarlas (hoy se editan después, una por una).
-- **Fase 2: revisión semanal con IA.** La verificación y el orden interno ya están hechos (ver [docs/fase2-entrega.md](docs/fase2-entrega.md)). Falta la sección 5 de [docs/fase2-verificacion-y-revision-semanal.md](docs/fase2-verificacion-y-revision-semanal.md): una revisión semanal con ajustes aplicables con un toque.
 - **Logros:** pensar cómo generarlos (por ejemplo, con IA a partir de lo que haces) en lugar de una lista fija.
 - **Widget de Android** con los contratos de hoy.
 - **Video en la bitácora** y un **mentor** con IA para dudas de cada misión (por decidir).

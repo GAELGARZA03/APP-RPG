@@ -2,7 +2,7 @@
 import { evaluate } from './app.mjs'
 
 const DATABASE = 'real-life-rpg'
-const GAME_STORES = ['bounties', 'campaigns', 'sideQuests', 'xpEvents', 'player', 'skills', 'evidence', 'dailies']
+const GAME_STORES = ['bounties', 'campaigns', 'sideQuests', 'xpEvents', 'player', 'skills', 'evidence', 'dailies', 'reviews']
 
 const OPEN = `const idb = await new Promise((resolve, reject) => { const request = indexedDB.open(${JSON.stringify(DATABASE)}); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error) })`
 

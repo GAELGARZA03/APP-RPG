@@ -17,12 +17,15 @@ const ESCENARIOS = {
   acto: 'Al Acto 1 de guitarra le queda una misión: complétala para ver la celebración y «Generar Acto 2».',
   arbol: 'Árbol de habilidades enorme (78 habilidades en 6 áreas), nivel alto.',
   vacio: 'Juego en cero, como recién instalado.',
+  semana: 'Semana pasada variada y sin revisar: abre «Tu revisión semanal» en Hoy (1 llamada al modelo rápido).',
+  revision: 'La misma semana con la revisión ya hecha: prueba «Aplicar» y «Descartar» sin gastar llamadas.',
+  'semana-vacia': 'La semana pasada no hubo actividad: Hoy muestra «Semana tranquila» sin llamar a la IA.',
 }
 
 const name = process.argv[2]
 if (!ESCENARIOS[name]) {
   console.log('Uso: npm run escenario <nombre>\n')
-  for (const [key, description] of Object.entries(ESCENARIOS)) console.log(`  ${key.padEnd(7)} ${description}`)
+  for (const [key, description] of Object.entries(ESCENARIOS)) console.log(`  ${key.padEnd(13)} ${description}`)
   process.exit(name ? 1 : 0)
 }
 

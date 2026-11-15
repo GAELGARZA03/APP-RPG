@@ -19,6 +19,7 @@ import { Badge } from './kit/Badge'
 import { Button } from './kit/Button'
 import { Card } from './kit/Card'
 import { TaskRow } from './kit/TaskRow'
+import { ReviewCard } from './review/ReviewCard'
 
 export function TodayTab(props: {
   today: GameDay
@@ -27,6 +28,7 @@ export function TodayTab(props: {
   profile: ProfileSettings | undefined
   onProfile: () => void
   onCreate: () => void
+  onReview: (weekStart: GameDay) => void
   onOpen: (ref: TaskRef) => void
   onStreakInfo: () => void
   onOutcome: (outcome: Outcome, ref: TaskRef, fromDetail: boolean) => void
@@ -50,6 +52,7 @@ export function TodayTab(props: {
       <HudCard hud={hud} title={title} profile={profile} onOpen={onProfile} />
       <StreakCard hud={hud} week={week} onInfo={onStreakInfo} />
       <DailyCard today={today} onOpen={onOpen} onOutcome={onOutcome} />
+      <ReviewCard today={today} onOpen={props.onReview} />
 
       <Card
         label="Contratos de hoy"

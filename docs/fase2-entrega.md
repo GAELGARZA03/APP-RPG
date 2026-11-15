@@ -7,7 +7,7 @@ Documento de traspaso de [fase2-verificacion-y-revision-semanal.md](fase2-verifi
 | 3. Verificación y corrección | Hecha (secciones 1 a 7 de este documento) |
 | Extra: app de pruebas y escenarios | Hecha (sección 8) |
 | 4. Orden interno | Hecha (sección 9) |
-| 5. Revisión semanal | Sin empezar |
+| 5. Revisión semanal | Hecha (sección 10); falta la prueba del usuario en el teléfono |
 
 A mitad de la sesión el usuario decidió hacer él mismo las comprobaciones de funciones en el teléfono. Lo que quedó sin probar está en la sección 6, como lista para revisar a mano.
 
@@ -131,4 +131,47 @@ Nada debería verse distinto. Para comprobarlo:
 1. `npm run escenario demo`: abre una campaña (mapa), el árbol del Perfil y la bitácora. Deben abrir igual de rápido que antes.
 2. Con el mismo escenario, Misiones › Generar campaña con IA: escribe una meta, responde las preguntas y llega a la vista previa (usa el modelo rápido por el modo ahorro). Prueba el botón atrás en cada paso.
 3. `npm run escenario acto`: completa la misión que falta y genera el Acto 2 con IA, o agrega misiones a mano.
+
+## 10. Revisión semanal (sección 5)
+
+### Cómo funciona
+
+- **Cuándo:** la semana de juego va de lunes a domingo (el día cierra a las 4:00 a. m.). Durante toda la semana siguiente, Hoy muestra la tarjeta «Tu revisión semanal», debajo de la misión del día. La revisión se genera **al abrirla**, una sola vez; después se muestra la guardada.
+- **Semana vacía:** no se llama a la IA. La tarjeta dice «Semana tranquila» con un mensaje amable y un botón «Entendido» que la oculta.
+- **Jugador nuevo:** si el jugador no tenía contratos ni campañas esa semana, no hay tarjeta.
+- **Qué se envía** (`getWeekReport` en `src/data/store/review.ts`, texto en `reviewInput`): misiones completadas, saltadas, deshechas y atascadas; campañas con su avance y los actos cerrados en la semana; contratos día por día; racha al empezar y al terminar; misiones del día; XP por habilidad y número de evidencias. Cada misión y contrato va con una referencia corta (`m1`, `c1`), nunca con su id.
+- **Misión atascada:** pendiente, sin bloqueo y desbloqueada hace 5 días o más (`STUCK_AFTER_DAYS`). El día de desbloqueo es el más reciente entre su creación, el día en que se generó su acto y el cierre del acto anterior.
+- **Qué devuelve** (esquema y validación en `src/ai/gemini/review.ts`): resumen, logros, dónde te atoraste, hasta 4 ajustes y de 1 a 3 misiones de foco.
+- **Ajustes aplicables** (`applyAdjustment`):
+  - Dividir una misión atascada en 2 o 3: las nuevas entran al **mismo acto** con la misma habilidad, y la original se borra. El bloqueo no cambia.
+  - Cambiar la dificultad de una misión pendiente.
+  - Archivar un contrato.
+  - Agregar un contrato nuevo.
+
+  Ninguno toca el XP ganado. Si la misión ya se completó o el contrato ya no existe, el ajuste no se aplica y lo explica. Los ajustes con referencias inventadas o del tipo equivocado se descartan al guardar (`planToReview`).
+- **Foco:** cada misión recomendada abre su detalle.
+- **Modelo:** el principal con razonamiento medio por la API Interactions, con reintentos y respaldo al rápido. Con el modo ahorro (app de pruebas) responde el modelo rápido. Si falla, se ofrece reintentar o usar el modelo rápido.
+- **Historial:** tabla `reviews` (Dexie v4, el `id` es el lunes de la semana), con el estado de cada ajuste (pendiente, aplicado o descartado). Se consulta en el Perfil («Revisiones semanales») y en la propia hoja («Revisiones anteriores»). Entra en el respaldo, que pasa a **formato 3** y sigue importando los formatos 1 y 2. «Restablecer progreso» también borra las revisiones.
+- **Carga diferida:** la hoja de la revisión se carga aparte, como las otras pantallas pesadas.
+
+### Archivos
+
+| Archivo | Qué hace |
+|---|---|
+| `src/data/store/review.ts` | Resumen de la semana, tarjeta de Hoy, guardar, aplicar y descartar ajustes |
+| `src/ai/gemini/review.ts` | Instrucciones, esquema JSON, validación con zod, texto que se envía y la llamada |
+| `src/ai/weeklyReview.ts` | Genera y guarda la revisión (respeta el modo ahorro) |
+| `src/ui/review/` | `ReviewCard` (Hoy), `ReviewSheet` (la revisión y el historial), `format` |
+| `src/data/review.test.ts` | 11 pruebas: resumen, atascadas, racha, referencias, aplicar sin tocar XP ni bloqueo, respaldo, tarjeta y la llamada |
+
+### Qué revisar en el teléfono (RPG Pruebas)
+
+1. `npm run escenario revision`: en Hoy, toca «Tu revisión semanal». Revisa el texto, toca «Aplicar» en «Dividir misión» y comprueba en Misiones que la misión se cambió por dos en el Acto 1. Prueba «Descartar» en otro ajuste y toca la misión de «Foco».
+2. `npm run escenario semana`: abre la tarjeta. Se genera con el modelo rápido (1 llamada). Comprueba que las sugerencias mencionen datos de la semana.
+3. `npm run escenario semana-vacia`: en Hoy debe salir «Semana tranquila»; «Entendido» la oculta.
+
+### Sin verificar
+
+- **Ninguna llamada real a Gemini:** todo está probado con Gemini simulado. La primera llamada real será la del escenario `semana`. Si Google rechazara el esquema, el error aparecería ahí, con la opción de reintentar.
+- **Calidad con el modelo principal:** la especificación pedía una revisión real con Hydrogen para comprobar que las sugerencias sean específicas. Queda pendiente hasta que el usuario quiera gastar esa llamada (se hace apagando el modo ahorro en RPG Pruebas).
 

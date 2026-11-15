@@ -54,3 +54,17 @@ export { addEvidence, deleteEvidence, getJournal } from './store/journal'
 export type { JournalEntry } from './store/journal'
 export { completeDaily, getDaily, getDailyContext, saveDaily, undoDaily } from './store/daily'
 export type { DailyContext, DailyView } from './store/daily'
+export {
+  applyAdjustment,
+  dismissAdjustment,
+  dismissEmptyWeek,
+  getReview,
+  getReviewCard,
+  getWeekReport,
+  listReviews,
+  planToReview,
+  saveReview,
+  STUCK_AFTER_DAYS,
+  weekStartOf,
+} from './store/review'
+export type { ApplyResult, ReviewCardView, ReviewPlan, ReviewRef, WeekReport } from './store/review'

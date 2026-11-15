@@ -11,6 +11,7 @@ import {
   Network,
   NotebookPen,
   Palette,
+  ScrollText,
   Shield,
   Sparkles,
   Trophy,
@@ -18,7 +19,8 @@ import {
 import { motion } from 'motion/react'
 import { Suspense, type ReactNode } from 'react'
 import { db } from '../data/appDb'
-import { getJournal, getSkillTree, type Hud } from '../data/gameStore'
+import { getJournal, getSkillTree, listReviews, type Hud } from '../data/gameStore'
+import type { GameDay } from '../game/gameDay'
 import { saveCosmetics } from '../data/settings'
 import {
   CRT_EFFECT,
@@ -83,11 +85,13 @@ export function ProfileTab(props: {
   choice: CosmeticChoice
   onOpenTree: () => void
   onOpenJournal: () => void
+  onOpenReview: (weekStart: GameDay) => void
 }) {
   const { hud, choice } = props
   const { level } = hud
   const tree = useLiveQuery(() => getSkillTree(db), [])
   const journal = useLiveQuery(() => getJournal(db), [])
+  const reviews = useLiveQuery(() => listReviews(db), [])
   const litSkills = tree?.nodes.filter((node) => node.xp > 0).length ?? 0
   const lastPhotos = journal?.filter((entry) => entry.photo).slice(0, 4) ?? []
   const active = effectiveCosmetics(choice, level)
@@ -206,6 +210,29 @@ export function ProfileTab(props: {
         )}
         <ChevronRight aria-hidden className="size-5 shrink-0 text-muted" />
       </motion.button>
+
+      {reviews && reviews.length > 0 && (
+        <motion.button
+          type="button"
+          onClick={() => props.onOpenReview(reviews[0].id)}
+          whileTap={{ scale: 0.985 }}
+          aria-label="Abrir las revisiones semanales"
+          className={cn(cardSurface, 'flex items-center gap-3 p-4 text-left')}
+        >
+          <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-info/15 text-info">
+            <ScrollText aria-hidden className="size-5" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-display text-sm font-semibold tracking-wide uppercase">
+              Revisiones semanales
+            </span>
+            <span className="block text-sm text-muted">
+              {reviews.length} {reviews.length === 1 ? 'semana revisada' : 'semanas revisadas'}
+            </span>
+          </span>
+          <ChevronRight aria-hidden className="size-5 shrink-0 text-muted" />
+        </motion.button>
+      )}
 
       <Card label="Títulos" icon={Award}>
         <div className="flex flex-col gap-2">

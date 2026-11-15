@@ -15,11 +15,15 @@ import {
   createSideQuest,
   getCampaign,
   getHud,
+  getWeekReport,
+  planToReview,
   saveDaily,
+  saveReview,
   skipSideQuest,
   toggleStep,
+  weekStartOf,
 } from '../data/gameStore'
-import { gameDayOf } from '../game/gameDay'
+import { addDays, gameDayOf, type GameDay } from '../game/gameDay'
 import { actTwoMissions, guitarDesign } from './fixtures'
 
 const building = process.env.SEED_BUILD === '1' || process.env.npm_lifecycle_event === 'seed:build'
@@ -45,6 +49,7 @@ async function exportScenario(db: GameDatabase, name: string) {
     db.skills,
     db.evidence,
     db.dailies,
+    db.reviews,
   ]) {
     stores[table.name] = await table.toArray()
   }
@@ -288,4 +293,132 @@ it.runIf(building)('escenario arbol', async () => {
   }
   expect(await db.skills.count()).toBe(78)
   await exportScenario(db, 'arbol')
+})
+
+/** Lunes de la semana pasada y un día de juego a mediodía. */
+const lastWeekStart = () => addDays(weekStartOf(gameDayOf(new Date())), -7)
+const noonOf = (day: GameDay) => {
+  const [year, month, date] = day.split('-').map(Number)
+  return new Date(year, month - 1, date, 12)
+}
+
+/**
+ * La semana pasada, variada: avance en guitarra, una misión saltada, un contrato que casi no se cumplió,
+ * una misión atascada y misiones del día hechas y no hechas.
+ */
+async function buildLastWeek(db: GameDatabase) {
+  const start = lastWeekStart()
+  const day = (offset: number) => noonOf(addDays(start, offset))
+  const water = await createBounty(db, { title: 'Tomar 2 litros de agua', difficulty: 1 }, day(-10))
+  const read = await createBounty(
+    db,
+    { title: 'Leer 20 minutos', difficulty: 1, steps: ['Abre el libro', 'Lee 20 minutos sin celular'] },
+    day(-10),
+  )
+  for (const offset of [-3, -2, -1]) {
+    await completeBounty(db, water.id, day(offset))
+    await completeBounty(db, read.id, day(offset))
+  }
+  for (let offset = 0; offset < 7; offset++) await completeBounty(db, water.id, day(offset))
+  for (const offset of [0, 3]) await completeBounty(db, read.id, day(offset))
+
+  const guitar = await acceptCampaignPlan(db, { ...guitarDesign, bounties: [] }, day(-9))
+  const [tune, chords] = (await getCampaign(db, guitar.id))!.actViews[0].quests
+  await skipSideQuest(db, tune.id, day(1))
+  await completeQuest(db, chords.id, day(4))
+  await addEvidence(db, { kind: 'sideQuest', id: chords.id }, { note: 'Em y Am ya suenan limpios.' }, day(4))
+
+  for (const [offset, done] of [
+    [2, true],
+    [5, false],
+  ] as const) {
+    await saveDaily(
+      db,
+      {
+        title: done ? 'Reto: 40 cambios de acorde' : 'Reto: afina de oído',
+        difficulty: 2,
+        description: 'Reto corto.',
+        steps: ['Hazlo', 'Anota cómo te fue'],
+        estimate: '20 min',
+        skill: 'Ritmo',
+        campaignId: guitar.id,
+        branchId: guitar.skillId,
+      },
+      day(offset),
+    )
+    if (done) await db.dailies.update(addDays(start, offset), { completedDay: addDays(start, offset) })
+  }
+  return { start, read }
+}
+
+/** La semana pasada sin revisar: al abrir la tarjeta se genera (en la app de pruebas, con el modelo rápido). */
+it.runIf(building)('escenario semana', async () => {
+  const db = new GameDatabase('escenario-semana')
+  await buildLastWeek(db)
+  await exportScenario(db, 'semana')
+})
+
+/** La misma semana con una revisión ya guardada: para ver la pantalla y aplicar ajustes sin gastar llamadas. */
+it.runIf(building)('escenario revision', async () => {
+  const db = new GameDatabase('escenario-revision')
+  const { start } = await buildLastWeek(db)
+  const report = await getWeekReport(db, start)
+  const stuck = report.stuck[0]
+  const read = report.bounties.find((item) => item.title === 'Leer 20 minutos')!
+  expect(stuck).toBeDefined()
+  const review = planToReview(
+    {
+      summary:
+        'Semana de avance real en la guitarra: cerraste dos misiones y no soltaste el agua ni un día. La lectura, en cambio, se quedó en 2 de 7 días.',
+      wins: ['Tomaste 2 litros de agua los 7 días', 'Completaste «' + report.completed[0].title + '» con evidencia'],
+      stuck: [
+        {
+          ref: stuck.ref,
+          title: stuck.title,
+          cause: `Lleva ${stuck.days} días desbloqueada: probablemente es demasiado grande para una sola sesión.`,
+        },
+        { ref: read.ref, title: read.title, cause: 'Solo 2 de 7 días; 20 minutos puede ser mucho al final del día.' },
+      ],
+      adjustments: [
+        {
+          kind: 'split',
+          ref: stuck.ref,
+          reason: 'Partirla en sesiones cortas hace más fácil empezar.',
+          parts: [
+            {
+              title: 'Toca la progresión a 50 bpm',
+              difficulty: 1,
+              description: 'Solo los cambios, lento.',
+              steps: ['5 vueltas sin parar', 'Anota el cambio más difícil'],
+            },
+            {
+              title: 'Toca la progresión a 80 bpm',
+              difficulty: 2,
+              description: 'Ya con rasgueo.',
+              steps: ['5 vueltas sin parar', 'Grábate una vez'],
+            },
+          ],
+        },
+        { kind: 'archiveBounty', ref: read.ref, reason: 'Casi no se cumple y te quita la racha.' },
+        {
+          kind: 'addBounty',
+          ref: '',
+          reason: 'Un contrato mínimo mantiene el hábito sin presión.',
+          bounty: { title: 'Leer 1 página', difficulty: 1, steps: ['Abre el libro', 'Lee una página'] },
+        },
+      ],
+      focus: [{ ref: stuck.ref, title: stuck.title, why: 'Es lo único que falta para cerrar el Acto 1.' }],
+    },
+    report,
+    'escenario',
+  )
+  await saveReview(db, review)
+  await exportScenario(db, 'revision')
+})
+
+/** El jugador ya existía, pero la semana pasada no hizo nada: la tarjeta muestra el mensaje sin llamar a la IA. */
+it.runIf(building)('escenario semana-vacia', async () => {
+  const db = new GameDatabase('escenario-semana-vacia')
+  await createBounty(db, { title: 'Tomar 2 litros de agua', difficulty: 1 }, noonOf(addDays(lastWeekStart(), -5)))
+  await exportScenario(db, 'semana-vacia')
 })

@@ -4,8 +4,12 @@ import type { CosmeticSettings, GameDatabase, NotificationSettings, PrefsSetting
 import { markBackupDone } from './settings'
 
 const BACKUP_APP = 'real-life-rpg'
-/** Versión 2: agrega actos, análisis, habilidades, bitácora y misión del día. La 1 se sigue importando. */
-const BACKUP_VERSION = 2
+/**
+ * Versión 3: agrega las revisiones semanales. Versión 2: actos, análisis, habilidades, bitácora y misión del día.
+ * Las versiones 1 y 2 se siguen importando.
+ */
+const BACKUP_VERSION = 3
+const SUPPORTED_VERSIONS = [1, 2, BACKUP_VERSION] as const
 
 const id = z.string().min(1).max(100)
 const title = z.string().trim().min(1).max(200)
@@ -49,6 +53,40 @@ const analysis = z.object({
 const brief = z.object({
   idea: text(8000),
   answers: z.array(z.object({ question: text(300), answer: text(300) })).max(8),
+})
+
+const plannedMission = z.object({
+  title,
+  difficulty,
+  description: text(1000),
+  steps: z.array(text(200)).max(10),
+})
+
+const review = z.object({
+  id: day,
+  createdAt: timestamp,
+  empty: z.boolean().optional(),
+  summary: text(1200),
+  wins: z.array(text(400)).max(8),
+  stuck: z.array(z.object({ title: text(200), cause: text(400) })).max(8),
+  adjustments: z
+    .array(
+      z.object({
+        id,
+        kind: z.enum(['split', 'difficulty', 'archiveBounty', 'addBounty']),
+        reason: text(400),
+        questId: id.optional(),
+        bountyId: id.optional(),
+        targetTitle: text(200).optional(),
+        difficulty: difficulty.optional(),
+        parts: z.array(plannedMission).max(4).optional(),
+        bounty: plannedMission.omit({ description: true }).optional(),
+        status: z.enum(['pending', 'applied', 'dismissed']),
+      }),
+    )
+    .max(8),
+  focus: z.array(z.object({ title: text(200), why: text(400), questId: id.optional() })).max(5),
+  model: text(100).optional(),
 })
 
 // z.object descarta cualquier campo que no esté aquí, así un respaldo nunca mete datos extra.
@@ -141,6 +179,8 @@ const dataSchema = z.object({
       }),
     )
     .default([]),
+  // No existe en los respaldos de las versiones 1 y 2.
+  reviews: z.array(review).max(600).default([]),
   settings: z
     .array(
       z.discriminatedUnion('id', [
@@ -176,7 +216,7 @@ const dataSchema = z.object({
 
 const backupSchema = z.object({
   app: z.literal(BACKUP_APP),
-  version: z.literal([1, BACKUP_VERSION]),
+  version: z.literal(SUPPORTED_VERSIONS),
   exportedAt: z.iso.datetime(),
   data: dataSchema,
 })
@@ -196,6 +236,7 @@ function tables(db: GameDatabase) {
     db.skills,
     db.evidence,
     db.dailies,
+    db.reviews,
   ]
 }
 
@@ -216,6 +257,7 @@ export async function createBackup(db: GameDatabase, now = new Date()): Promise<
         skills: await db.skills.toArray(),
         evidence: await db.evidence.toArray(),
         dailies: await db.dailies.toArray(),
+        reviews: await db.reviews.toArray(),
         // La info del último respaldo y los modelos de IA no viajan; la API key ni siquiera está aquí.
         settings: settings.filter(
           (setting): setting is NotificationSettings | CosmeticSettings | ProfileSettings | PrefsSettings =>
@@ -257,7 +299,7 @@ export function parseBackup(text: string): Backup {
 
   const header = typeof json === 'object' && json !== null ? (json as Record<string, unknown>) : {}
   if (header.app !== BACKUP_APP) throw new BackupError('Este archivo no es un respaldo de Real Life RPG.')
-  if (header.version !== 1 && header.version !== BACKUP_VERSION) {
+  if (!SUPPORTED_VERSIONS.includes(header.version as never)) {
     throw new BackupError('Este respaldo es de una versión de la app que no se reconoce.')
   }
   throw new BackupError('El respaldo está incompleto o dañado.')
@@ -291,6 +333,7 @@ export async function restoreBackup(db: GameDatabase, backup: Backup): Promise<v
       await db.skills.bulkAdd(backup.data.skills)
       await db.evidence.bulkAdd(backup.data.evidence)
       await db.dailies.bulkAdd(backup.data.dailies)
+      await db.reviews.bulkAdd(backup.data.reviews)
       await db.settings.bulkAdd(backup.data.settings)
       if (ai) await db.settings.put(ai)
       await markBackupDone(db, backup.exportedAt)
