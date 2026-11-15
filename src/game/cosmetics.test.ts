@@ -16,7 +16,7 @@ describe('Recompensas estéticas', () => {
 
   it('muestra el siguiente desbloqueo', () => {
     expect(nextUnlock(1)).toEqual({ level: 2, labels: ['Título «Explorador»'] })
-    expect(nextUnlock(5)).toEqual({ level: 6, labels: ['Título «Cazador de Contratos»', 'Efecto CRT'] })
+    expect(nextUnlock(5)).toEqual({ level: 6, labels: ['Título «Cazador de Hábitos»', 'Efecto CRT'] })
     expect(nextUnlock(20)).toBeNull()
   })
 

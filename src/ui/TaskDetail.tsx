@@ -24,16 +24,17 @@ import { detailTask } from '../ai/gemini'
 import { aiSession } from '../ai/session'
 import { db } from '../data/appDb'
 import {
-  completeBounty,
+  completeHabit,
+  setHabitState,
   completeDaily,
   completeQuest,
   getTaskDetail,
   skipSideQuest,
   toggleStep,
-  undoBounty,
+  undoHabit,
   undoDaily,
   undoSideQuest,
-  updateBounty,
+  updateHabit,
   updateSideQuest,
   type Outcome,
   type TaskDetailView,
@@ -50,7 +51,7 @@ import { cn } from './kit/cn'
 import { DifficultyPips } from './kit/controls'
 
 const DIFFICULTY_NAMES = ['', 'Fácil', 'Normal', 'Media', 'Difícil', 'Épica']
-const KIND_LABELS = { bounty: 'Contrato diario', sideQuest: 'Side Quest', daily: 'Misión del día' }
+const KIND_LABELS = { habit: 'Hábito', sideQuest: 'Side Quest', daily: 'Misión del día' }
 
 function formatDay(day: string) {
   const [year, month, date] = day.split('-').map(Number)
@@ -84,11 +85,11 @@ function useAiDetail(view: TaskDetailView | null | undefined) {
         model: session.fastModel,
         title: view.task.title,
         campaign: view.campaign,
-        daily: view.kind === 'bounty',
+        daily: view.kind === 'habit',
         onStatus: ({ stage, message }) =>
           stage === 'retry' && setState((current) => (current.loading ? { ...current, status: message } : current)),
       })
-      if (view.kind === 'bounty') await updateBounty(db, view.task.id, detail)
+      if (view.kind === 'habit') await updateHabit(db, view.task.id, detail)
       else await updateSideQuest(db, view.task.id, detail)
       setState({ loading: false, error: null })
     } catch (error) {
@@ -163,8 +164,8 @@ export function TaskDetail(props: {
 
   async function complete() {
     if (!view) return
-    if (view.kind === 'bounty') {
-      const xp = await completeBounty(db, view.task.id)
+    if (view.kind === 'habit') {
+      const xp = await completeHabit(db, view.task.id)
       report({ ok: xp !== null, xp: xp ?? 0 })
     } else if (view.kind === 'daily') report(await completeDaily(db, view.task.id))
     else report(await completeQuest(db, view.task.id))
@@ -172,7 +173,7 @@ export function TaskDetail(props: {
 
   async function undo() {
     if (!view) return
-    if (view.kind === 'bounty') await undoBounty(db, view.task.id)
+    if (view.kind === 'habit') await undoHabit(db, view.task.id)
     else if (view.kind === 'daily') await undoDaily(db, view.task.id)
     else await undoSideQuest(db, view.task.id)
   }
@@ -201,7 +202,7 @@ export function TaskDetail(props: {
   const hasDetail = description.length > 0 || steps.length > 0
   const locked = Boolean(view?.lock)
   const resolved = Boolean(view && (view.done || view.skipped))
-  const showEvidence = view && view.kind !== 'bounty' && !locked
+  const showEvidence = view && view.kind !== 'habit' && !locked
 
   return (
     <div
@@ -244,7 +245,7 @@ export function TaskDetail(props: {
                     </Badge>
                   ) : (
                     <Badge tone="info">
-                      {view.kind === 'bounty' ? (
+                      {view.kind === 'habit' ? (
                         <Repeat aria-hidden />
                       ) : view.kind === 'daily' ? (
                         <Zap aria-hidden />
@@ -294,7 +295,7 @@ export function TaskDetail(props: {
                   {view.done && (
                     <Badge tone="signal">
                       <Check aria-hidden />
-                      {view.kind === 'bounty' ? 'Hecho hoy' : 'Completada'}
+                      {view.kind === 'habit' ? (view.state === 'half' ? 'A medias hoy' : 'Hecho hoy') : 'Completada'}
                     </Badge>
                   )}
                   {view.skipped && (
@@ -420,7 +421,10 @@ export function TaskDetail(props: {
               {showEvidence && (
                 <div
                   ref={evidenceSection}
-                  className={cn('rounded-2xl transition-shadow', needsEvidence && 'ring-2 ring-ember/70 ring-offset-8 ring-offset-panel')}
+                  className={cn(
+                    'rounded-2xl transition-shadow',
+                    needsEvidence && 'ring-2 ring-ember/70 ring-offset-8 ring-offset-panel',
+                  )}
                 >
                   <EvidenceSection
                     taskRef={taskRef}
@@ -436,6 +440,21 @@ export function TaskDetail(props: {
                 </div>
               )}
 
+              {view.kind === 'habit' && view.scheduledToday && !view.done && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    void setHabitState(db, view.task.id, today, 'half').then((xp) =>
+                      report({ ok: xp !== null, xp: xp ?? 0 }),
+                    )
+                  }
+                >
+                  <Check aria-hidden />
+                  Lo hice a medias (+{Math.round(view.xp / 2)} XP)
+                </Button>
+              )}
+
               {view.canSkip && (
                 <Button variant="ghost" size="sm" onClick={() => void skipSideQuest(db, view.task.id).then(report)}>
                   <FastForward aria-hidden />
@@ -444,10 +463,10 @@ export function TaskDetail(props: {
               )}
 
               <p className="text-xs text-muted">
-                {view.kind === 'bounty'
-                  ? `Completado ${view.completions} ${view.completions === 1 ? 'vez' : 'veces'} · desde el ${formatDay(view.task.createdDay)}`
+                {view.kind === 'habit'
+                  ? `${view.scheduledToday ? '' : 'Hoy no le toca · '}Hecho ${view.completions} ${view.completions === 1 ? 'vez' : 'veces'} · desde el ${formatDay(view.task.createdDay)}`
                   : view.kind === 'daily'
-                    ? 'Caduca al cierre del día (4:00 a. m.). No afecta tu racha.'
+                    ? 'Caduca al cierre del día (4:00 a. m.). Cuenta para tu racha.'
                     : view.task.completedDay
                       ? `Completada el ${formatDay(view.task.completedDay)}`
                       : `Creada el ${formatDay(view.task.createdDay)}`}
@@ -470,6 +489,7 @@ export function TaskDetail(props: {
                   <Button
                     variant={resolved ? 'secondary' : 'primary'}
                     onClick={() => void (resolved ? undo() : complete())}
+                    disabled={view.kind === 'habit' && !view.scheduledToday && !resolved}
                     className="flex-[2] whitespace-nowrap px-3"
                   >
                     {resolved ? <RotateCcw aria-hidden /> : <Check aria-hidden />}

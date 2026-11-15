@@ -38,7 +38,7 @@ Qué devolver:
 - missions: SOLO las misiones del Acto 1. La cantidad depende de lo que ese acto necesite, entre 2 y 6: no uses un número fijo. Van de fácil a difícil, y la primera se puede hacer hoy mismo en menos de 20 minutos. Los demás actos se detallarán después, según cómo le vaya al jugador.
 - boss: la misión jefe que cierra el último acto. Dificultad 4 o 5, claramente distinta de las demás: una demostración o entrega final que prueba el criterio de éxito (tocar ante alguien, publicar, presentar, competir). Su último objetivo pide dejar evidencia (foto o nota) en la bitácora.
 - skills: area es el área general en 1 o 2 palabras ("Música", "Programación", "Salud"); branch es la habilidad concreta de esta meta ("Guitarra"); leaves son de 3 a 6 sub-habilidades que cubren TODA la campaña ("Fundamentos", "Acordes abiertos", "Ritmo", "Repertorio"). Si el contexto lista habilidades existentes que apliquen, reutiliza exactamente esos nombres en vez de inventar sinónimos.
-- bounties: de 0 a 3 contratos diarios de 5 a 15 minutos, SOLO si la meta se sostiene con práctica diaria. Deben ser realistas sumados a los contratos que el jugador ya tiene: si ya tiene 4 o más, propone como máximo 1, y nunca repitas uno existente. Si la meta es un proyecto sin práctica diaria, devuelve una lista vacía.
+- habits: de 0 a 3 hábitos de 5 a 15 minutos, SOLO si la meta se sostiene con práctica frecuente. Deben ser realistas sumados a los hábitos que el jugador ya tiene: si ya tiene 4 o más, propone como máximo 1, y nunca repitas uno existente. Si la meta es un proyecto sin práctica diaria, devuelve una lista vacía.
 
 ${FULL_MISSION_RULES}
 
@@ -47,7 +47,7 @@ Ejemplo del nivel esperado (meta: aprender guitarra; principiante; 4 horas a la 
 - Actos: 1 "Primeros acordes" (semanas 1 a 3), 2 "Ritmo y cambios" (4 a 7), 3 "Primeras canciones" (8 a 11), 4 "El concierto" (semana 12).
 - Acto 1: "Afina tu guitarra y conoce sus cuerdas" (dificultad 1, 15 min), "Domina Mi menor y La menor" (2, 30 min: forma cada acorde 10 veces sin trastes muertos; cambia entre Em y Am 20 veces a 60 bpm), "Agrega Do y Sol a tu arsenal" (3), "Tu primera progresión" (3: Sol–Re–Em–Do a 70 bpm durante 2 minutos sin detenerte).
 - Jefe: "El concierto" (5): toca 3 canciones completas para al menos una persona y grábalo sin cortes.
-- Contrato diario: "Practica cambios de acordes 10 minutos".
+- Hábito: "Practica cambios de acordes 10 minutos".
 
 Lo que NO debes hacer: "Practicar acordes", "Mejorar el ritmo", "Practicar más", "Seguir mejorando"; todas con la misma dificultad; siempre la misma cantidad de misiones; sin cantidades ni forma de saber que terminaste; ignorar lo que el jugador respondió.
 

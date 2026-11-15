@@ -1,15 +1,24 @@
 import { z } from 'zod'
 import { SOUNDS, THEMES, TITLES, type SoundId, type ThemeId, type TitleId } from '../game/cosmetics'
-import type { CosmeticSettings, GameDatabase, NotificationSettings, PrefsSettings, ProfileSettings } from './db'
+import {
+  migrateAdjustment,
+  type CosmeticSettings,
+  type GameDatabase,
+  type NotificationSettings,
+  type PrefsSettings,
+  type ProfileSettings,
+} from './db'
 import { markBackupDone } from './settings'
 
 const BACKUP_APP = 'real-life-rpg'
 /**
- * Versión 3: agrega las revisiones semanales. Versión 2: actos, análisis, habilidades, bitácora y misión del día.
- * Las versiones 1 y 2 se siguen importando.
+ * Versión 5: notas diarias de la bitácora.
+ * Versión 4: los contratos diarios pasan a ser hábitos, con registro por día.
+ * Versión 3: revisiones semanales. Versión 2: actos, análisis, habilidades, bitácora y misión del día.
+ * Las versiones 1 a 3 se siguen importando: sus contratos se convierten en hábitos diarios (`upgradeLegacy`).
  */
-const BACKUP_VERSION = 3
-const SUPPORTED_VERSIONS = [1, 2, BACKUP_VERSION] as const
+const BACKUP_VERSION = 5
+const SUPPORTED_VERSIONS = [1, 2, 3, 4, BACKUP_VERSION] as const
 
 const id = z.string().min(1).max(100)
 const title = z.string().trim().min(1).max(200)
@@ -73,14 +82,14 @@ const review = z.object({
     .array(
       z.object({
         id,
-        kind: z.enum(['split', 'difficulty', 'archiveBounty', 'addBounty']),
+        kind: z.enum(['split', 'difficulty', 'archiveHabit', 'addHabit']),
         reason: text(400),
         questId: id.optional(),
-        bountyId: id.optional(),
+        habitId: id.optional(),
         targetTitle: text(200).optional(),
         difficulty: difficulty.optional(),
         parts: z.array(plannedMission).max(4).optional(),
-        bounty: plannedMission.omit({ description: true }).optional(),
+        habit: plannedMission.omit({ description: true }).optional(),
         status: z.enum(['pending', 'applied', 'dismissed']),
       }),
     )
@@ -91,12 +100,18 @@ const review = z.object({
 
 // z.object descarta cualquier campo que no esté aquí, así un respaldo nunca mete datos extra.
 const dataSchema = z.object({
-  bounties: z.array(
+  habits: z.array(
     z.object({
       id,
       title,
       difficulty,
       ...detail,
+      emoji: text(16).optional(),
+      frequency: z.discriminatedUnion('kind', [
+        z.object({ kind: z.literal('daily') }),
+        z.object({ kind: z.literal('weekdays'), days: z.array(z.number().int().min(0).max(6)).min(1).max(7) }),
+      ]),
+      order: z.number().int(),
       createdAt: timestamp,
       createdDay: day,
       archivedDay: day.nullable(),
@@ -104,6 +119,9 @@ const dataSchema = z.object({
       campaignId: id.optional(),
     }),
   ),
+  habitLogs: z
+    .array(z.object({ id: z.string().min(1).max(220), habitId: id, day, state: z.enum(['done', 'half', 'missed']) }))
+    .default([]),
   campaigns: z.array(
     z.object({
       id,
@@ -136,7 +154,7 @@ const dataSchema = z.object({
   xpEvents: z.array(
     z.object({
       id,
-      kind: z.enum(['bounty', 'sideQuest', 'daily']),
+      kind: z.enum(['habit', 'sideQuest', 'daily']),
       taskId: id,
       day,
       xp: z.number().int().nonnegative(),
@@ -154,7 +172,7 @@ const dataSchema = z.object({
     .array(
       z.object({
         id,
-        taskKind: z.enum(['sideQuest', 'bounty', 'daily']),
+        taskKind: z.enum(['sideQuest', 'habit', 'daily']),
         taskId: id,
         taskTitle: text(200),
         createdAt: timestamp,
@@ -178,6 +196,10 @@ const dataSchema = z.object({
         campaignId: id.optional(),
       }),
     )
+    .default([]),
+  // No existe en los respaldos de las versiones 1 a 4.
+  dailyNotes: z
+    .array(z.object({ id: day, text: text(2000), photo: photo.optional(), createdAt: timestamp, updatedAt: timestamp }))
     .default([]),
   // No existe en los respaldos de las versiones 1 y 2.
   reviews: z.array(review).max(600).default([]),
@@ -227,7 +249,7 @@ export class BackupError extends Error {}
 
 function tables(db: GameDatabase) {
   return [
-    db.bounties,
+    db.habits,
     db.campaigns,
     db.sideQuests,
     db.xpEvents,
@@ -237,6 +259,8 @@ function tables(db: GameDatabase) {
     db.evidence,
     db.dailies,
     db.reviews,
+    db.habitLogs,
+    db.dailyNotes,
   ]
 }
 
@@ -249,7 +273,9 @@ export async function createBackup(db: GameDatabase, now = new Date()): Promise<
       version: BACKUP_VERSION,
       exportedAt: now.toISOString(),
       data: {
-        bounties: await db.bounties.toArray(),
+        habits: await db.habits.toArray(),
+        habitLogs: await db.habitLogs.toArray(),
+        dailyNotes: await db.dailyNotes.toArray(),
         campaigns: await db.campaigns.toArray(),
         sideQuests: await db.sideQuests.toArray(),
         xpEvents: await db.xpEvents.toArray(),
@@ -291,7 +317,7 @@ export function parseBackup(text: string): Backup {
     throw new BackupError('El archivo no es un respaldo válido.')
   }
 
-  const result = backupSchema.safeParse(json)
+  const result = backupSchema.safeParse(upgradeLegacy(json))
   if (result.success) {
     if (!isConsistent(result.data)) throw new BackupError('El respaldo está incompleto o dañado.')
     return result.data
@@ -305,11 +331,56 @@ export function parseBackup(text: string): Backup {
   throw new BackupError('El respaldo está incompleto o dañado.')
 }
 
+/**
+ * Los respaldos de las versiones 1 a 3 guardaban «contratos diarios» (`bounties`). Se convierten en hábitos
+ * diarios, cada día cumplido queda como «hecho» y su XP se conserva, igual que la migración de la base de datos.
+ */
+function upgradeLegacy(json: unknown): unknown {
+  if (typeof json !== 'object' || json === null) return json
+  const backup = json as { version?: unknown; data?: Record<string, unknown> }
+  if (typeof backup.version !== 'number' || backup.version >= 4 || typeof backup.data !== 'object' || !backup.data) {
+    return json
+  }
+  const { bounties, ...data } = backup.data as Record<string, unknown> & { bounties?: unknown }
+  const list = Array.isArray(bounties) ? [...(bounties as Array<{ createdAt: number }>)] : []
+  list.sort((a, b) => a.createdAt - b.createdAt)
+  const events = Array.isArray(data.xpEvents) ? (data.xpEvents as Array<Record<string, unknown>>) : []
+  const evidence = Array.isArray(data.evidence) ? (data.evidence as Array<Record<string, unknown>>) : []
+  const reviews = Array.isArray(data.reviews) ? (data.reviews as Array<{ adjustments?: unknown }>) : []
+  return {
+    ...backup,
+    data: {
+      ...data,
+      habits: Array.isArray(bounties)
+        ? list.map((bounty, order) => ({ ...bounty, frequency: { kind: 'daily' }, order }))
+        : data.habits,
+      habitLogs: Array.isArray(bounties)
+        ? events
+            .filter((event) => event.kind === 'bounty')
+            .map((event) => ({
+              id: `${event.taskId}:${event.day}`,
+              habitId: event.taskId,
+              day: event.day,
+              state: 'done',
+            }))
+        : data.habitLogs,
+      xpEvents: events.map((event) => (event.kind === 'bounty' ? { ...event, kind: 'habit' } : event)),
+      evidence: evidence.map((item) => (item.taskKind === 'bounty' ? { ...item, taskKind: 'habit' } : item)),
+      reviews: reviews.map((review) => ({
+        ...review,
+        adjustments: Array.isArray(review.adjustments)
+          ? (review.adjustments as Array<Record<string, unknown>>).map(migrateAdjustment)
+          : review.adjustments,
+      })),
+    },
+  }
+}
+
 export function summarizeBackup(backup: Backup) {
   const { data } = backup
   return {
     exportedAt: backup.exportedAt,
-    bounties: data.bounties.filter((bounty) => bounty.archivedDay === null).length,
+    habits: data.habits.filter((habit) => habit.archivedDay === null).length,
     campaigns: data.campaigns.length,
     sideQuests: data.sideQuests.length,
     skills: data.skills.length,
@@ -325,7 +396,9 @@ export async function restoreBackup(db: GameDatabase, backup: Backup): Promise<v
       // Los modelos de IA no viajan en el respaldo: se conservan los de este teléfono.
       const ai = await db.settings.get('ai')
       await Promise.all(tables(db).map((table) => table.clear()))
-      await db.bounties.bulkAdd(backup.data.bounties)
+      await db.habits.bulkAdd(backup.data.habits)
+      await db.habitLogs.bulkAdd(backup.data.habitLogs)
+      await db.dailyNotes.bulkAdd(backup.data.dailyNotes)
       await db.campaigns.bulkAdd(backup.data.campaigns)
       await db.sideQuests.bulkAdd(backup.data.sideQuests)
       await db.xpEvents.bulkAdd(backup.data.xpEvents)

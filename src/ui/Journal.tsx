@@ -1,19 +1,16 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Flag, NotebookPen, Skull } from 'lucide-react'
+import { BookHeart, Flag, NotebookPen, Skull, Trophy } from 'lucide-react'
 import { AnimatePresence } from 'motion/react'
 import { useState } from 'react'
 import { db } from '../data/appDb'
 import { deleteEvidence, getJournal, type JournalEntry, type TaskRef } from '../data/gameStore'
+import type { GameDay } from '../game/gameDay'
+import { Diary } from './Diary'
+import { formatDay } from './formatDay'
 import { PhotoViewer } from './EvidenceSection'
 import { Badge } from './kit/Badge'
 import { cardSurface } from './kit/Card'
 import { cn } from './kit/cn'
-import { Screen } from './Screen'
-
-function formatDay(day: string) {
-  const [year, month, date] = day.split('-').map(Number)
-  return new Date(year, month - 1, date).toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' })
-}
 
 /** Evidencias agrupadas por día y, dentro del día, por misión. */
 function groupEntries(entries: JournalEntry[]) {
@@ -28,30 +25,89 @@ function groupEntries(entries: JournalEntry[]) {
   return days
 }
 
-/** Bitácora: todas las fotos y notas, de la más reciente a la más antigua. */
-export function JournalScreen({ onClose, onOpen }: { onClose: () => void; onOpen: (ref: TaskRef) => void }) {
+type Section = 'diary' | 'progress'
+const SECTION_KEY = 'bitacora:seccion'
+
+function savedSection(): Section {
+  try {
+    return localStorage.getItem(SECTION_KEY) === 'progress' ? 'progress' : 'diary'
+  } catch {
+    return 'diary'
+  }
+}
+
+/**
+ * Pestaña Bitácora, con dos partes: el Diario (una nota por día con algo épico o algo por lo que das gracias)
+ * y el Progreso (las fotos y notas de tus misiones).
+ */
+export function JournalTab({ today, onOpen }: { today: GameDay; onOpen: (ref: TaskRef) => void }) {
+  const [section, setSectionState] = useState<Section>(savedSection)
+  function setSection(next: Section) {
+    setSectionState(next)
+    try {
+      localStorage.setItem(SECTION_KEY, next)
+    } catch {
+      // Sin almacenamiento, la sección simplemente no se recuerda.
+    }
+  }
+
+  return (
+    <>
+      <h1 className="font-display text-2xl font-semibold">Bitácora</h1>
+      <div
+        role="tablist"
+        aria-label="Secciones de la bitácora"
+        className="grid grid-cols-2 gap-1 rounded-2xl bg-raised/70 p-1"
+      >
+        {(
+          [
+            { id: 'diary', label: 'Diario', icon: BookHeart },
+            { id: 'progress', label: 'Progreso', icon: Trophy },
+          ] as const
+        ).map((option) => (
+          <button
+            key={option.id}
+            type="button"
+            role="tab"
+            aria-selected={section === option.id}
+            onClick={() => setSection(option.id)}
+            className={cn(
+              'flex min-h-10 items-center justify-center gap-2 rounded-xl text-sm font-medium transition-colors',
+              section === option.id ? 'bg-signal text-on-signal' : 'text-muted active:text-ink',
+            )}
+          >
+            <option.icon aria-hidden className="size-4" />
+            {option.label}
+          </button>
+        ))}
+      </div>
+      {section === 'diary' ? <Diary today={today} /> : <Progress onOpen={onOpen} />}
+    </>
+  )
+}
+
+/** Progreso: todas las fotos y notas de tus misiones, de la más reciente a la más antigua. */
+function Progress({ onOpen }: { onOpen: (ref: TaskRef) => void }) {
   const entries = useLiveQuery(() => getJournal(db), [])
   const [viewing, setViewing] = useState<JournalEntry | null>(null)
   const photoCount = entries?.filter((entry) => entry.photo).length ?? 0
   const noteCount = (entries?.length ?? 0) - photoCount
 
   return (
-    <Screen
-      title="Bitácora"
-      eyebrow={
-        entries
-          ? `${photoCount} ${photoCount === 1 ? 'foto' : 'fotos'} · ${noteCount} ${noteCount === 1 ? 'nota' : 'notas'}`
-          : undefined
-      }
-      onClose={onClose}
-    >
-      <div className="mx-auto flex max-w-md flex-col gap-5 px-4">
+    <>
+      {entries && entries.length > 0 && (
+        <p className="-mt-2 text-sm text-muted">
+          {photoCount} {photoCount === 1 ? 'foto' : 'fotos'} · {noteCount} {noteCount === 1 ? 'nota' : 'notas'} de tus
+          misiones
+        </p>
+      )}
+      <div className="flex flex-col gap-5">
         {entries && entries.length === 0 && (
           <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
             <span className="grid size-20 place-items-center rounded-full bg-signal/15 ring-2 ring-signal/40">
               <NotebookPen aria-hidden className="size-9 text-signal" />
             </span>
-            <p className="font-display text-xl font-semibold">Tu bitácora está en blanco</p>
+            <p className="font-display text-xl font-semibold">Aún no hay progreso registrado</p>
             <p className="text-sm text-muted">
               Al completar una misión, agrega una foto o una nota desde su detalle. Aquí quedará el registro de tu
               aventura.
@@ -61,7 +117,7 @@ export function JournalScreen({ onClose, onOpen }: { onClose: () => void; onOpen
 
         {groupEntries(entries ?? []).map((group) => (
           <section key={group.day} aria-label={formatDay(group.day)} className="flex flex-col gap-2.5">
-            <h2 className="sticky top-0 z-10 -mx-4 bg-void/85 px-4 py-1.5 font-display text-sm font-semibold tracking-wide text-muted uppercase backdrop-blur">
+            <h2 className="sticky top-[env(safe-area-inset-top)] z-10 -mx-4 bg-void/85 px-4 py-1.5 font-display text-sm font-semibold tracking-wide text-muted uppercase backdrop-blur">
               {formatDay(group.day)}
             </h2>
             {group.tasks.map((task) => {
@@ -143,6 +199,6 @@ export function JournalScreen({ onClose, onOpen }: { onClose: () => void; onOpen
           />
         )}
       </AnimatePresence>
-    </Screen>
+    </>
   )
 }

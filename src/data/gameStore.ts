@@ -5,14 +5,30 @@ export type { ActCompletion, Outcome, TaskChanges, TaskInput, TaskRef } from './
 export { getHud, getWeek } from './store/hud'
 export type { Hud, WeekDay, WeekDayStatus } from './store/hud'
 export {
-  archiveBounty,
-  completeBounty,
-  createBounty,
-  getTodayBounties,
-  undoBounty,
-  updateBounty,
-} from './store/bounties'
-export type { TodayBounty } from './store/bounties'
+  archiveHabit,
+  completeHabit,
+  createHabit,
+  dayAccess,
+  getHabitGrid,
+  getHabits,
+  getNotebook,
+  getTodayHabits,
+  habitStreak,
+  moveHabit,
+  nextHabitState,
+  setHabitState,
+  undoHabit,
+  updateHabit,
+} from './store/habits'
+export type {
+  DayAccess,
+  HabitGrid,
+  HabitInput,
+  Notebook,
+  NotebookCell,
+  NotebookHabit,
+  TodayHabit,
+} from './store/habits'
 export {
   acceptCampaignPlan,
   acceptPlan,
@@ -68,3 +84,4 @@ export {
   weekStartOf,
 } from './store/review'
 export type { ApplyResult, ReviewCardView, ReviewPlan, ReviewRef, WeekReport } from './store/review'
+export { getDailyNote, getDiaryMonth, listDailyNotes, MAX_DAILY_NOTE_LENGTH, saveDailyNote } from './store/notes'

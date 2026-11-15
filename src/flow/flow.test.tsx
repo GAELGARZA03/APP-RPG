@@ -10,14 +10,7 @@ import { retryConfig } from '../ai/gemini'
 import { resetDailyAttempts } from '../ai/dailyMission'
 import { App } from '../App'
 import { db } from '../data/appDb'
-import {
-  acceptCampaignPlan,
-  completeQuest,
-  createBounty,
-  getCampaign,
-  getHud,
-  getMissions,
-} from '../data/gameStore'
+import { acceptCampaignPlan, completeQuest, createHabit, getCampaign, getHud, getMissions } from '../data/gameStore'
 import { gameDayOf } from '../game/gameDay'
 import type { HttpRequest, HttpResponse } from '../platform/http'
 import { httpRequest } from '../platform/http'
@@ -59,9 +52,18 @@ function gemini(
     if (isDaily(sent)) return overrides.daily?.(sent) ?? ok(generateReply(DAILY))
     if (isQuestions(sent)) return overrides.questions?.(sent) ?? ok(generateReply(QUESTIONS))
     if (isAct(sent)) {
-      return overrides.act?.(sent) ?? ok(isInteraction(sent) ? interactionReply({ missions: actTwoMissions }) : generateReply({ missions: actTwoMissions }))
+      return (
+        overrides.act?.(sent) ??
+        ok(
+          isInteraction(sent)
+            ? interactionReply({ missions: actTwoMissions })
+            : generateReply({ missions: actTwoMissions }),
+        )
+      )
     }
-    return overrides.design?.(sent) ?? ok(isInteraction(sent) ? interactionReply(guitarDesign) : generateReply(guitarDesign))
+    return (
+      overrides.design?.(sent) ?? ok(isInteraction(sent) ? interactionReply(guitarDesign) : generateReply(guitarDesign))
+    )
   })
 }
 
@@ -135,7 +137,9 @@ async function completeFromMap(title: RegExp, xp: number) {
 }
 
 async function closeDetail() {
-  const detail = screen.getAllByRole('dialog').find((dialog) => within(dialog).queryAllByRole('button', { name: 'Cerrar' }).length > 0)
+  const detail = screen
+    .getAllByRole('dialog')
+    .find((dialog) => within(dialog).queryAllByRole('button', { name: 'Cerrar' }).length > 0)
   if (!detail) return
   await user.click(within(detail).getAllByRole('button', { name: 'Cerrar' })[0])
   await waitFor(() => expect(detail.isConnected).toBe(false))
@@ -169,8 +173,10 @@ describe('Generar una campaña', () => {
     expect(await db.campaigns.count()).toBe(0)
 
     // Los contratos sugeridos llegan desmarcados; se desmarca además una misión.
-    const bounty = screen.getByRole('checkbox', { name: 'Incluir Practica cambios de acordes 10 minutos' }) as HTMLInputElement
-    expect(bounty.checked).toBe(false)
+    const habit = screen.getByRole('checkbox', {
+      name: 'Incluir Practica cambios de acordes 10 minutos',
+    }) as HTMLInputElement
+    expect(habit.checked).toBe(false)
     await user.click(screen.getByRole('checkbox', { name: 'Incluir Tu primera progresión' }))
 
     await user.click(screen.getByRole('button', { name: 'Crear campaña' }))
@@ -183,9 +189,11 @@ describe('Generar una campaña', () => {
       ['planned', 0],
       ['planned', 1],
     ])
-    expect(await db.bounties.count()).toBe(0)
+    expect(await db.habits.count()).toBe(0)
     expect(campaign.analysis?.duration).toBe('12 semanas')
-    expect(campaign.brief?.answers).toEqual([{ question: '¿Qué tanto sabes ya de guitarra?', answer: 'Nada, empiezo de cero' }])
+    expect(campaign.brief?.answers).toEqual([
+      { question: '¿Qué tanto sabes ya de guitarra?', answer: 'Nada, empiezo de cero' },
+    ])
     expect(within(map).getByText('Campaña · Acto 1 de 3')).toBeTruthy()
 
     // Bloqueo de actos: el jefe se ve, pero su detalle es de solo lectura con el motivo.
@@ -322,7 +330,7 @@ describe('Generar una campaña', () => {
 
 describe('Generar el siguiente acto', () => {
   async function campaignAtActTwo() {
-    const campaign = await acceptCampaignPlan(db, { ...guitarDesign, bounties: [] })
+    const campaign = await acceptCampaignPlan(db, { ...guitarDesign, habits: [] })
     for (const quest of (await getCampaign(db, campaign.id))!.actViews[0].quests) await completeQuest(db, quest.id)
     return campaign
   }
@@ -369,9 +377,9 @@ describe('Generar el siguiente acto', () => {
 })
 
 describe('Misión del día', () => {
-  it('se genera una sola vez por día con el modelo rápido, da XP extra y no cumple la racha', async () => {
-    await acceptCampaignPlan(db, { ...guitarDesign, bounties: [] })
-    await createBounty(db, { title: 'Tomar agua', difficulty: 1 })
+  it('se genera una sola vez por día con el modelo rápido, da XP extra y cuenta para la racha', async () => {
+    await acceptCampaignPlan(db, { ...guitarDesign, habits: [] })
+    await createHabit(db, { title: 'Tomar agua', difficulty: 1 })
 
     const first = render(<App />)
     const card = await screen.findByRole('region', { name: 'Misión del día' })
@@ -389,23 +397,23 @@ describe('Misión del día', () => {
     await user.click(within(again).getByRole('checkbox', { name: 'Reto de 60 cambios de acorde' }))
     await waitFor(async () => expect((await getHud(db, today())).totalXp).toBe(75))
     const hud = await getHud(db, today())
-    expect(hud.todayFulfilled).toBe(false)
+    expect(hud.todayFulfilled).toBe(true)
     expect((await db.xpEvents.toArray()).map((event) => event.kind)).toEqual(['daily'])
   }, 30_000)
 
   it('si falla, no se ve nada roto: ofrece reintentar y no insiste sola', async () => {
-    await acceptCampaignPlan(db, { ...guitarDesign, bounties: [] })
+    await acceptCampaignPlan(db, { ...guitarDesign, habits: [] })
     gemini({ daily: () => ({ status: 500, data: {} }) })
 
     const first = render(<App />)
     const retry = await screen.findByRole('button', { name: /No se pudo generar la misión del día/ })
     expect(screen.queryByRole('region', { name: 'Misión del día' })).toBeNull()
-    expect(screen.getByText('Contratos de hoy')).toBeTruthy()
+    expect(screen.getByText('Hábitos de hoy')).toBeTruthy()
 
     // Volver a abrir la app el mismo día no repite la llamada automática.
     first.unmount()
     render(<App />)
-    await screen.findByText('Contratos de hoy')
+    await screen.findByText('Hábitos de hoy')
     await new Promise((resolve) => setTimeout(resolve, 50))
     expect(calls(isDaily)).toHaveLength(1)
     expect(retry.isConnected).toBe(false)
@@ -419,18 +427,67 @@ describe('Misión del día', () => {
 
   it('sin llave o sin campañas la sección no aparece ni llama a la IA', async () => {
     render(<App />)
-    await screen.findByText('Contratos de hoy')
+    await screen.findByText('Hábitos de hoy')
     await new Promise((resolve) => setTimeout(resolve, 50))
     expect(calls(isDaily)).toHaveLength(0)
     expect(screen.queryByText(/misión del día/i)).toBeNull()
 
     cleanup()
     sessionStorage.clear()
-    await acceptCampaignPlan(db, { ...guitarDesign, bounties: [] })
+    await acceptCampaignPlan(db, { ...guitarDesign, habits: [] })
     render(<App />)
-    await screen.findByText('Contratos de hoy')
+    await screen.findByText('Hábitos de hoy')
     await new Promise((resolve) => setTimeout(resolve, 50))
     expect(calls(isDaily)).toHaveLength(0)
     expect(screen.queryByRole('region', { name: 'Misión del día' })).toBeNull()
+  }, 30_000)
+})
+
+describe('Libreta y navegación', () => {
+  it('cuatro pestañas, la libreta marca hecho → a medias → no hecho y Ajustes vive en el menú del logotipo', async () => {
+    await createHabit(db, { title: 'Leer 20 minutos', emoji: '📚', difficulty: 2 })
+    render(<App />)
+
+    const nav = await screen.findByRole('navigation')
+    expect(
+      within(nav)
+        .getAllByRole('button')
+        .map((button) => button.textContent),
+    ).toEqual(['Hoy', 'Misiones', 'Libreta', 'Bitácora'])
+
+    await user.click(within(nav).getByRole('button', { name: 'Libreta' }))
+    const day = Number(today().slice(8))
+    const cell = await screen.findByRole('button', { name: `Leer 20 minutos, día ${day}: sin registrar` })
+    await user.click(cell)
+    await waitFor(async () => expect((await getHud(db, today())).totalXp).toBe(50))
+    await user.click(await screen.findByRole('button', { name: `Leer 20 minutos, día ${day}: hecho` }))
+    await waitFor(async () => expect((await getHud(db, today())).totalXp).toBe(25))
+    await user.click(await screen.findByRole('button', { name: `Leer 20 minutos, día ${day}: a medias` }))
+    await waitFor(async () => expect((await getHud(db, today())).totalXp).toBe(0))
+    await screen.findByRole('button', { name: `Leer 20 minutos, día ${day}: no hecho` })
+
+    await user.click(screen.getByRole('button', { name: 'Abrir menú' }))
+    const menu = await screen.findByRole('dialog', { name: 'Menú' })
+    await user.click(within(menu).getByRole('button', { name: /Ajustes/ }))
+    await screen.findByRole('dialog', { name: 'Ajustes' })
+  }, 30_000)
+
+  it('la bitácora tiene Diario con la nota de hoy y Progreso con las misiones; el Perfil vive en el menú', async () => {
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: 'Bitácora' }))
+    await user.click(await screen.findByRole('tab', { name: 'Diario' }))
+    await user.type(await screen.findByLabelText('Nota del día'), 'Fui al partido y ganamos')
+    await user.click(screen.getByRole('button', { name: 'Guardar' }))
+    await screen.findByText('Fui al partido y ganamos')
+    expect((await db.dailyNotes.get(today()))?.text).toBe('Fui al partido y ganamos')
+
+    await user.click(screen.getByRole('tab', { name: 'Progreso' }))
+    await screen.findByText('Aún no hay progreso registrado')
+
+    await user.click(screen.getByRole('button', { name: 'Abrir menú' }))
+    await user.click(
+      within(await screen.findByRole('dialog', { name: 'Menú' })).getByRole('button', { name: /Perfil/ }),
+    )
+    await screen.findByRole('dialog', { name: 'Perfil' })
   }, 30_000)
 })

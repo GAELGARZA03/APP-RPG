@@ -11,7 +11,7 @@ import {
   skillKey,
 } from '../../game/rules'
 import type { Act, Campaign, CampaignAnalysis, GameDatabase, SideQuest } from '../db'
-import { createBounty } from './bounties'
+import { createHabit } from './habits'
 import { getHud } from './hud'
 import { addQuest, createSideQuest } from './quests'
 import { type TaskInput, allTables, byCreation, isActiveOn, pathOf, skillMap } from './shared'
@@ -126,7 +126,7 @@ async function removeSkillBranch(db: GameDatabase, branchId: string): Promise<vo
     if (item.skillId && doomed.has(item.skillId)) delete item.skillId
   }
   await db.xpEvents.where('skillId').anyOf(ids).modify(unlink)
-  await db.bounties.toCollection().modify(unlink)
+  await db.habits.toCollection().modify(unlink)
   await db.dailies.toCollection().modify(unlink)
   await db.sideQuests.toCollection().modify(unlink)
   await db.skills.bulkDelete(ids)
@@ -134,7 +134,7 @@ async function removeSkillBranch(db: GameDatabase, branchId: string): Promise<vo
 
 /**
  * Borra la campaña con todo lo suyo: actos, misiones, evidencias y su rama del árbol
- * (salvo que otra campaña la comparta). Los contratos diarios que se crearon con ella se archivan.
+ * (salvo que otra campaña la comparta). Los hábitos que se crearon con ella se archivan.
  * El XP ya ganado se conserva: el nivel no baja.
  */
 export async function deleteCampaign(db: GameDatabase, id: string, now = new Date()): Promise<void> {
@@ -147,8 +147,8 @@ export async function deleteCampaign(db: GameDatabase, id: string, now = new Dat
 
     // Archivar (no borrar) conserva el historial y no altera la racha de días ya cerrados.
     const today = gameDayOf(now)
-    await db.bounties
-      .filter((bounty) => bounty.campaignId === id && bounty.archivedDay === null)
+    await db.habits
+      .filter((habit) => habit.campaignId === id && habit.archivedDay === null)
       .modify({ archivedDay: today })
 
     const branchId = campaign?.skillId
@@ -164,22 +164,31 @@ export async function deleteCampaign(db: GameDatabase, id: string, now = new Dat
  * Con el nivel en 1, los temas, títulos y sonidos vuelven a bloquearse, y la elección regresa a la inicial.
  * No toca la API key, los modelos, el perfil ni los recordatorios.
  */
-export async function resetProgress(db: GameDatabase, options: { keepBounties: boolean }): Promise<void> {
+export async function resetProgress(db: GameDatabase, options: { keepHabits: boolean }): Promise<void> {
   await db.transaction('rw', [...allTables(db), db.settings], async () => {
     await Promise.all(
-      [db.campaigns, db.sideQuests, db.xpEvents, db.skills, db.evidence, db.dailies, db.player, db.reviews].map((table) =>
-        table.clear(),
-      ),
+      [
+        db.campaigns,
+        db.sideQuests,
+        db.xpEvents,
+        db.skills,
+        db.evidence,
+        db.dailies,
+        db.player,
+        db.reviews,
+        db.habitLogs,
+        db.dailyNotes,
+      ].map((table) => table.clear()),
     )
-    if (options.keepBounties) {
-      // Se quedan solo los contratos activos, ya sin historial ni enlaces a lo que se borró.
-      await db.bounties.filter((bounty) => bounty.archivedDay !== null).delete()
-      await db.bounties.toCollection().modify((bounty) => {
-        delete bounty.stepsDone
-        delete bounty.skillId
-        delete bounty.campaignId
+    if (options.keepHabits) {
+      // Se quedan solo los hábitos activos, ya sin historial ni enlaces a lo que se borró.
+      await db.habits.filter((habit) => habit.archivedDay !== null).delete()
+      await db.habits.toCollection().modify((habit) => {
+        delete habit.stepsDone
+        delete habit.skillId
+        delete habit.campaignId
       })
-    } else await db.bounties.clear()
+    } else await db.habits.clear()
     await db.settings.delete('cosmetics')
   })
 }
@@ -190,18 +199,18 @@ export async function acceptPlan(
   plan: {
     campaign: string
     sideQuests: TaskInput[]
-    bounties: TaskInput[]
+    habits: TaskInput[]
   },
   now = new Date(),
 ): Promise<Campaign> {
-  return db.transaction('rw', db.campaigns, db.sideQuests, db.bounties, async () => {
+  return db.transaction('rw', db.campaigns, db.sideQuests, db.habits, async () => {
     const campaign = await createCampaign(db, plan.campaign, now)
     // Se suma un milisegundo por misión para conservar el orden propuesto.
     for (const [index, quest] of plan.sideQuests.entries()) {
       await createSideQuest(db, { ...quest, campaignId: campaign.id }, new Date(now.getTime() + index + 1))
     }
-    for (const [index, bounty] of plan.bounties.entries()) {
-      await createBounty(db, bounty, new Date(now.getTime() + index + 1))
+    for (const [index, habit] of plan.habits.entries()) {
+      await createHabit(db, habit, new Date(now.getTime() + index + 1))
     }
     return campaign
   })
@@ -219,7 +228,7 @@ export interface CampaignPlanInput {
   /** Misiones del Acto 1. */
   missions: MissionInput[]
   boss: MissionInput | null
-  bounties: MissionInput[]
+  habits: MissionInput[]
 }
 
 function questFields(mission: MissionInput, skillId: string | undefined) {
@@ -229,7 +238,7 @@ function questFields(mission: MissionInput, skillId: string | undefined) {
 
 /**
  * Crea la campaña diseñada por la IA en una sola transacción: actos, misiones del Acto 1,
- * misión jefe (en el último acto), habilidades y contratos aceptados. Si algo falla, no queda nada a medias.
+ * misión jefe (en el último acto), habilidades y hábitos aceptados. Si algo falla, no queda nada a medias.
  */
 export async function acceptCampaignPlan(
   db: GameDatabase,
@@ -285,10 +294,10 @@ export async function acceptCampaignPlan(
         createdDay: gameDayOf(now),
       })
     }
-    for (const [index, bounty] of plan.bounties.entries()) {
-      await createBounty(
+    for (const [index, habit] of plan.habits.entries()) {
+      await createHabit(
         db,
-        { ...questFields(bounty, await resolver.leaf(branchId, bounty.skill)), campaignId: campaign.id },
+        { ...questFields(habit, await resolver.leaf(branchId, habit.skill)), campaignId: campaign.id },
         new Date(now.getTime() + index + 1),
       )
     }
@@ -384,7 +393,7 @@ export async function getAiContext(db: GameDatabase, today: GameDay) {
         return campaignState(campaign.acts, own).currentIndex !== null
       })
       .map((campaign) => ({ title: campaign.title, skill: pathOf(skills, campaign.skillId) }))
-    const bounties = (await db.bounties.toArray()).filter((bounty) => isActiveOn(bounty, today)).map((b) => b.title)
+    const habits = (await db.habits.toArray()).filter((habit) => isActiveOn(habit, today)).map((b) => b.title)
     // Solo las rutas hasta las hojas: las ramas intermedias ya van incluidas en ellas.
     const parents = new Set([...skills.values()].map((skill) => skill.parentId))
     const skillPaths = [...skills.values()]
@@ -392,7 +401,7 @@ export async function getAiContext(db: GameDatabase, today: GameDay) {
       .map((skill) => pathOf(skills, skill.id)!)
       .slice(0, 60)
 
-    return { level: hud.level, streak: hud.streak, campaigns, bounties, skillPaths }
+    return { level: hud.level, streak: hud.streak, campaigns, habits, skillPaths }
   })
 }
 

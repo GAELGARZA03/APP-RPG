@@ -1,16 +1,16 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { CalendarCheck, CheckCheck, Plus } from 'lucide-react'
+import { CheckCheck, NotebookTabs, Plus } from 'lucide-react'
 import { db } from '../data/appDb'
 import type { ProfileSettings } from '../data/db'
 import {
-  completeBounty,
-  getTodayBounties,
+  completeHabit,
+  getTodayHabits,
   getWeek,
-  undoBounty,
+  undoHabit,
   type Hud,
   type Outcome,
   type TaskRef,
-  type TodayBounty,
+  type TodayHabit,
 } from '../data/gameStore'
 import type { GameDay } from '../game/gameDay'
 import { DailyCard } from './DailyCard'
@@ -28,24 +28,25 @@ export function TodayTab(props: {
   profile: ProfileSettings | undefined
   onProfile: () => void
   onCreate: () => void
+  onNotebook: () => void
   onReview: (weekStart: GameDay) => void
   onOpen: (ref: TaskRef) => void
   onStreakInfo: () => void
   onOutcome: (outcome: Outcome, ref: TaskRef, fromDetail: boolean) => void
 }) {
   const { today, hud, title, profile, onProfile, onCreate, onOpen, onStreakInfo, onOutcome } = props
-  const bounties = useLiveQuery(() => getTodayBounties(db, today), [today])
+  const habits = useLiveQuery(() => getTodayHabits(db, today), [today])
   const week = useLiveQuery(() => getWeek(db, today), [today])
 
-  async function toggle(bounty: TodayBounty) {
-    if (bounty.doneToday) await undoBounty(db, bounty.id)
+  async function toggle(habit: TodayHabit) {
+    if (habit.doneToday) await undoHabit(db, habit.id)
     else {
-      const xp = await completeBounty(db, bounty.id)
-      onOutcome({ ok: xp !== null, xp: xp ?? 0 }, { kind: 'bounty', id: bounty.id }, false)
+      const xp = await completeHabit(db, habit.id)
+      onOutcome({ ok: xp !== null, xp: xp ?? 0 }, { kind: 'habit', id: habit.id }, false)
     }
   }
 
-  const doneCount = bounties?.filter((bounty) => bounty.doneToday).length ?? 0
+  const doneCount = habits?.filter((habit) => habit.doneToday).length ?? 0
 
   return (
     <>
@@ -55,48 +56,54 @@ export function TodayTab(props: {
       <ReviewCard today={today} onOpen={props.onReview} />
 
       <Card
-        label="Contratos de hoy"
-        icon={CalendarCheck}
+        label="Hábitos de hoy"
+        icon={NotebookTabs}
         action={
-          bounties && bounties.length > 0 ? (
-            hud.todayFulfilled ? (
+          habits && habits.length > 0 ? (
+            doneCount === habits.length ? (
               <Badge tone="signal">
                 <CheckCheck aria-hidden />
-                Día cumplido
+                Todos hechos
               </Badge>
             ) : (
               <Badge>
-                {doneCount} / {bounties.length}
+                {doneCount} / {habits.length}
               </Badge>
             )
           ) : undefined
         }
       >
-        {bounties && bounties.length === 0 && (
+        {habits && habits.length === 0 && (
           <p className="mb-3 text-sm text-muted">
-            Crea tus hábitos diarios. Completarlos todos mantiene viva tu racha.
+            Hoy no te toca ningún hábito. Agrégalos o revisa tu mes en la libreta.
           </p>
         )}
         <ul className="mb-3 flex flex-col gap-2">
-          {bounties?.map((bounty) => (
+          {habits?.map((habit) => (
             <TaskRow
-              key={bounty.id}
-              layoutId={`task-${bounty.id}`}
-              title={bounty.title}
-              difficulty={bounty.difficulty}
-              xp={bounty.xp}
-              done={bounty.doneToday}
-              stepCount={bounty.steps?.length ?? 0}
-              stepsDone={bounty.stepsDoneToday}
-              onToggle={() => void toggle(bounty)}
-              onOpen={() => onOpen({ kind: 'bounty', id: bounty.id })}
+              key={habit.id}
+              layoutId={`task-${habit.id}`}
+              title={habit.emoji ? `${habit.emoji} ${habit.title}` : habit.title}
+              difficulty={habit.difficulty}
+              xp={habit.state === 'half' ? Math.round(habit.xp / 2) : habit.xp}
+              done={habit.doneToday}
+              stepCount={habit.steps?.length ?? 0}
+              stepsDone={habit.stepsDoneToday}
+              onToggle={() => void toggle(habit)}
+              onOpen={() => onOpen({ kind: 'habit', id: habit.id })}
             />
           ))}
         </ul>
-        <Button variant="dashed" onClick={onCreate} className="w-full">
-          <Plus aria-hidden />
-          Nuevo contrato diario
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={props.onNotebook} className="flex-1">
+            <NotebookTabs aria-hidden />
+            Ver libreta
+          </Button>
+          <Button variant="dashed" onClick={onCreate} className="flex-1">
+            <Plus aria-hidden />
+            Nuevo hábito
+          </Button>
+        </div>
       </Card>
     </>
   )

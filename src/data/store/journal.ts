@@ -5,8 +5,8 @@ import { MAX_NOTES_PER_TASK, MAX_NOTE_LENGTH, MAX_PHOTOS_PER_TASK, type TaskRef,
 
 async function taskTitle(db: GameDatabase, ref: TaskRef): Promise<string | null> {
   const task =
-    ref.kind === 'bounty'
-      ? await db.bounties.get(ref.id)
+    ref.kind === 'habit'
+      ? await db.habits.get(ref.id)
       : ref.kind === 'daily'
         ? await db.dailies.get(ref.id)
         : await db.sideQuests.get(ref.id)

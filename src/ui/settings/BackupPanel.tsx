@@ -119,9 +119,8 @@ export function BackupPanel({ embedded, headingId }: { embedded?: boolean; headi
         <div ref={confirmation} className="mt-4 rounded-xl border border-ember/60 bg-ember/10 p-3 text-sm">
           <p className="mb-1 font-semibold text-ember">¿Reemplazar todos tus datos?</p>
           <p className="mb-3 text-muted">
-            Respaldo del {formatDate(summary.exportedAt)}: {summary.bounties} contratos activos,{' '}
-            {summary.campaigns} campañas, {summary.sideQuests} Side Quests y {summary.totalXp} XP. Tu progreso
-            actual se borrará.
+            Respaldo del {formatDate(summary.exportedAt)}: {summary.habits} hábitos activos, {summary.campaigns}{' '}
+            campañas, {summary.sideQuests} Side Quests y {summary.totalXp} XP. Tu progreso actual se borrará.
           </p>
           <div className="flex gap-2">
             <Button size="sm" onClick={() => setPending(null)} className="flex-1">

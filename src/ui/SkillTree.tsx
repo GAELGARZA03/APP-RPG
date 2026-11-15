@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Flag, Maximize, Network, Sparkles, X } from 'lucide-react'
+import { Award, Flag, Maximize, Network, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { db } from '../data/appDb'
@@ -222,7 +222,7 @@ function SkillPanel({ node, onClose }: { node: SkillNode; onClose: () => void })
 
       <div className="flex flex-wrap items-center gap-2">
         <Badge tone={node.xp > 0 ? 'signal' : 'muted'} className="px-2.5 py-1 text-xs">
-          <Sparkles aria-hidden />
+          <Award aria-hidden />
           {node.xp > 0 ? level.name : 'Sin despertar'}
         </Badge>
         <Badge className="px-2.5 py-1 text-xs">{node.xp} XP</Badge>

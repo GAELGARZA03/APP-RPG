@@ -1,10 +1,10 @@
-// Objetivos marcables de misiones, contratos y misión del día.
+// Objetivos marcables de misiones, hábitos y misión del día.
 import { gameDayOf } from '../../game/gameDay'
 import type { GameDatabase } from '../db'
-import { completeBounty, undoBounty } from './bounties'
+import { completeHabit, undoHabit } from './habits'
 import { completeDaily, undoDaily } from './daily'
 import { campaignContext, completeQuest, undoSideQuest } from './quests'
-import { FAILED, type Outcome, type TaskRef, allTables, isActiveOn } from './shared'
+import { FAILED, type Outcome, type TaskRef, allTables, isScheduledOn } from './shared'
 
 function toggled(done: number[], index: number): number[] {
   return done.includes(index) ? done.filter((value) => value !== index) : [...done, index].sort((a, b) => a - b)
@@ -18,17 +18,17 @@ export async function toggleStep(db: GameDatabase, ref: TaskRef, index: number, 
   const today = gameDayOf(now)
 
   return db.transaction('rw', allTables(db), async () => {
-    if (ref.kind === 'bounty') {
-      const bounty = await db.bounties.get(ref.id)
-      const count = bounty?.steps?.length ?? 0
-      if (!bounty || index < 0 || index >= count || !isActiveOn(bounty, today)) return FAILED
-      const done = toggled(bounty.stepsDone?.day === today ? bounty.stepsDone.done : [], index)
+    if (ref.kind === 'habit') {
+      const habit = await db.habits.get(ref.id)
+      const count = habit?.steps?.length ?? 0
+      if (!habit || index < 0 || index >= count || !isScheduledOn(habit, today)) return FAILED
+      const done = toggled(habit.stepsDone?.day === today ? habit.stepsDone.done : [], index)
       const completedToday = (await db.xpEvents.get({ taskId: ref.id, day: today })) !== undefined
 
-      if (completedToday && done.length < count) await undoBounty(db, ref.id, now)
-      await db.bounties.update(ref.id, { stepsDone: { day: today, done } })
+      if (completedToday && done.length < count) await undoHabit(db, ref.id, now)
+      await db.habits.update(ref.id, { stepsDone: { day: today, done } })
       if (!completedToday && done.length === count) {
-        const xp = await completeBounty(db, ref.id, now)
+        const xp = await completeHabit(db, ref.id, now)
         return xp === null ? FAILED : { ok: true, xp }
       }
       return { ok: true, xp: 0 }

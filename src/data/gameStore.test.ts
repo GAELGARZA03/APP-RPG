@@ -4,10 +4,10 @@ import { gameDayOf } from '../game/gameDay'
 import { GameDatabase } from './db'
 import {
   acceptPlan,
-  archiveBounty,
-  completeBounty,
+  archiveHabit,
+  completeHabit,
   completeSideQuest,
-  createBounty,
+  createHabit,
   createCampaign,
   createSideQuest,
   deleteCampaign,
@@ -16,11 +16,11 @@ import {
   getHud,
   getMissions,
   getTaskDetail,
-  getTodayBounties,
+  getTodayHabits,
   getWeek,
-  undoBounty,
+  undoHabit,
   undoSideQuest,
-  updateBounty,
+  updateHabit,
   updateSideQuest,
 } from './gameStore'
 
@@ -40,26 +40,26 @@ afterEach(async () => {
   await db.delete()
 })
 
-async function completeDays(bountyId: string, from: number, to: number) {
+async function completeDays(habitId: string, from: number, to: number) {
   for (let offset = from; offset <= to; offset += 1) {
-    await completeBounty(db, bountyId, day(offset))
+    await completeHabit(db, habitId, day(offset))
   }
 }
 
-describe('Bounties', () => {
+describe('Habits', () => {
   it('otorga XP una sola vez por día', async () => {
-    const bounty = await createBounty(db, { title: 'Tomar medicamentos', difficulty: 2 }, day(0))
+    const habit = await createHabit(db, { title: 'Tomar medicamentos', difficulty: 2 }, day(0))
 
-    expect(await completeBounty(db, bounty.id, day(0))).toBe(50)
-    expect(await completeBounty(db, bounty.id, day(0))).toBeNull()
+    expect(await completeHabit(db, habit.id, day(0))).toBe(50)
+    expect(await completeHabit(db, habit.id, day(0))).toBeNull()
 
     expect(await hudOn(0)).toMatchObject({ level: 1, xpIntoLevel: 50 })
   })
 
   it('aplica el multiplicador de la racha acumulada', async () => {
-    const bounty = await createBounty(db, { title: 'Leer', difficulty: 2 }, day(0))
+    const habit = await createHabit(db, { title: 'Leer', difficulty: 2 }, day(0))
 
-    await completeDays(bounty.id, 0, 3)
+    await completeDays(habit.id, 0, 3)
 
     // 50 + 53 + 55 + 58 = 216: el bono sube al cerrar cada día.
     expect(await hudOn(3)).toMatchObject({
@@ -71,123 +71,128 @@ describe('Bounties', () => {
   })
 
   it('deshace la tarea del día y puede bajar de nivel', async () => {
-    const bounty = await createBounty(db, { title: 'Correr', difficulty: 5 }, day(0))
-    await completeBounty(db, bounty.id, day(0))
+    const habit = await createHabit(db, { title: 'Correr', difficulty: 5 }, day(0))
+    await completeHabit(db, habit.id, day(0))
     expect((await hudOn(0)).level).toBe(2)
 
-    expect(await undoBounty(db, bounty.id, day(0))).toBe(true)
+    expect(await undoHabit(db, habit.id, day(0))).toBe(true)
 
     expect(await hudOn(0)).toMatchObject({ level: 1, xpIntoLevel: 0, streak: 0 })
-    expect(await completeBounty(db, bounty.id, day(0))).toBe(200)
+    expect(await completeHabit(db, habit.id, day(0))).toBe(200)
   })
 
   it('no deshace tareas de un día ya cerrado', async () => {
-    const bounty = await createBounty(db, { title: 'Correr', difficulty: 1 }, day(0))
-    await completeBounty(db, bounty.id, day(0))
+    const habit = await createHabit(db, { title: 'Correr', difficulty: 1 }, day(0))
+    await completeHabit(db, habit.id, day(0))
 
-    expect(await undoBounty(db, bounty.id, day(1))).toBe(false)
+    expect(await undoHabit(db, habit.id, day(1))).toBe(false)
   })
 
   it('cambiar la dificultad no altera el XP ya ganado', async () => {
-    const bounty = await createBounty(db, { title: 'Correr', difficulty: 1 }, day(0))
-    await completeBounty(db, bounty.id, day(0))
+    const habit = await createHabit(db, { title: 'Correr', difficulty: 1 }, day(0))
+    await completeHabit(db, habit.id, day(0))
 
-    await updateBounty(db, bounty.id, { difficulty: 5 })
+    await updateHabit(db, habit.id, { difficulty: 5 })
 
     expect((await hudOn(0)).xpIntoLevel).toBe(20)
   })
 
-  it('lista las Bounties de hoy con su estado y el XP con bono', async () => {
-    const first = await createBounty(db, { title: 'Uno', difficulty: 2 }, day(0, 9))
-    await createBounty(db, { title: 'Dos', difficulty: 1 }, day(0, 10))
-    const archived = await createBounty(db, { title: 'Vieja', difficulty: 1 }, day(0, 11))
+  it('lista los hábitos que tocan hoy, en orden, con su estado y el XP con bono', async () => {
+    const first = await createHabit(db, { title: 'Uno', difficulty: 2 }, day(0, 9))
+    await createHabit(db, { title: 'Dos', difficulty: 1 }, day(0, 10))
+    const archived = await createHabit(db, { title: 'Vieja', difficulty: 1 }, day(0, 11))
+    // El día 2 es miércoles: un hábito de lunes y viernes no toca.
+    await createHabit(
+      db,
+      { title: 'Gimnasio', difficulty: 3, frequency: { kind: 'weekdays', days: [0, 4] } },
+      day(0, 12),
+    )
     await completeDays(first.id, 0, 1)
-    await archiveBounty(db, archived.id, day(2))
+    await archiveHabit(db, archived.id, day(2))
 
-    const bounties = await getTodayBounties(db, gameDayOf(day(2)))
+    const habits = await getTodayHabits(db, gameDayOf(day(2)))
 
-    // Día 1 fallado (falta "Dos"), así que la racha queda en 0 y no hay bono.
-    expect(bounties.map(({ title, doneToday, xp }) => ({ title, doneToday, xp }))).toEqual([
-      { title: 'Uno', doneToday: false, xp: 50 },
-      { title: 'Dos', doneToday: false, xp: 20 },
+    // Días 0 y 1 con XP: racha 2, bono +10 %.
+    expect(habits.map(({ title, doneToday, xp, streak }) => ({ title, doneToday, xp, streak }))).toEqual([
+      { title: 'Uno', doneToday: false, xp: 55, streak: 2 },
+      { title: 'Dos', doneToday: false, xp: 22, streak: 0 },
     ])
   })
 })
 
 describe('Rachas', () => {
-  it('cuenta el día solo con todas las Bounties activas', async () => {
-    const first = await createBounty(db, { title: 'Uno', difficulty: 1 }, day(0))
-    const second = await createBounty(db, { title: 'Dos', difficulty: 1 }, day(0))
-
-    await completeBounty(db, first.id, day(0))
+  it('un día cuenta con cualquier hábito hecho, aunque falten otros', async () => {
+    const first = await createHabit(db, { title: 'Uno', difficulty: 1 }, day(0))
+    await createHabit(db, { title: 'Dos', difficulty: 1 }, day(0))
     expect(await hudOn(0)).toMatchObject({ streak: 0, todayFulfilled: false })
 
-    await completeBounty(db, second.id, day(0))
+    await completeHabit(db, first.id, day(0))
     expect(await hudOn(0)).toMatchObject({ streak: 1, todayFulfilled: true })
     expect((await hudOn(1)).streak).toBe(1)
   })
 
   it('reduce la racha a la mitad al fallar un día', async () => {
-    const bounty = await createBounty(db, { title: 'Hábito', difficulty: 1 }, day(0))
-    await completeDays(bounty.id, 0, 8)
+    const habit = await createHabit(db, { title: 'Hábito', difficulty: 1 }, day(0))
+    await completeDays(habit.id, 0, 8)
 
     expect((await hudOn(10)).streak).toBe(4)
   })
 
   it('reduce la racha a la mitad por cada día fallado', async () => {
-    const bounty = await createBounty(db, { title: 'Hábito', difficulty: 1 }, day(0))
-    await completeDays(bounty.id, 0, 8)
+    const habit = await createHabit(db, { title: 'Hábito', difficulty: 1 }, day(0))
+    await completeDays(habit.id, 0, 8)
 
     expect((await hudOn(12)).streak).toBe(1)
   })
 
-  it('no castiga los días sin Bounties activas', async () => {
-    const bounty = await createBounty(db, { title: 'Hábito', difficulty: 1 }, day(0))
-    await completeDays(bounty.id, 0, 3)
-    await archiveBounty(db, bounty.id, day(4))
-
-    expect((await hudOn(9)).streak).toBe(4)
-  })
-
-  it('una Bounty nueva no afecta los días anteriores', async () => {
-    const first = await createBounty(db, { title: 'Uno', difficulty: 1 }, day(0))
-    await completeDays(first.id, 0, 1)
-
-    await createBounty(db, { title: 'Dos', difficulty: 1 }, day(2))
-    await completeBounty(db, first.id, day(2))
+  it('una misión completada también cuenta para la racha', async () => {
+    const habit = await createHabit(db, { title: 'Hábito', difficulty: 1 }, day(0))
+    await completeHabit(db, habit.id, day(0))
+    const quest = await createSideQuest(db, { title: 'Trámite', difficulty: 1 }, day(1))
+    await completeSideQuest(db, quest.id, day(1))
 
     expect((await hudOn(2)).streak).toBe(2)
   })
 
-  it('completar a las 3:00 a. m. cuenta para el día anterior', async () => {
-    const bounty = await createBounty(db, { title: 'Hábito', difficulty: 1 }, day(0))
+  it('un hábito nuevo sin hacer no rompe la racha', async () => {
+    const first = await createHabit(db, { title: 'Uno', difficulty: 1 }, day(0))
+    await completeDays(first.id, 0, 1)
 
-    await completeBounty(db, bounty.id, day(1, 3))
+    await createHabit(db, { title: 'Dos', difficulty: 1 }, day(2))
+    await completeHabit(db, first.id, day(2))
+
+    expect((await hudOn(2)).streak).toBe(3)
+  })
+
+  it('completar a las 3:00 a. m. cuenta para el día anterior', async () => {
+    const habit = await createHabit(db, { title: 'Hábito', difficulty: 1 }, day(0))
+
+    await completeHabit(db, habit.id, day(1, 3))
 
     expect(await hudOn(1)).toMatchObject({ streak: 1, todayFulfilled: false })
   })
 
   it('no cambia el multiplicador durante el mismo día', async () => {
-    const first = await createBounty(db, { title: 'Uno', difficulty: 1 }, day(0))
-    const second = await createBounty(db, { title: 'Dos', difficulty: 1 }, day(0))
+    const first = await createHabit(db, { title: 'Uno', difficulty: 1 }, day(0))
+    const second = await createHabit(db, { title: 'Dos', difficulty: 1 }, day(0))
 
-    await completeBounty(db, first.id, day(0))
-    await completeBounty(db, second.id, day(0))
+    await completeHabit(db, first.id, day(0))
+    await completeHabit(db, second.id, day(0))
 
     expect((await hudOn(0)).xpIntoLevel).toBe(40)
   })
 
   it('llega al tope de +50% con 10 días de racha', async () => {
-    const bounty = await createBounty(db, { title: 'Hábito', difficulty: 1 }, day(0))
-    await completeDays(bounty.id, 0, 11)
+    const habit = await createHabit(db, { title: 'Hábito', difficulty: 1 }, day(0))
+    await completeDays(habit.id, 0, 11)
 
     const events = await db.xpEvents.orderBy('day').toArray()
     expect(events.slice(9).map((event) => event.xp)).toEqual([29, 30, 30])
   })
 
   it('lee la racha correcta aunque nadie haya abierto la app en días', async () => {
-    const bounty = await createBounty(db, { title: 'Hábito', difficulty: 1 }, day(0))
-    await completeDays(bounty.id, 0, 3)
+    const habit = await createHabit(db, { title: 'Hábito', difficulty: 1 }, day(0))
+    await completeDays(habit.id, 0, 3)
 
     const saved = await db.player.get('player')
     expect(await hudOn(5)).toMatchObject({ streak: 2 })
@@ -198,8 +203,8 @@ describe('Rachas', () => {
 
 describe('Side Quests y campañas', () => {
   it('no aplica el multiplicador de racha', async () => {
-    const bounty = await createBounty(db, { title: 'Hábito', difficulty: 1 }, day(0))
-    await completeDays(bounty.id, 0, 3)
+    const habit = await createHabit(db, { title: 'Hábito', difficulty: 1 }, day(0))
+    await completeDays(habit.id, 0, 3)
     const quest = await createSideQuest(db, { title: 'Trámite', difficulty: 3 }, day(4))
 
     expect(await completeSideQuest(db, quest.id, day(4))).toBe(90)
@@ -208,11 +213,7 @@ describe('Side Quests y campañas', () => {
 
   it('mueve la barra de su campaña y se puede deshacer', async () => {
     const campaign = await createCampaign(db, 'Lanzar la app', day(0))
-    const small = await createSideQuest(
-      db,
-      { title: 'A', difficulty: 1, campaignId: campaign.id },
-      day(0),
-    )
+    const small = await createSideQuest(db, { title: 'A', difficulty: 1, campaignId: campaign.id }, day(0))
     await createSideQuest(db, { title: 'B', difficulty: 5, campaignId: campaign.id }, day(0))
 
     await completeSideQuest(db, small.id, day(0))
@@ -238,11 +239,7 @@ describe('Side Quests y campañas', () => {
 
   it('borrar conserva el XP ya ganado', async () => {
     const campaign = await createCampaign(db, 'Lanzar la app', day(0))
-    const quest = await createSideQuest(
-      db,
-      { title: 'A', difficulty: 2, campaignId: campaign.id },
-      day(0),
-    )
+    const quest = await createSideQuest(db, { title: 'A', difficulty: 2, campaignId: campaign.id }, day(0))
     const loose = await createSideQuest(db, { title: 'B', difficulty: 1 }, day(0))
     await completeSideQuest(db, quest.id, day(0))
     await completeSideQuest(db, loose.id, day(0))
@@ -258,10 +255,10 @@ describe('Side Quests y campañas', () => {
 describe('Semana de racha', () => {
   it('marca cada día de lunes a domingo', async () => {
     // El 2 de noviembre de 2026 es lunes.
-    const bounty = await createBounty(db, { title: 'Hábito', difficulty: 1 }, day(0))
-    await completeBounty(db, bounty.id, day(0))
-    await completeBounty(db, bounty.id, day(1))
-    await completeBounty(db, bounty.id, day(3))
+    const habit = await createHabit(db, { title: 'Hábito', difficulty: 1 }, day(0))
+    await completeHabit(db, habit.id, day(0))
+    await completeHabit(db, habit.id, day(1))
+    await completeHabit(db, habit.id, day(3))
 
     const week = await getWeek(db, gameDayOf(day(4)))
 
@@ -275,35 +272,35 @@ describe('Semana de racha', () => {
       'D:future',
     ])
 
-    await completeBounty(db, bounty.id, day(4))
+    await completeHabit(db, habit.id, day(4))
     expect((await getWeek(db, gameDayOf(day(4))))[4].status).toBe('today-done')
   })
 
-  it('los días sin contratos cuentan como descanso', async () => {
+  it('los días sin nada cuentan como fallados', async () => {
     const week = await getWeek(db, gameDayOf(day(2)))
-    expect(week.slice(0, 3).map((weekDay) => weekDay.status)).toEqual(['rest', 'rest', 'today'])
+    expect(week.slice(0, 3).map((weekDay) => weekDay.status)).toEqual(['missed', 'missed', 'today'])
   })
 
   it('cuenta las tareas completadas', async () => {
-    const bounty = await createBounty(db, { title: 'Hábito', difficulty: 1 }, day(0))
-    await completeDays(bounty.id, 0, 2)
+    const habit = await createHabit(db, { title: 'Hábito', difficulty: 1 }, day(0))
+    await completeDays(habit.id, 0, 2)
     expect((await hudOn(2)).completedTasks).toBe(3)
   })
 })
 
 describe('Detalle de misión', () => {
   it('reúne descripción, objetivos, estado y campaña', async () => {
-    const bounty = await createBounty(
+    const habit = await createHabit(
       db,
       { title: 'Leer', difficulty: 2, description: 'Lee un capítulo.', steps: ['Lee 10 páginas'] },
       day(0),
     )
-    await completeBounty(db, bounty.id, day(0))
+    await completeHabit(db, habit.id, day(0))
     const campaign = await createCampaign(db, 'Aprender magia', day(0))
     const quest = await createSideQuest(db, { title: 'Doble lift', difficulty: 3, campaignId: campaign.id }, day(0))
 
-    expect(await getTaskDetail(db, { kind: 'bounty', id: bounty.id }, gameDayOf(day(0)))).toMatchObject({
-      kind: 'bounty',
+    expect(await getTaskDetail(db, { kind: 'habit', id: habit.id }, gameDayOf(day(0)))).toMatchObject({
+      kind: 'habit',
       task: { description: 'Lee un capítulo.', steps: ['Lee 10 páginas'] },
       done: true,
       xp: 50,
@@ -334,7 +331,7 @@ describe('Plan generado por IA', () => {
           { title: 'Comprar baraja', difficulty: 1 },
           { title: 'Practicar doble lift', difficulty: 3 },
         ],
-        bounties: [{ title: 'Practicar 10 minutos', difficulty: 1 }],
+        habits: [{ title: 'Practicar 10 minutos', difficulty: 1 }],
       },
       day(0),
     )
@@ -345,16 +342,14 @@ describe('Plan generado por IA', () => {
       'Comprar baraja',
       'Practicar doble lift',
     ])
-    expect((await getTodayBounties(db, gameDayOf(day(0)))).map((bounty) => bounty.title)).toEqual([
-      'Practicar 10 minutos',
-    ])
+    expect((await getTodayHabits(db, gameDayOf(day(0)))).map((habit) => habit.title)).toEqual(['Practicar 10 minutos'])
   })
 })
 
 describe('Guardado', () => {
   it('conserva el progreso al reabrir la base de datos', async () => {
-    const bounty = await createBounty(db, { title: 'Hábito', difficulty: 2 }, day(0))
-    await completeBounty(db, bounty.id, day(0))
+    const habit = await createHabit(db, { title: 'Hábito', difficulty: 2 }, day(0))
+    await completeHabit(db, habit.id, day(0))
     db.close()
 
     await db.open()

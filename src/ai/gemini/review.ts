@@ -8,17 +8,17 @@ import type { ThinkingLevel } from './types'
 
 export const REVIEW_PROMPT = `Eres el mentor de Real Life RPG, una app que convierte metas reales en un juego de rol. Cada semana revisas cómo le fue al jugador, como el informe de un buen mentor de videojuego: honesto, motivador y útil. Nunca genérico.
 
-Recibes los datos de la semana: misiones completadas, saltadas y atascadas, campañas y actos, contratos diarios día por día, misiones del día, racha, XP por habilidad y evidencias. Cada misión o contrato tiene una referencia corta (m1, c1…).
+Recibes los datos de la semana: misiones completadas, saltadas y atascadas, campañas y actos, hábitos día por día, misiones del día, racha, XP por habilidad y evidencias. Cada misión o hábito tiene una referencia corta (m1, c1…).
 
 Responde en español:
 - summary: 2 o 3 frases, en tono de videojuego pero claro. Menciona el dato más importante de la semana.
 - wins: de 0 a 4 logros concretos con datos reales ("Cerraste el Acto 1 de «Guitarra desde cero»", "Cumpliste «Leer 20 minutos» 6 de 7 días"). Si no hubo logros, lista vacía.
-- stuck: de 0 a 3 problemas: misiones atascadas o contratos que casi no se cumplen, con su referencia y la causa más probable (demasiado grande, poco clara, mal momento del día…). No inventes causas que contradigan los datos.
+- stuck: de 0 a 3 problemas: misiones atascadas o hábitos que casi no se cumplen, con su referencia y la causa más probable (demasiado grande, poco clara, mal momento del día…). No inventes causas que contradigan los datos.
 - adjustments: de 0 a 4 ajustes que el jugador pueda aplicar con un toque. Solo usa referencias que existan en los datos:
   - "split": divide una misión atascada (m#) en 2 o 3 misiones más pequeñas y concretas, que juntas cumplan lo mismo. Cada parte con title (empieza con verbo), difficulty de 1 a 5, description de 1 frase y steps de 2 a 4 objetivos medibles.
   - "difficulty": cambia la dificultad (1 a 5) de una misión pendiente (m#) que está claramente mal calibrada.
-  - "archiveBounty": archiva un contrato (c#) que casi nunca se cumple y no aporta.
-  - "addBounty": propone un contrato diario nuevo y pequeño (bounty con title, difficulty 1 o 2 y steps), solo si ayuda a una campaña activa.
+  - "archiveHabit": archiva un hábito (c#) que casi nunca se cumple y no aporta.
+  - "addHabit": propone un hábito nuevo y pequeño (habit con title, difficulty 1 o 2 y steps), solo si ayuda a una campaña activa.
   Cada ajuste lleva reason: una frase con el porqué, usando los datos. Si la semana fue buena y nada necesita cambio, lista vacía.
 - focus: de 1 a 3 misiones pendientes (m#) recomendadas para la próxima semana, con title y why (una frase). Prioriza lo que destraba el avance.
 
@@ -48,7 +48,7 @@ export const REVIEW_JSON_SCHEMA = {
       items: {
         type: 'object',
         properties: {
-          kind: { type: 'string', enum: ['split', 'difficulty', 'archiveBounty', 'addBounty'] },
+          kind: { type: 'string', enum: ['split', 'difficulty', 'archiveHabit', 'addHabit'] },
           ref: text,
           reason: text,
           difficulty: difficultySchema,
@@ -62,7 +62,7 @@ export const REVIEW_JSON_SCHEMA = {
               required: ['title', 'difficulty', 'description', 'steps'],
             },
           },
-          bounty: {
+          habit: {
             type: 'object',
             properties: { title: text, difficulty: difficultySchema, steps: stepsSchema },
             required: ['title', 'difficulty', 'steps'],
@@ -110,14 +110,14 @@ export const reviewSchema = z.object({
   adjustments: z
     .array(
       z.object({
-        kind: z.enum(['split', 'difficulty', 'archiveBounty', 'addBounty']),
+        kind: z.enum(['split', 'difficulty', 'archiveHabit', 'addHabit']),
         ref: clipped(10).default(''),
         reason: clipped(300).default(''),
         difficulty: difficulty.optional(),
         parts: z
           .array(z.object({ title: required(80), difficulty, description: clipped(300).default(''), steps }))
           .optional(),
-        bounty: z.object({ title: required(80), difficulty, steps }).optional(),
+        habit: z.object({ title: required(80), difficulty, steps }).optional(),
       }),
     )
     .default([])
@@ -134,12 +134,10 @@ const DAY_LETTERS = 'LMXJVSD'
 export function reviewInput(report: WeekReport): string {
   const lines = [`Semana del ${report.weekStart} al ${report.weekEnd}.`]
   lines.push(
-    `XP ganado: ${report.xp}. Racha de contratos: ${report.streakStart} al empezar, ${report.streakEnd} al terminar.`,
+    `XP ganado: ${report.xp}. Racha general (días con algún avance): ${report.streakStart} al empezar, ${report.streakEnd} al terminar.`,
   )
   const outcome = { fulfilled: '✓', failed: '✗', neutral: '·' }
-  lines.push(
-    `Días con todos los contratos cumplidos (${DAY_LETTERS}): ${report.dayOutcomes.map((item) => outcome[item]).join('')}`,
-  )
+  lines.push(`Días con algún avance (${DAY_LETTERS}): ${report.dayOutcomes.map((item) => outcome[item]).join('')}`)
 
   const section = (title: string, items: string[]) => {
     lines.push('', `${title}:`)
@@ -182,8 +180,8 @@ export function reviewInput(report: WeekReport): string {
     ),
   )
   section(
-    `Contratos diarios (${DAY_LETTERS}; ✓ hecho, ✗ no, · no aplicaba)`,
-    report.bounties.map(
+    `Hábitos (${DAY_LETTERS}; ✓ hecho, ½ a medias, ✗ no hecho, ? sin registrar, · no le tocaba)`,
+    report.habits.map(
       (item) =>
         `${item.ref} «${item.title}» (dificultad ${item.difficulty}): ${item.days}, ${item.done} de ${item.scheduled}`,
     ),

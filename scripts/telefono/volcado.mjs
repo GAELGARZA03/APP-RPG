@@ -2,7 +2,22 @@
 import { evaluate } from './app.mjs'
 
 const DATABASE = 'real-life-rpg'
-const GAME_STORES = ['bounties', 'campaigns', 'sideQuests', 'xpEvents', 'player', 'skills', 'evidence', 'dailies', 'reviews']
+// `bounties` es la tabla de contratos de las versiones anteriores a los hábitos: así un respaldo viejo
+// se puede cargar en una app que aún no se actualiza (y la app lo migra al actualizarse).
+const GAME_STORES = [
+  'bounties',
+  'habits',
+  'habitLogs',
+  'campaigns',
+  'sideQuests',
+  'xpEvents',
+  'player',
+  'skills',
+  'evidence',
+  'dailies',
+  'reviews',
+  'dailyNotes',
+]
 
 const OPEN = `const idb = await new Promise((resolve, reject) => { const request = indexedDB.open(${JSON.stringify(DATABASE)}); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error) })`
 
@@ -25,7 +40,7 @@ export async function dump(app) {
 export function summarize(data) {
   const count = (name) => data.stores[name]?.length ?? 0
   const xp = (data.stores.xpEvents ?? []).reduce((sum, event) => sum + event.xp, 0)
-  return `${count('campaigns')} campañas, ${count('sideQuests')} misiones, ${count('bounties')} contratos, ${count('skills')} habilidades, ${count('evidence')} evidencias, ${xp} XP`
+  return `${count('campaigns')} campañas, ${count('sideQuests')} misiones, ${count('habits') || count('bounties')} hábitos, ${count('skills')} habilidades, ${count('evidence')} evidencias, ${xp} XP`
 }
 
 /**

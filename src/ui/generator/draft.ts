@@ -11,7 +11,7 @@ export interface Draft {
   campaign: string
   missions: DraftItem[]
   boss: DraftItem
-  bounties: DraftItem[]
+  habits: DraftItem[]
 }
 
 export type Step =
@@ -49,8 +49,8 @@ export function toDraft(design: CampaignDesign): Draft {
     campaign: design.campaign,
     missions: design.missions.map((mission) => item(mission, true)),
     boss: item(design.boss, true),
-    // Los contratos sugeridos empiezan desmarcados: si se aceptan, cuentan para la racha diaria.
-    bounties: design.bounties.map((bounty) => item(bounty, false)),
+    // Los hábitos sugeridos empiezan desmarcados: si se aceptan, se agregan a la libreta.
+    habits: design.habits.map((habit) => item(habit, false)),
   }
 }
 

@@ -8,12 +8,7 @@ import { cardSurface } from './kit/Card'
 import { cn } from './kit/cn'
 import { ProgressBar } from './kit/controls'
 
-export function HudCard(props: {
-  hud: Hud
-  title: string
-  profile: ProfileSettings | undefined
-  onOpen: () => void
-}) {
+export function HudCard(props: { hud: Hud; title: string; profile: ProfileSettings | undefined; onOpen: () => void }) {
   const { hud, title, profile, onOpen } = props
   return (
     <motion.section
@@ -68,9 +63,9 @@ const DAY_STYLES: Record<WeekDay['status'], string> = {
 }
 
 const DAY_DESCRIPTIONS: Record<WeekDay['status'], string> = {
-  done: 'cumplido',
-  missed: 'no cumplido',
-  rest: 'sin contratos',
+  done: 'con avance',
+  missed: 'sin avance',
+  rest: 'sin avance',
   today: 'hoy, pendiente',
   'today-done': 'hoy, cumplido',
   future: 'próximo',
@@ -123,9 +118,7 @@ export function StreakCard({ hud, week, onInfo }: { hud: Hud; week: WeekDay[] | 
                   isToday && 'bg-signal/10 ring-1 ring-signal/40',
                 )}
               >
-                <span className={cn('text-xs font-semibold', isToday ? 'text-signal' : 'text-muted')}>
-                  {day.label}
-                </span>
+                <span className={cn('text-xs font-semibold', isToday ? 'text-signal' : 'text-muted')}>{day.label}</span>
                 <span className={cn('grid size-7 place-items-center rounded-full border-2', DAY_STYLES[day.status])}>
                   <DayIcon status={day.status} />
                 </span>

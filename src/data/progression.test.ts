@@ -8,10 +8,10 @@ import {
   acceptCampaignPlan,
   addActMissions,
   addEvidence,
-  completeBounty,
+  completeHabit,
   completeDaily,
   completeQuest,
-  createBounty,
+  createHabit,
   createCampaign,
   createSideQuest,
   deleteCampaign,
@@ -25,7 +25,7 @@ import {
   getSkillDetail,
   getSkillTree,
   getTaskDetail,
-  getTodayBounties,
+  getTodayHabits,
   resetProgress,
   saveDaily,
   skipSideQuest,
@@ -51,7 +51,7 @@ afterEach(async () => {
 })
 
 async function guitar() {
-  const campaign = await acceptCampaignPlan(db, { ...guitarDesign, bounties: [] }, day(0))
+  const campaign = await acceptCampaignPlan(db, { ...guitarDesign, habits: [] }, day(0))
   return (await getCampaign(db, campaign.id))!
 }
 
@@ -95,10 +95,10 @@ describe('Crear una campaña diseñada', () => {
 
   it('crea los contratos aceptados con su habilidad', async () => {
     await acceptCampaignPlan(db, guitarDesign, day(0))
-    const [bounty] = await getTodayBounties(db, gameDayOf(day(0)))
+    const [habit] = await getTodayHabits(db, gameDayOf(day(0)))
 
-    expect(bounty.title).toBe('Practica cambios de acordes 10 minutos')
-    await completeBounty(db, bounty.id, day(0))
+    expect(habit.title).toBe('Practica cambios de acordes 10 minutos')
+    await completeHabit(db, habit.id, day(0))
     const tree = await getSkillTree(db)
     expect(tree.nodes.find((node) => node.name === 'Acordes abiertos')?.xp).toBe(20)
   })
@@ -110,7 +110,7 @@ describe('Crear una campaña diseñada', () => {
       {
         ...guitarDesign,
         campaign: 'Otra',
-        bounties: [],
+        habits: [],
         skills: { area: 'MUSICA', branch: 'guitarra', leaves: ['ritmo', 'Solos'] },
       },
       day(0),
@@ -141,7 +141,7 @@ describe('Crear una campaña diseñada', () => {
     expect(await db.campaigns.count()).toBe(1)
     expect(await db.sideQuests.count()).toBe(0)
     expect(await db.skills.count()).toBe(0)
-    expect(await db.bounties.count()).toBe(0)
+    expect(await db.habits.count()).toBe(0)
   })
 })
 
@@ -382,17 +382,17 @@ describe('Objetivos marcables', () => {
   })
 
   it('los objetivos de un contrato se reinician al cerrar el día', async () => {
-    const bounty = await createBounty(db, { title: 'Estirar', difficulty: 1, steps: ['Cuello', 'Espalda'] }, day(0))
-    const ref = { kind: 'bounty' as const, id: bounty.id }
+    const habit = await createHabit(db, { title: 'Estirar', difficulty: 1, steps: ['Cuello', 'Espalda'] }, day(0))
+    const ref = { kind: 'habit' as const, id: habit.id }
 
     await toggleStep(db, ref, 0, day(0))
-    expect((await getTodayBounties(db, gameDayOf(day(0))))[0].stepsDoneToday).toBe(1)
+    expect((await getTodayHabits(db, gameDayOf(day(0))))[0].stepsDoneToday).toBe(1)
     // A las 3:00 a. m. del día siguiente sigue siendo el mismo día de juego.
-    expect((await getTodayBounties(db, gameDayOf(day(1, 3))))[0].stepsDoneToday).toBe(1)
+    expect((await getTodayHabits(db, gameDayOf(day(1, 3))))[0].stepsDoneToday).toBe(1)
     expect(await toggleStep(db, ref, 1, day(1, 3))).toMatchObject({ ok: true, xp: 20 })
 
     // Tras las 4:00 a. m. las casillas empiezan vacías y el contrato vuelve a estar pendiente.
-    const [next] = await getTodayBounties(db, gameDayOf(day(1, 5)))
+    const [next] = await getTodayHabits(db, gameDayOf(day(1, 5)))
     expect(next).toMatchObject({ stepsDoneToday: 0, doneToday: false })
     expect((await getTaskDetail(db, ref, gameDayOf(day(1, 5))))?.stepsDone).toEqual([])
     await toggleStep(db, ref, 0, day(1, 5))
@@ -401,11 +401,7 @@ describe('Objetivos marcables', () => {
   })
 
   it('el jefe con todos los objetivos marcados espera la evidencia', async () => {
-    const campaign = await acceptCampaignPlan(
-      db,
-      { ...guitarDesign, acts: [guitarDesign.acts[0]], bounties: [] },
-      day(0),
-    )
+    const campaign = await acceptCampaignPlan(db, { ...guitarDesign, acts: [guitarDesign.acts[0]], habits: [] }, day(0))
     await clearCurrentAct(campaign.id)
     const boss = (await view(campaign.id)).sideQuests.find((quest) => quest.boss)!
     const ref = { kind: 'sideQuest' as const, id: boss.id }
@@ -459,9 +455,9 @@ describe('Árbol de habilidades', () => {
     const quest = campaign.actViews[0].quests[0]
     await completeQuest(db, quest.id, day(0))
     await addEvidence(db, { kind: 'sideQuest', id: quest.id }, { photo: PHOTO }, day(0))
-    const own = await createBounty(db, { title: 'Mío', difficulty: 1 }, day(0))
-    const [linked] = (await getTodayBounties(db, gameDayOf(day(0)))).filter((bounty) => bounty.id !== own.id)
-    await completeBounty(db, linked.id, day(0))
+    const own = await createHabit(db, { title: 'Mío', difficulty: 1 }, day(0))
+    const [linked] = (await getTodayHabits(db, gameDayOf(day(0)))).filter((habit) => habit.id !== own.id)
+    await completeHabit(db, linked.id, day(0))
 
     await deleteCampaign(db, campaign.id, day(1))
 
@@ -469,8 +465,8 @@ describe('Árbol de habilidades', () => {
     expect(await db.sideQuests.count()).toBe(0)
     expect(await db.evidence.count()).toBe(0)
     // El contrato que nació con la campaña se archiva; el que creó el jugador sigue activo.
-    expect((await getTodayBounties(db, gameDayOf(day(1)))).map((bounty) => bounty.title)).toEqual(['Mío'])
-    expect((await db.bounties.get(linked.id))?.archivedDay).toBe(gameDayOf(day(1)))
+    expect((await getTodayHabits(db, gameDayOf(day(1)))).map((habit) => habit.title)).toEqual(['Mío'])
+    expect((await db.habits.get(linked.id))?.archivedDay).toBe(gameDayOf(day(1)))
     // El XP y el nivel se conservan, pero el árbol queda limpio.
     expect(await xp()).toBe(40)
     expect(await getSkillTree(db)).toEqual({ nodes: [], totalXp: 0 })
@@ -479,10 +475,15 @@ describe('Árbol de habilidades', () => {
 
   it('borrar una campaña no toca la rama que comparte con otra ni sus sub-ramas sin XP', async () => {
     const first = await guitar()
-    const second = await acceptCampaignPlan(db, { ...guitarDesign, campaign: 'Guitarra II', bounties: [] }, day(0))
+    const second = await acceptCampaignPlan(db, { ...guitarDesign, campaign: 'Guitarra II', habits: [] }, day(0))
     const other = await acceptCampaignPlan(
       db,
-      { ...guitarDesign, campaign: 'Dibujo', bounties: [], skills: { area: 'Arte', branch: 'Retrato', leaves: ['Sombras', 'Texturas'] } },
+      {
+        ...guitarDesign,
+        campaign: 'Dibujo',
+        habits: [],
+        skills: { area: 'Arte', branch: 'Retrato', leaves: ['Sombras', 'Texturas'] },
+      },
       day(0),
     )
     await completeQuest(db, first.actViews[0].quests[0].id, day(0))
@@ -508,16 +509,23 @@ describe('Restablecer progreso', () => {
     await completeQuest(db, quest.id, day(0))
     await addEvidence(db, { kind: 'sideQuest', id: quest.id }, { note: 'Listo' }, day(0))
     await saveDaily(db, { title: 'Reto', difficulty: 1 }, day(0))
-    const mine = await createBounty(db, { title: 'Tomar agua', difficulty: 1, steps: ['Uno', 'Dos'] }, day(0))
-    const archived = await createBounty(db, { title: 'Vieja', difficulty: 1 }, day(0))
-    await toggleStep(db, { kind: 'bounty', id: mine.id }, 0, day(0))
-    await completeBounty(db, archived.id, day(0))
-    await db.bounties.update(archived.id, { archivedDay: gameDayOf(day(0)) })
+    const mine = await createHabit(db, { title: 'Tomar agua', difficulty: 1, steps: ['Uno', 'Dos'] }, day(0))
+    const archived = await createHabit(db, { title: 'Vieja', difficulty: 1 }, day(0))
+    await toggleStep(db, { kind: 'habit', id: mine.id }, 0, day(0))
+    await completeHabit(db, archived.id, day(0))
+    await db.habits.update(archived.id, { archivedDay: gameDayOf(day(0)) })
     const settings: Setting[] = [
       { id: 'cosmetics', theme: 'amber', title: 'explorer', sound: 'arcade', crt: true },
       { id: 'profile', name: 'Gael', photo: null },
       { id: 'ai', fastModel: 'rapido', mainModel: 'principal' },
-      { id: 'notifications', enabled: true, morning: '08:00', afternoon: '15:00', night: '22:30', weeklyBackupReminder: true },
+      {
+        id: 'notifications',
+        enabled: true,
+        morning: '08:00',
+        afternoon: '15:00',
+        night: '22:30',
+        weeklyBackupReminder: true,
+      },
     ]
     await db.settings.bulkPut(settings)
   }
@@ -525,9 +533,18 @@ describe('Restablecer progreso', () => {
   it('deja el juego en cero y vuelve a bloquear lo desbloqueado, sin tocar la configuración', async () => {
     await playABit()
 
-    await resetProgress(db, { keepBounties: false })
+    await resetProgress(db, { keepHabits: false })
 
-    for (const table of [db.campaigns, db.sideQuests, db.xpEvents, db.skills, db.evidence, db.dailies, db.bounties, db.player]) {
+    for (const table of [
+      db.campaigns,
+      db.sideQuests,
+      db.xpEvents,
+      db.skills,
+      db.evidence,
+      db.dailies,
+      db.habits,
+      db.player,
+    ]) {
       expect(await table.count()).toBe(0)
     }
     expect(await getHud(db, gameDayOf(day(0)))).toMatchObject({ level: 1, totalXp: 0, streak: 0, completedTasks: 0 })
@@ -541,13 +558,13 @@ describe('Restablecer progreso', () => {
   it('puede conservar los contratos activos, ya sin historial ni enlaces', async () => {
     await playABit()
 
-    await resetProgress(db, { keepBounties: true })
+    await resetProgress(db, { keepHabits: true })
 
-    const bounties = await db.bounties.toArray()
-    expect(bounties.map((bounty) => bounty.title).sort()).toEqual(['Practica cambios de acordes 10 minutos', 'Tomar agua'])
-    expect(bounties.every((bounty) => !bounty.skillId && !bounty.campaignId && !bounty.stepsDone)).toBe(true)
+    const habits = await db.habits.toArray()
+    expect(habits.map((habit) => habit.title).sort()).toEqual(['Practica cambios de acordes 10 minutos', 'Tomar agua'])
+    expect(habits.every((habit) => !habit.skillId && !habit.campaignId && !habit.stepsDone)).toBe(true)
     expect(await db.xpEvents.count()).toBe(0)
-    expect((await getTodayBounties(db, gameDayOf(day(0)))).every((bounty) => !bounty.doneToday)).toBe(true)
+    expect((await getTodayHabits(db, gameDayOf(day(0)))).every((habit) => !habit.doneToday)).toBe(true)
   })
 })
 
@@ -578,7 +595,13 @@ describe('Bitácora', () => {
 })
 
 describe('Misión del día', () => {
-  const plan = { title: 'Reto relámpago', difficulty: 2 as const, description: 'Hazlo.', steps: ['Uno'], skill: 'Ritmo' }
+  const plan = {
+    title: 'Reto relámpago',
+    difficulty: 2 as const,
+    description: 'Hazlo.',
+    steps: ['Uno'],
+    skill: 'Ritmo',
+  }
 
   it('se liga al acto actual y a las habilidades de la campaña', async () => {
     const campaign = await guitar()
@@ -593,9 +616,8 @@ describe('Misión del día', () => {
     expect(await getDailyContext(db, gameDayOf(day(0)))).toBeNull()
   })
 
-  it('hay una sola por día de juego, da XP extra y no afecta la racha', async () => {
+  it('hay una sola por día de juego, da XP extra y cuenta para la racha', async () => {
     const campaign = await guitar()
-    const bounty = await createBounty(db, { title: 'Agua', difficulty: 1 }, day(0))
     const first = await saveDaily(db, { ...plan, campaignId: campaign.id, branchId: campaign.skillId }, day(0))
     const second = await saveDaily(db, { ...plan, title: 'Otra' }, day(0, 20))
 
@@ -606,9 +628,8 @@ describe('Misión del día', () => {
     expect(await completeDaily(db, first.id, day(0))).toMatchObject({ ok: false })
     expect((await getSkillTree(db)).nodes.find((node) => node.name === 'Ritmo')?.xp).toBe(75)
 
-    // Hacerla no cumple el día: la racha depende solo de los contratos.
-    expect((await getHud(db, gameDayOf(day(0)))).todayFulfilled).toBe(false)
-    await completeBounty(db, bounty.id, day(0))
+    // Hacerla cuenta como día con avance para la racha general.
+    expect((await getHud(db, gameDayOf(day(0)))).todayFulfilled).toBe(true)
     expect((await getHud(db, gameDayOf(day(1)))).streak).toBe(1)
   })
 
@@ -630,17 +651,17 @@ describe('Contexto para la IA', () => {
   it('solo incluye campañas activas, contratos, nivel y racha', async () => {
     await guitar()
     await createCampaign(db, 'Vacía', day(0))
-    await createBounty(db, { title: 'Agua', difficulty: 1 }, day(0))
+    await createHabit(db, { title: 'Agua', difficulty: 1 }, day(0))
 
     const context = await getAiContext(db, gameDayOf(day(0)))
-    expect(context).toMatchObject({ level: 1, streak: 0, bounties: ['Agua'] })
+    expect(context).toMatchObject({ level: 1, streak: 0, habits: ['Agua'] })
     expect(context.campaigns).toEqual([{ title: 'Del silencio al escenario', skill: 'Música › Guitarra' }])
     expect(context.skillPaths).toContain('Música › Guitarra › Ritmo')
   })
 })
 
 describe('Migración del esquema', () => {
-  it('abre datos de la versión 2 sin perder nada y los trata como Acto 1', async () => {
+  it('abre datos de la versión 2 sin perder nada, los trata como Acto 1 y pasa los contratos a hábitos', async () => {
     const name = `migracion-${databaseNumber}`
     const old = new Dexie(name)
     old.version(1).stores({
@@ -659,10 +680,29 @@ describe('Migración del esquema', () => {
       createdDay: '2026-11-01',
       archivedDay: null,
     })
-    await old.table('campaigns').add({ id: 'c', title: 'El Despertar del Mago', createdAt: 2, createdDay: '2026-11-01' })
+    await old
+      .table('campaigns')
+      .add({ id: 'c', title: 'El Despertar del Mago', createdAt: 2, createdDay: '2026-11-01' })
     await old.table('sideQuests').bulkAdd([
-      { id: 'q1', title: 'Mazo', difficulty: 1, campaignId: 'c', createdAt: 3, createdDay: '2026-11-01', completedDay: '2026-11-01' },
-      { id: 'q2', title: 'Cortes', difficulty: 2, campaignId: 'c', createdAt: 4, createdDay: '2026-11-01', completedDay: null, steps: ['a', 'b'] },
+      {
+        id: 'q1',
+        title: 'Mazo',
+        difficulty: 1,
+        campaignId: 'c',
+        createdAt: 3,
+        createdDay: '2026-11-01',
+        completedDay: '2026-11-01',
+      },
+      {
+        id: 'q2',
+        title: 'Cortes',
+        difficulty: 2,
+        campaignId: 'c',
+        createdAt: 4,
+        createdDay: '2026-11-01',
+        completedDay: null,
+        steps: ['a', 'b'],
+      },
     ])
     await old.table('xpEvents').bulkAdd([
       { id: 'e1', kind: 'sideQuest', taskId: 'q1', day: '2026-11-01', xp: 20 },
@@ -678,7 +718,14 @@ describe('Migración del esquema', () => {
     const migrated = new GameDatabase(name)
     try {
       expect(await getHud(migrated, '2026-11-02')).toMatchObject({ totalXp: 70, completedTasks: 2 })
-      expect(await migrated.bounties.count()).toBe(1)
+      expect(await migrated.habits.toArray()).toEqual([
+        expect.objectContaining({ id: 'b', title: 'Medicamentos', frequency: { kind: 'daily' }, order: 0 }),
+      ])
+      expect(await migrated.habitLogs.toArray()).toEqual([
+        { id: 'b:2026-11-01', habitId: 'b', day: '2026-11-01', state: 'done' },
+      ])
+      expect((await migrated.xpEvents.get('e2'))?.kind).toBe('habit')
+      expect(migrated.tables.map((table) => table.name)).not.toContain('bounties')
       expect(await getAiSettings(migrated)).toMatchObject({
         fastModel: 'gemini-3.8-flash',
         mainModel: 'gemini-4-hydrogen',

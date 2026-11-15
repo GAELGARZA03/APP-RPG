@@ -7,6 +7,7 @@ const loaders = {
   map: () => import('./CampaignMap'),
   tree: () => import('./SkillTree'),
   journal: () => import('./Journal'),
+  notebook: () => import('./notebook/NotebookTab'),
   generator: () => import('./generator/GeneratorSheet'),
   review: () => import('./review/ReviewSheet'),
 }
@@ -14,7 +15,8 @@ const loaders = {
 export const CampaignMap = lazy(() => loaders.map().then((module) => ({ default: module.CampaignMap })))
 export const SkillTreeScreen = lazy(() => loaders.tree().then((module) => ({ default: module.SkillTreeScreen })))
 export const SkillTreePreview = lazy(() => loaders.tree().then((module) => ({ default: module.SkillTreePreview })))
-export const JournalScreen = lazy(() => loaders.journal().then((module) => ({ default: module.JournalScreen })))
+export const JournalTab = lazy(() => loaders.journal().then((module) => ({ default: module.JournalTab })))
+export const NotebookTab = lazy(() => loaders.notebook().then((module) => ({ default: module.NotebookTab })))
 export const GeneratorSheet = lazy(() => loaders.generator().then((module) => ({ default: module.GeneratorSheet })))
 export const ReviewSheet = lazy(() => loaders.review().then((module) => ({ default: module.ReviewSheet })))
 

@@ -17,7 +17,7 @@ export function PreviewStep(props: {
 }) {
   const { draft, onChange } = props
 
-  const changeItem = (list: 'missions' | 'bounties', key: number) => (changes: Partial<DraftItem>) =>
+  const changeItem = (list: 'missions' | 'habits', key: number) => (changes: Partial<DraftItem>) =>
     onChange((current) => ({
       ...current,
       [list]: current[list].map((item) => (item.key === key ? { ...item, ...changes } : item)),
@@ -139,13 +139,13 @@ export function PreviewStep(props: {
         </section>
       )}
 
-      {draft.bounties.length > 0 && (
-        <section aria-label="Contratos diarios sugeridos" className="flex flex-col gap-2">
-          <SectionLabel>Contratos diarios sugeridos</SectionLabel>
-          {draft.bounties.map((item) => (
-            <MissionEditor key={item.key} item={item} onChange={changeItem('bounties', item.key)} />
+      {draft.habits.length > 0 && (
+        <section aria-label="Hábitos sugeridos" className="flex flex-col gap-2">
+          <SectionLabel>Hábitos sugeridos</SectionLabel>
+          {draft.habits.map((item) => (
+            <MissionEditor key={item.key} item={item} onChange={changeItem('habits', item.key)} />
           ))}
-          <p className="text-xs text-muted">Si los marcas, se suman a tus contratos de hoy y cuentan para tu racha.</p>
+          <p className="text-xs text-muted">Si los marcas, se agregan a tu libreta como hábitos diarios.</p>
         </section>
       )}
 

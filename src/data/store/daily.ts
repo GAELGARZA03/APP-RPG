@@ -3,14 +3,27 @@ import { type GameDay, gameDayOf } from '../../game/gameDay'
 import { dailyXp, isResolved, skillKey } from '../../game/rules'
 import type { Daily, GameDatabase } from '../db'
 import { getMissions } from './campaigns'
-import { FAILED, type Outcome, type TaskInput, allSteps, allTables, byCreation, pathOf, skillMap } from './shared'
+import {
+  FAILED,
+  type Outcome,
+  type TaskInput,
+  allSteps,
+  allTables,
+  byCreation,
+  gameTables,
+  pathOf,
+  projectPlayer,
+  settleClosedDays,
+  skillMap,
+} from './shared'
 import { skillResolver } from './skills'
 
 /** La misión del día de hoy, o `null`. Las de días anteriores ya caducaron. */
 export async function getDaily(db: GameDatabase, today: GameDay) {
   const daily = await db.dailies.get(today)
   if (!daily) return null
-  return { ...daily, done: daily.completedDay !== null, xp: dailyXp(daily.difficulty) }
+  const player = await projectPlayer(db, today)
+  return { ...daily, done: daily.completedDay !== null, xp: dailyXp(daily.difficulty, player.streak) }
 }
 
 export type DailyView = NonNullable<Awaited<ReturnType<typeof getDaily>>>
@@ -101,16 +114,17 @@ export async function saveDaily(
   })
 }
 
-/** Da XP extra y suma a su habilidad. No toca la racha: el evento no es de un contrato. */
+/** Da XP extra (con el bono de racha), suma a su habilidad y cuenta como día con avance. */
 export async function completeDaily(db: GameDatabase, id: string, now = new Date()): Promise<Outcome> {
   const today = gameDayOf(now)
 
-  return db.transaction('rw', db.dailies, db.xpEvents, async () => {
+  return db.transaction('rw', [db.dailies, ...gameTables(db)], async () => {
     const daily = await db.dailies.get(id)
     if (!daily || daily.completedDay !== null) return FAILED
     if (daily.id !== today) return { ...FAILED, blocked: 'locked' as const }
 
-    const xp = dailyXp(daily.difficulty)
+    const player = await settleClosedDays(db, today)
+    const xp = dailyXp(daily.difficulty, player.streak)
     await db.dailies.update(id, { completedDay: today, stepsDone: allSteps(daily.steps?.length ?? 0) })
     await db.xpEvents.add({
       id: crypto.randomUUID(),

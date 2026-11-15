@@ -22,14 +22,14 @@ const ERASED = [
 
 /** Deja el juego en cero. Pide dos toques y no toca la llave de Gemini, el perfil ni los recordatorios. */
 export function ResetPanel({ headingId, onDone }: { headingId: string; onDone: () => void }) {
-  const [keepBounties, setKeepBounties] = useState(false)
+  const [keepHabits, setKeepHabits] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [busy, setBusy] = useState(false)
 
   async function reset() {
     setBusy(true)
     try {
-      await resetProgress(db, { keepBounties })
+      await resetProgress(db, { keepHabits })
       // También se olvida lo que vivía en memoria: borrador del generador, generaciones y el intento de hoy.
       forgetGeneratorDraft()
       resetActRuns()
@@ -58,7 +58,7 @@ export function ResetPanel({ headingId, onDone }: { headingId: string; onDone: (
             {ERASED.map((item) => (
               <li key={item}>{item}</li>
             ))}
-            {!keepBounties && <li>Contratos diarios</li>}
+            {!keepHabits && <li>Hábitos y su libreta</li>}
           </ul>
         </div>
 
@@ -66,12 +66,12 @@ export function ResetPanel({ headingId, onDone }: { headingId: string; onDone: (
           Se conservan tu llave de Gemini, los modelos, tu perfil, los recordatorios y la vibración.
         </p>
 
-        <SettingRow label="Conservar mis contratos diarios" description="Se quedan los activos, sin su historial">
+        <SettingRow label="Conservar mis hábitos" description="Se quedan los activos, sin su historial">
           <Switch
-            label="Conservar mis contratos diarios"
-            checked={keepBounties}
+            label="Conservar mis hábitos"
+            checked={keepHabits}
             onChange={(value) => {
-              setKeepBounties(value)
+              setKeepHabits(value)
               setConfirming(false)
             }}
           />

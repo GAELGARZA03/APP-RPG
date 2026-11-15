@@ -72,9 +72,9 @@ export const DESIGN_JSON_SCHEMA = {
     },
     missions: { type: 'array', items: missionJsonSchema, minItems: 2, maxItems: 6 },
     boss: missionJsonSchema,
-    bounties: { type: 'array', items: missionJsonSchema, maxItems: 3 },
+    habits: { type: 'array', items: missionJsonSchema, maxItems: 3 },
   },
-  required: ['campaign', 'analysis', 'skills', 'acts', 'missions', 'boss', 'bounties'],
+  required: ['campaign', 'analysis', 'skills', 'acts', 'missions', 'boss', 'habits'],
 }
 
 export const ACT_JSON_SCHEMA = {

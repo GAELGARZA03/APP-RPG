@@ -174,7 +174,7 @@ export function GeneratorSheet(props: {
         acts: current.design.acts,
         missions: chosen(current.missions),
         boss: { ...boss, title: boss.title.trim() || current.design.boss.title },
-        bounties: chosen(current.bounties),
+        habits: chosen(current.habits),
       })
       forget()
       onCreated({ id: campaign.id, title })

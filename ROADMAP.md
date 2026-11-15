@@ -22,7 +22,7 @@
 - **Restablecer conservando lo ganado:** una variante que borre misiones y campañas pero conserve XP, nivel y desbloqueos.
 - **Pendientes de la Fase 1:** probar en el teléfono la foto de evidencia de principio a fin y la misión jefe real; revisar las pantallas nuevas con los cinco temas; editar las misiones de un acto antes de aceptarlas (hoy se editan después, una por una).
 - **Logros:** pensar cómo generarlos (por ejemplo, con IA a partir de lo que haces) en lugar de una lista fija.
-- **Widget de Android** con los contratos de hoy.
+- **Widget de Android** con los hábitos de hoy.
 - **Video en la bitácora** y un **mentor** con IA para dudas de cada misión (por decidir).
 
 - **Fechas límite y recordatorios por tarea:** por ejemplo, "Vence el 8 de noviembre" o "Recuérdame a las 9:00". Si se vence, aviso al día siguiente, sin quitar XP. Se mostrará en la vista de detalle.
@@ -30,7 +30,7 @@
 - **Nombre definitivo de la app** (si se cambia "Real Life RPG").
 
 - **Fase 3: libreta de hábitos, bitácora y recompensas**, en cuatro partes para hacerlas por separado. Especificación en [docs/fase3-libreta-habitos-y-recompensas.md](docs/fase3-libreta-habitos-y-recompensas.md).
-  1. Navegación con cinco pestañas y menú lateral, y libreta mensual de hábitos (sustituye a los contratos diarios).
+  1. ~~Navegación con cinco pestañas y menú lateral, y libreta mensual de hábitos (sustituye a los contratos diarios).~~ Hecha: ver [docs/fase3-parte1-entrega.md](docs/fase3-parte1-entrega.md).
   2. Diario de momentos, bitácora unificada y registro de sueño.
   3. Tres misiones del día, oro, tienda de premios reales y racha por campaña.
   4. Ruta progresiva de hábitos y recordatorios por hábito.

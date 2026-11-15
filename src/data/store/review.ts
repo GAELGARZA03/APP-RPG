@@ -2,10 +2,10 @@
 import { addDays, type GameDay } from '../../game/gameDay'
 import { isResolved, nextStreak, type DayOutcome, type Difficulty } from '../../game/rules'
 import type { GameDatabase, ReviewAdjustment, SideQuest, WeeklyReview } from '../db'
-import { archiveBounty, createBounty } from './bounties'
+import { archiveHabit, createHabit } from './habits'
 import { buildCampaignView } from './campaigns'
 import { addQuest, deleteSideQuest, updateSideQuest } from './quests'
-import { allTables, byCreation, isActiveOn, outcomeOf, pathOf, skillMap } from './shared'
+import { allTables, byCreation, isScheduledOn, outcomeOf, pathOf, skillMap } from './shared'
 
 /** Una misión pendiente lleva atascada si sigue sin hacerse tantos días después de desbloquearse. */
 export const STUCK_AFTER_DAYS = 5
@@ -24,25 +24,26 @@ function daysBetween(from: GameDay, to: GameDay): number {
 }
 
 /** Referencia corta que ve la IA (m1, c1…) y a qué apunta de verdad. */
-export type ReviewRef = { kind: 'sideQuest' | 'bounty'; id: string; title: string; resolved: boolean }
+export type ReviewRef = { kind: 'sideQuest' | 'habit'; id: string; title: string; resolved: boolean }
 
 /** Todo lo que la IA necesita saber de la semana. Solo datos del juego, nada más personal. */
 export async function getWeekReport(db: GameDatabase, weekStart: GameDay) {
   return db.transaction('r', allTables(db), async () => {
     const weekEnd = addDays(weekStart, 6)
     const inWeek = (day: GameDay | null | undefined) => !!day && day >= weekStart && day <= weekEnd
-    const [campaigns, quests, bounties, events, dailies, evidence, skills] = await Promise.all([
+    const [campaigns, quests, habits, events, dailies, evidence, skills, habitLogs] = await Promise.all([
       db.campaigns.toArray(),
       db.sideQuests.toArray(),
-      db.bounties.toArray(),
+      db.habits.toArray(),
       db.xpEvents.toArray(),
       db.dailies.toArray(),
       db.evidence.toArray(),
       skillMap(db),
+      db.habitLogs.where('day').between(weekStart, addDays(weekEnd, 1)).toArray(),
     ])
     campaigns.sort(byCreation)
     quests.sort(byCreation)
-    bounties.sort(byCreation)
+    habits.sort((a, b) => a.order - b.order)
 
     const refs: Record<string, ReviewRef> = {}
     const refOf = new Map<string, string>()
@@ -117,7 +118,7 @@ export async function getWeekReport(db: GameDatabase, weekStart: GameDay) {
     const completed = quests.filter((quest) => inWeek(quest.completedDay) && !quest.skippedDay).map(questLine)
     const skipped = quests.filter((quest) => inWeek(quest.skippedDay)).map(questLine)
 
-    // Contratos: cumplimiento día por día y racha al principio y al final de la semana.
+    // Hábitos: registro día por día. La racha general cuenta cualquier día con XP ganado.
     const weekEvents = events.filter((event) => inWeek(event.day))
     const doneByDay = new Map<GameDay, Set<string>>()
     for (const event of events) {
@@ -125,29 +126,35 @@ export async function getWeekReport(db: GameDatabase, weekStart: GameDay) {
       set.add(event.taskId)
       doneByDay.set(event.day, set)
     }
+    const logOf = new Map(habitLogs.map((log) => [`${log.habitId}:${log.day}`, log.state]))
+    const mark = { done: '✓', half: '½', missed: '✗' }
     const days = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index))
-    const bountyLines = bounties
-      .filter((bounty) => days.some((day) => isActiveOn(bounty, day)))
-      .map((bounty) => {
-        const active = days.filter((day) => isActiveOn(bounty, day))
-        const done = active.filter((day) => doneByDay.get(day)?.has(bounty.id)).length
+    const habitLines = habits
+      .filter((habit) => days.some((day) => isScheduledOn(habit, day)))
+      .map((habit) => {
+        const scheduled = days.filter((day) => isScheduledOn(habit, day))
+        const states = scheduled.map((day) => logOf.get(`${habit.id}:${day}`))
         return {
-          ref: ref('bounty', bounty, bounty.archivedDay !== null),
-          title: bounty.title,
-          difficulty: bounty.difficulty,
-          done,
-          scheduled: active.length,
+          ref: ref('habit', habit, habit.archivedDay !== null),
+          title: habit.title,
+          difficulty: habit.difficulty,
+          done: states.reduce((sum, state) => sum + (state === 'done' ? 1 : state === 'half' ? 0.5 : 0), 0),
+          scheduled: scheduled.length,
           days: days
-            .map((day) => (!isActiveOn(bounty, day) ? '·' : doneByDay.get(day)?.has(bounty.id) ? '✓' : '✗'))
+            .map((day) => {
+              if (!isScheduledOn(habit, day)) return '·'
+              const state = logOf.get(`${habit.id}:${day}`)
+              return state ? mark[state] : '?'
+            })
             .join(''),
         }
       })
-    const outcomes: DayOutcome[] = days.map((day) => outcomeOf(bounties, doneByDay.get(day) ?? new Set(), day))
-    const firstDay = [...bounties.map((bounty) => bounty.createdDay)].sort()[0]
+    const outcomes: DayOutcome[] = days.map((day) => outcomeOf(doneByDay.get(day)))
+    const firstDay = events.map((event) => event.day).sort()[0]
     let streakStart = 0
     if (firstDay) {
       for (let day = firstDay; day < weekStart; day = addDays(day, 1)) {
-        streakStart = nextStreak(streakStart, outcomeOf(bounties, doneByDay.get(day) ?? new Set(), day))
+        streakStart = nextStreak(streakStart, outcomeOf(doneByDay.get(day)))
       }
     }
     const streakEnd = outcomes.reduce(nextStreak, streakStart)
@@ -174,7 +181,7 @@ export async function getWeekReport(db: GameDatabase, weekStart: GameDay) {
       undone: open.filter((item) => item.undone > 0),
       stuck: stuck.sort((a, b) => b.days - a.days).slice(0, MAX_LISTED),
       open: open.slice(0, MAX_LISTED),
-      bounties: bountyLines,
+      habits: habitLines,
       dailies: weekDailies.map((daily) => ({ title: daily.title, done: daily.completedDay !== null })),
       skills: [...xpBySkill].map(([name, xp]) => ({ name, xp })).sort((a, b) => b.xp - a.xp),
       evidence: evidenceCount,
@@ -196,7 +203,7 @@ export interface ReviewPlan {
     reason: string
     difficulty?: Difficulty
     parts?: ReviewAdjustment['parts']
-    bounty?: ReviewAdjustment['bounty']
+    habit?: ReviewAdjustment['habit']
   }>
   focus: Array<{ ref: string; title: string; why: string }>
 }
@@ -218,11 +225,11 @@ export function planToReview(plan: ReviewPlan, report: WeekReport, model: string
       } else if (item.kind === 'difficulty' && item.difficulty) {
         adjustments.push({ ...base, questId: quest.id, targetTitle: quest.title, difficulty: item.difficulty })
       }
-    } else if (item.kind === 'archiveBounty') {
-      const bounty = target(item.ref, 'bounty')
-      if (bounty && !bounty.resolved) adjustments.push({ ...base, bountyId: bounty.id, targetTitle: bounty.title })
-    } else if (item.kind === 'addBounty' && item.bounty) {
-      adjustments.push({ ...base, bounty: item.bounty })
+    } else if (item.kind === 'archiveHabit') {
+      const habit = target(item.ref, 'habit')
+      if (habit && !habit.resolved) adjustments.push({ ...base, habitId: habit.id, targetTitle: habit.title })
+    } else if (item.kind === 'addHabit' && item.habit) {
+      adjustments.push({ ...base, habit: item.habit })
     }
   }
 
@@ -272,7 +279,7 @@ export async function getReviewCard(db: GameDatabase, today: GameDay) {
     }
   }
   const existed =
-    (await db.bounties.filter((bounty) => bounty.createdDay <= weekEnd).count()) > 0 ||
+    (await db.habits.filter((habit) => habit.createdDay <= weekEnd).count()) > 0 ||
     (await db.campaigns.filter((campaign) => campaign.createdDay <= weekEnd).count()) > 0
   if (!existed) return null
   const report = await getWeekReport(db, weekStart)
@@ -336,12 +343,12 @@ export async function applyAdjustment(
         }
         await deleteSideQuest(db, quest.id)
       }
-    } else if (adjustment.kind === 'archiveBounty') {
-      const bounty = adjustment.bountyId ? await db.bounties.get(adjustment.bountyId) : undefined
-      if (!bounty || bounty.archivedDay !== null) return fail('El contrato ya no está activo.')
-      await archiveBounty(db, bounty.id, now)
-    } else if (adjustment.bounty) {
-      await createBounty(db, { ...adjustment.bounty }, now)
+    } else if (adjustment.kind === 'archiveHabit') {
+      const habit = adjustment.habitId ? await db.habits.get(adjustment.habitId) : undefined
+      if (!habit || habit.archivedDay !== null) return fail('El hábito ya no está activo.')
+      await archiveHabit(db, habit.id, now)
+    } else if (adjustment.habit) {
+      await createHabit(db, { ...adjustment.habit }, now)
     }
 
     await setStatus(db, review, adjustmentId, 'applied')

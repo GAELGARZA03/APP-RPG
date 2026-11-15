@@ -9,7 +9,6 @@ import {
   RotateCcw,
   ScrollText,
   ShieldAlert,
-  Sparkles,
   Trophy,
   TriangleAlert,
   Wrench,
@@ -256,8 +255,8 @@ function FocusText({ title, why }: { title: string; why: string }) {
 const KIND_LABEL: Record<ReviewAdjustment['kind'], string> = {
   split: 'Dividir misión',
   difficulty: 'Cambiar dificultad',
-  archiveBounty: 'Archivar contrato',
-  addBounty: 'Nuevo contrato diario',
+  archiveHabit: 'Archivar hábito',
+  addHabit: 'Nuevo hábito',
 }
 
 function AdjustmentCard({ weekStart, adjustment }: { weekStart: GameDay; adjustment: ReviewAdjustment }) {
@@ -308,10 +307,10 @@ function AdjustmentCard({ weekStart, adjustment }: { weekStart: GameDay; adjustm
           ))}
         </ol>
       )}
-      {adjustment.kind === 'addBounty' && adjustment.bounty && (
+      {adjustment.kind === 'addHabit' && adjustment.habit && (
         <p className="flex items-center justify-between gap-2 font-medium">
-          {adjustment.bounty.title}
-          <DifficultyPips value={adjustment.bounty.difficulty} />
+          {adjustment.habit.title}
+          <DifficultyPips value={adjustment.habit.difficulty} />
         </p>
       )}
       <p className="text-muted">{adjustment.reason}</p>
@@ -327,7 +326,7 @@ function AdjustmentCard({ weekStart, adjustment }: { weekStart: GameDay; adjustm
             Descartar
           </Button>
           <Button size="sm" variant="primary" disabled={busy} onClick={() => void apply()}>
-            <Sparkles aria-hidden />
+            <Check aria-hidden />
             Aplicar
           </Button>
         </div>

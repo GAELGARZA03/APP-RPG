@@ -109,6 +109,8 @@ Al terminar una parte:
 
 ## Parte 2: diario, bitácora unificada y sueño
 
+> **Ya existe desde la parte 1:** la Bitácora tiene dos secciones, Diario (una nota de texto por día en la tabla `dailyNotes`) y Progreso (evidencias de misiones). La libreta muestra los hábitos en filas, con vistas de 3 días, 7 días y mes. Esta parte construye sobre eso: amplía la nota diaria con foto y etiqueta (o varios momentos por día), agrega los hitos automáticos a Progreso y suma el sueño. En la libreta, los momentos y el sueño se acomodan como filas extra («Momento» y «Sueño»), no como columnas.
+
 ### Qué construir
 
 1. **Momentos (diario):** registrar algo memorable de un día, con fecha (hoy por defecto, editable), título corto, texto opcional, foto opcional (con la misma compresión de la bitácora) y una etiqueta: logro, persona, viaje, primera vez u otro. Puede haber varios por día.

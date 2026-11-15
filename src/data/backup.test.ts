@@ -7,10 +7,10 @@ import { guitarDesign } from '../test/fixtures'
 import {
   acceptCampaignPlan,
   addEvidence,
-  completeBounty,
+  completeHabit,
   completeDaily,
   completeSideQuest,
-  createBounty,
+  createHabit,
   createCampaign,
   createSideQuest,
   getCampaign,
@@ -55,8 +55,8 @@ afterEach(async () => {
 })
 
 async function fillSource() {
-  const bounty = await createBounty(source, { title: 'Tomar medicamentos', difficulty: 2 }, noon)
-  await completeBounty(source, bounty.id, noon)
+  const habit = await createHabit(source, { title: 'Tomar medicamentos', difficulty: 2 }, noon)
+  await completeHabit(source, habit.id, noon)
   const campaign = await createCampaign(source, 'Lanzar la app', noon)
   const quest = await createSideQuest(source, { title: 'Diseñar', difficulty: 3, campaignId: campaign.id }, noon)
   await completeSideQuest(source, quest.id, noon)
@@ -85,7 +85,7 @@ describe('Respaldo', () => {
 
     expect(summarizeBackup(await createBackup(source, noon))).toEqual({
       exportedAt: noon.toISOString(),
-      bounties: 1,
+      habits: 1,
       campaigns: 1,
       sideQuests: 1,
       skills: 0,
@@ -102,7 +102,14 @@ describe('Respaldo', () => {
     await addEvidence(source, { kind: 'sideQuest', id: quest.id }, { note: 'Ya lo sabía' }, noon)
     const daily = await saveDaily(
       source,
-      { title: 'Reto', difficulty: 1, steps: ['Uno'], skill: 'Ritmo', branchId: campaign.skillId, campaignId: campaign.id },
+      {
+        title: 'Reto',
+        difficulty: 1,
+        steps: ['Uno'],
+        skill: 'Ritmo',
+        branchId: campaign.skillId,
+        campaignId: campaign.id,
+      },
       noon,
     )
     await completeDaily(source, daily.id, noon)
@@ -110,7 +117,7 @@ describe('Respaldo', () => {
     await saveAiModels(target, { mainModel: 'modelo-de-este-telefono' })
 
     const backup = parseBackup(JSON.stringify(await createBackup(source, noon)))
-    expect(backup.version).toBe(3)
+    expect(backup.version).toBe(5)
     await restoreBackup(target, backup)
 
     expect(await getCampaign(target, campaign.id)).toEqual(await getCampaign(source, campaign.id))
@@ -163,12 +170,12 @@ describe('Respaldo', () => {
   })
 
   it('reemplaza los datos que ya había', async () => {
-    await createBounty(target, { title: 'Vieja', difficulty: 1 }, noon)
+    await createHabit(target, { title: 'Vieja', difficulty: 1 }, noon)
     await fillSource()
 
     await restoreBackup(target, parseBackup(JSON.stringify(await createBackup(source, noon))))
 
-    expect((await target.bounties.toArray()).map((bounty) => bounty.title)).toEqual(['Tomar medicamentos'])
+    expect((await target.habits.toArray()).map((habit) => habit.title)).toEqual(['Tomar medicamentos'])
   })
 
   it('descarta campos desconocidos', async () => {
@@ -188,19 +195,19 @@ describe('Respaldo', () => {
     await fillSource()
     const backup = await createBackup(source, noon)
     const broken = JSON.parse(JSON.stringify(backup))
-    broken.data.bounties[0].difficulty = 7
+    broken.data.habits[0].difficulty = 7
 
     expect(() => parseBackup(JSON.stringify(broken))).toThrow(BackupError)
   })
 
   it('si falla la importación, conserva los datos actuales', async () => {
-    await createBounty(target, { title: 'Mía', difficulty: 1 }, noon)
+    await createHabit(target, { title: 'Mía', difficulty: 1 }, noon)
     await fillSource()
     const backup = await createBackup(source, noon)
-    backup.data.bounties.push({ ...backup.data.bounties[0] })
+    backup.data.habits.push({ ...backup.data.habits[0] })
 
     await expect(restoreBackup(target, backup)).rejects.toThrow('no se modificaron')
-    expect((await target.bounties.toArray()).map((bounty) => bounty.title)).toEqual(['Mía'])
+    expect((await target.habits.toArray()).map((habit) => habit.title)).toEqual(['Mía'])
   })
 
   it('nombra el archivo con la fecha', () => {

@@ -10,9 +10,9 @@ function contextLines(context: PlayerContext): string[] {
           .map((campaign) => (campaign.skill ? `"${campaign.title}" [${campaign.skill}]` : `"${campaign.title}"`))
           .join('; ')}.`
       : 'No tiene otras campañas activas.',
-    context.bounties.length > 0
-      ? `Contratos diarios que ya tiene (${context.bounties.length}): ${context.bounties.map((b) => `"${b}"`).join('; ')}.`
-      : 'No tiene contratos diarios.',
+    context.habits.length > 0
+      ? `Hábitos que ya tiene (${context.habits.length}): ${context.habits.map((b) => `"${b}"`).join('; ')}.`
+      : 'No tiene hábitos.',
     context.skillPaths.length > 0
       ? `Habilidades existentes en su árbol (reutiliza estos nombres si aplican): ${context.skillPaths.join('; ')}.`
       : 'Su árbol de habilidades está vacío.',

@@ -9,9 +9,9 @@ import { GameDatabase } from './db'
 import {
   acceptCampaignPlan,
   applyAdjustment,
-  completeBounty,
+  completeHabit,
   completeQuest,
-  createBounty,
+  createHabit,
   dismissAdjustment,
   dismissEmptyWeek,
   getCampaign,
@@ -40,19 +40,19 @@ afterEach(async () => {
 /** Una semana variada: avance, un acto cerrado, un contrato fallado y una misión atascada. */
 async function variedWeek() {
   db = new GameDatabase(`revision-${crypto.randomUUID()}`)
-  const water = await createBounty(db, { title: 'Tomar agua', difficulty: 1 }, on(addDays(weekStart, -10)))
-  const read = await createBounty(db, { title: 'Leer 20 minutos', difficulty: 1 }, on(addDays(weekStart, -10)))
+  const water = await createHabit(db, { title: 'Tomar agua', difficulty: 1 }, on(addDays(weekStart, -10)))
+  const read = await createHabit(db, { title: 'Leer 20 minutos', difficulty: 1 }, on(addDays(weekStart, -10)))
   // Semana anterior: cumplida los últimos 3 días, racha 3 al empezar.
   for (const offset of [-3, -2, -1]) {
-    await completeBounty(db, water.id, on(dayOf(offset)))
-    await completeBounty(db, read.id, on(dayOf(offset)))
+    await completeHabit(db, water.id, on(dayOf(offset)))
+    await completeHabit(db, read.id, on(dayOf(offset)))
   }
   // Esta semana: agua todos los días, lectura solo 2 de 7.
-  for (let offset = 0; offset < 7; offset++) await completeBounty(db, water.id, on(dayOf(offset)))
-  for (const offset of [0, 3]) await completeBounty(db, read.id, on(dayOf(offset)))
+  for (let offset = 0; offset < 7; offset++) await completeHabit(db, water.id, on(dayOf(offset)))
+  for (const offset of [0, 3]) await completeHabit(db, read.id, on(dayOf(offset)))
 
   // Campaña creada 9 días antes; esta semana se completan 2 de las 3 misiones del Acto 1.
-  const guitar = await acceptCampaignPlan(db, { ...guitarDesign, bounties: [] }, on(addDays(weekStart, -9)))
+  const guitar = await acceptCampaignPlan(db, { ...guitarDesign, habits: [] }, on(addDays(weekStart, -9)))
   const [tune, chords, progression] = (await getCampaign(db, guitar.id))!.actViews[0].quests
   await completeQuest(db, tune.id, on(dayOf(1)))
   await completeQuest(db, chords.id, on(dayOf(4)))
@@ -66,11 +66,11 @@ describe('Resumen de la semana', () => {
 
     expect(report.hasActivity).toBe(true)
     expect(report.completed.map((item) => item.title)).toHaveLength(2)
-    expect(report.bounties.find((item) => item.title === 'Leer 20 minutos')).toMatchObject({ done: 2, scheduled: 7 })
-    expect(report.bounties.find((item) => item.title === 'Tomar agua')?.days).toBe('✓✓✓✓✓✓✓')
+    expect(report.habits.find((item) => item.title === 'Leer 20 minutos')).toMatchObject({ done: 2, scheduled: 7 })
+    expect(report.habits.find((item) => item.title === 'Tomar agua')?.days).toBe('✓✓✓✓✓✓✓')
     expect(report.streakStart).toBe(3)
-    // Dos días cumplidos (lunes y jueves) y cinco fallados: la racha se parte varias veces.
-    expect(report.streakEnd).toBeLessThan(report.streakStart)
+    // Todos los días hubo algo hecho (el agua), así que la racha general sube los 7 días.
+    expect(report.streakEnd).toBe(10)
     // La tercera misión está desbloqueada desde que se creó la campaña (9 días antes): atascada.
     const stuck = report.stuck.find((item) => item.title === progression.title)
     expect(stuck?.days).toBeGreaterThanOrEqual(5)
@@ -79,7 +79,7 @@ describe('Resumen de la semana', () => {
 
   it('una semana sin nada no tiene actividad', async () => {
     db = new GameDatabase(`revision-${crypto.randomUUID()}`)
-    await createBounty(db, { title: 'Tomar agua', difficulty: 1 }, on(addDays(weekStart, -3)))
+    await createHabit(db, { title: 'Tomar agua', difficulty: 1 }, on(addDays(weekStart, -3)))
     expect((await getWeekReport(db, weekStart)).hasActivity).toBe(false)
   })
 
@@ -94,7 +94,7 @@ describe('Resumen de la semana', () => {
 
 const plan = (report: Awaited<ReturnType<typeof getWeekReport>>): ReviewPlan => {
   const stuckRef = report.stuck[0].ref
-  const readRef = report.bounties.find((item) => item.title === 'Leer 20 minutos')!.ref
+  const readRef = report.habits.find((item) => item.title === 'Leer 20 minutos')!.ref
   return {
     summary: 'Semana sólida con la guitarra; la lectura se quedó atrás.',
     wins: ['Tomaste agua los 7 días'],
@@ -119,15 +119,15 @@ const plan = (report: Awaited<ReturnType<typeof getWeekReport>>): ReviewPlan => 
           },
         ],
       },
-      { kind: 'archiveBounty', ref: readRef, reason: 'Solo 2 de 7 días' },
+      { kind: 'archiveHabit', ref: readRef, reason: 'Solo 2 de 7 días' },
       {
-        kind: 'addBounty',
+        kind: 'addHabit',
         ref: '',
         reason: 'Para no perder la lectura',
-        bounty: { title: 'Leer 1 página', difficulty: 1, steps: ['Abre el libro', 'Lee una página'] },
+        habit: { title: 'Leer 1 página', difficulty: 1, steps: ['Abre el libro', 'Lee una página'] },
       },
       { kind: 'difficulty', ref: 'm99', reason: 'Referencia inventada', difficulty: 3 },
-      { kind: 'archiveBounty', ref: stuckRef, reason: 'Tipo equivocado' },
+      { kind: 'archiveHabit', ref: stuckRef, reason: 'Tipo equivocado' },
     ],
     focus: [{ ref: stuckRef, title: 'Progresión', why: 'Destraba el Acto 2' }],
   }
@@ -139,9 +139,9 @@ describe('Guardar y aplicar la revisión', () => {
     const report = await getWeekReport(db, weekStart)
     const review = planToReview(plan(report), report, 'modelo')
 
-    expect(review.adjustments.map((item) => item.kind)).toEqual(['split', 'archiveBounty', 'addBounty'])
+    expect(review.adjustments.map((item) => item.kind)).toEqual(['split', 'archiveHabit', 'addHabit'])
     expect(review.adjustments[0]).toMatchObject({ questId: progression.id, targetTitle: progression.title })
-    expect(review.adjustments[1]).toMatchObject({ bountyId: read.id })
+    expect(review.adjustments[1]).toMatchObject({ habitId: read.id })
     expect(review.focus[0].questId).toBe(progression.id)
   })
 
@@ -166,9 +166,9 @@ describe('Guardar y aplicar la revisión', () => {
     expect((await getCampaign(db, guitar.id))!.actViews[1].state).toBe('locked')
 
     expect(await applyAdjustment(db, weekStart, archive.id, on(today))).toEqual({ ok: true })
-    expect((await db.bounties.get(read.id))!.archivedDay).toBe(today)
+    expect((await db.habits.get(read.id))!.archivedDay).toBe(today)
     expect(await applyAdjustment(db, weekStart, add.id, on(today))).toEqual({ ok: true })
-    expect(await db.bounties.filter((bounty) => bounty.title === 'Leer 1 página').count()).toBe(1)
+    expect(await db.habits.filter((habit) => habit.title === 'Leer 1 página').count()).toBe(1)
 
     expect((await getHud(db, today)).totalXp).toBe(xpBefore)
     expect((await getReview(db, weekStart))!.adjustments.map((item) => item.status)).toEqual([
@@ -222,7 +222,7 @@ describe('Tarjeta de Hoy', () => {
 
   it('no aparece si el jugador todavía no existía esa semana', async () => {
     db = new GameDatabase(`revision-${crypto.randomUUID()}`)
-    await createBounty(db, { title: 'Tomar agua', difficulty: 1 }, on(dayOf(9)))
+    await createHabit(db, { title: 'Tomar agua', difficulty: 1 }, on(dayOf(9)))
     expect(await getReviewCard(db, dayOf(9))).toBeNull()
   })
 })
@@ -243,7 +243,7 @@ describe('Llamada a Gemini', () => {
     const sent = request.mock.calls[0][0]
     expect(sent.url).toContain('/interactions')
     expect(sent.body).toMatchObject({ generation_config: { thinking_level: 'medium' } })
-    expect(JSON.stringify(sent.body)).toContain('archiveBounty')
+    expect(JSON.stringify(sent.body)).toContain('archiveHabit')
     expect(result.summary).toBe(payload.summary)
     expect(result.adjustments).toHaveLength(4)
   })

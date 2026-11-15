@@ -52,7 +52,7 @@ export interface CampaignDesign {
   /** Misiones del Acto 1. */
   missions: MissionPlan[]
   boss: MissionPlan
-  bounties: MissionPlan[]
+  habits: MissionPlan[]
 }
 
 /** Lo único que se le cuenta al modelo sobre el jugador. */
@@ -60,7 +60,7 @@ export interface PlayerContext {
   level: number
   streak: number
   campaigns: Array<{ title: string; skill: string | null }>
-  bounties: string[]
+  habits: string[]
   skillPaths: string[]
 }
 

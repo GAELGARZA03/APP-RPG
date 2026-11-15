@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { addDays, gameDayOf } from './gameDay'
 import {
   baseXp,
-  bountyXp,
+  habitXp,
   campaignProgressPercent,
   campaignState,
   dailyXp,
@@ -43,12 +43,12 @@ describe('Multiplicador de racha', () => {
     expect(streakBonusPercent(100)).toBe(50)
   })
 
-  it('calcula el XP de la Bounty con el multiplicador', () => {
-    expect(bountyXp(1, 0)).toBe(20)
-    expect(bountyXp(1, 1)).toBe(21)
-    expect(bountyXp(2, 3)).toBe(58)
-    expect(bountyXp(5, 10)).toBe(300)
-    expect(bountyXp(5, 500)).toBe(300)
+  it('calcula el XP de la Habit con el multiplicador', () => {
+    expect(habitXp(1, 0)).toBe(20)
+    expect(habitXp(1, 1)).toBe(21)
+    expect(habitXp(2, 3)).toBe(58)
+    expect(habitXp(5, 10)).toBe(300)
+    expect(habitXp(5, 500)).toBe(300)
   })
 })
 
@@ -121,7 +121,11 @@ describe('Estado de los actos', () => {
   })
 
   it('solo el primer acto sin terminar está abierto', () => {
-    const state = campaignState(acts, [quest('q1', 'a1'), quest('q2', 'a2'), quest('jefe', 'a3', false, { boss: true })])
+    const state = campaignState(acts, [
+      quest('q1', 'a1'),
+      quest('q2', 'a2'),
+      quest('jefe', 'a3', false, { boss: true }),
+    ])
 
     expect(state.states).toEqual(['current', 'locked', 'locked'])
     expect(state.currentIndex).toBe(0)
@@ -131,7 +135,11 @@ describe('Estado de los actos', () => {
   })
 
   it('un acto sin generar nunca cuenta como terminado y retiene al jefe', () => {
-    const state = campaignState(acts, [quest('q1', 'a1', true), quest('q2', 'a2', true), quest('jefe', 'a3', false, { boss: true })])
+    const state = campaignState(acts, [
+      quest('q1', 'a1', true),
+      quest('q2', 'a2', true),
+      quest('jefe', 'a3', false, { boss: true }),
+    ])
 
     expect(state.states).toEqual(['done', 'done', 'current'])
     expect(state.locks.get('jefe')).toEqual({ kind: 'planned', actNumber: 3 })
@@ -140,7 +148,10 @@ describe('Estado de los actos', () => {
   it('el jefe se abre al resolver las demás misiones de su acto', () => {
     const lastActs = [{ id: 'a1', status: 'ready' as const }]
     const pending = campaignState(lastActs, [quest('q1', 'a1'), quest('jefe', 'a1', false, { boss: true })])
-    const ready = campaignState(lastActs, [quest('q1', 'a1', false, { skippedDay: '2026-11-06' }), quest('jefe', 'a1', false, { boss: true })])
+    const ready = campaignState(lastActs, [
+      quest('q1', 'a1', false, { skippedDay: '2026-11-06' }),
+      quest('jefe', 'a1', false, { boss: true }),
+    ])
     const finished = campaignState(lastActs, [quest('q1', 'a1', true), quest('jefe', 'a1', true, { boss: true })])
 
     expect(pending.locks.get('jefe')).toEqual({ kind: 'boss' })

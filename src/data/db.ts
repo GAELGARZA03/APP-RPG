@@ -19,17 +19,36 @@ export interface TaskDetail {
   skillId?: string
 }
 
-export interface Bounty extends TaskDetail {
+/** Qué días toca un hábito. En `weekdays`, 0 es lunes y 6 es domingo. */
+export type HabitFrequency = { kind: 'daily' } | { kind: 'weekdays'; days: number[] }
+
+export interface Habit extends TaskDetail {
   id: string
   title: string
+  /** Emoji opcional que se muestra en la libreta. */
+  emoji?: string
   difficulty: Difficulty
+  frequency: HabitFrequency
+  /** Posición en la libreta (menor, más a la izquierda). */
+  order: number
   createdAt: number
   createdDay: GameDay
   archivedDay: GameDay | null
   /** Objetivos marcados; solo valen para ese día de juego. */
   stepsDone?: { day: GameDay; done: number[] }
-  /** Campaña con la que se creó; al borrarla, el contrato se archiva con ella. */
+  /** Campaña con la que se creó; al borrarla, el hábito se archiva con ella. */
   campaignId?: string
+}
+
+export type HabitState = 'done' | 'half' | 'missed'
+
+/** Lo que el jugador anotó de un hábito un día. Sin registro, ese día está «sin registrar». */
+export interface HabitLog {
+  /** `${habitId}:${day}`, así nunca hay dos registros del mismo día. */
+  id: string
+  habitId: string
+  day: GameDay
+  state: HabitState
 }
 
 export interface Act {
@@ -107,7 +126,7 @@ export interface Skill {
 /** Una foto o una nota de la bitácora. */
 export interface Evidence {
   id: string
-  taskKind: 'sideQuest' | 'bounty' | 'daily'
+  taskKind: 'sideQuest' | 'habit' | 'daily'
   taskId: string
   taskTitle: string
   createdAt: number
@@ -120,11 +139,21 @@ export interface Evidence {
 /** Registro de cada recompensa. El XP total siempre es la suma de estos eventos. */
 export interface XpEvent {
   id: string
-  kind: 'bounty' | 'sideQuest' | 'daily'
+  kind: 'habit' | 'sideQuest' | 'daily'
   taskId: string
   day: GameDay
   xp: number
   skillId?: string
+}
+
+/** Nota diaria de la bitácora: algo épico o algo por lo que das gracias. Una por día; su `id` es el día. */
+export interface DailyNote {
+  id: GameDay
+  text: string
+  /** Data URL JPEG ya comprimida, como las fotos de la bitácora de misiones. */
+  photo?: string
+  createdAt: number
+  updatedAt: number
 }
 
 /** Una misión propuesta por la IA, sin el resto de campos de una misión guardada. */
@@ -141,17 +170,17 @@ export interface ReviewAdjustment {
   /**
    * `split`: reemplaza una misión atascada por 2 o 3 más pequeñas en su mismo acto.
    * `difficulty`: cambia la dificultad de una misión pendiente.
-   * `archiveBounty` / `addBounty`: archiva un contrato o agrega uno nuevo.
+   * `archiveHabit` / `addHabit`: archiva un hábito o agrega uno nuevo.
    */
-  kind: 'split' | 'difficulty' | 'archiveBounty' | 'addBounty'
+  kind: 'split' | 'difficulty' | 'archiveHabit' | 'addHabit'
   reason: string
   questId?: string
-  bountyId?: string
-  /** Título de la misión o contrato al momento de la revisión, por si después cambia. */
+  habitId?: string
+  /** Título de la misión o el hábito al momento de la revisión, por si después cambia. */
   targetTitle?: string
   difficulty?: Difficulty
   parts?: PlannedMission[]
-  bounty?: Omit<PlannedMission, 'description'>
+  habit?: Omit<PlannedMission, 'description'>
   status: 'pending' | 'applied' | 'dismissed'
 }
 
@@ -174,6 +203,8 @@ export interface Player {
   id: 'player'
   streak: number
   lastSettledDay: GameDay
+  /** Racha al empezar `lastSettledDay`, para poder recalcular ese día si se corrige un hábito de ayer. */
+  streakBeforeLast?: number
 }
 
 /** Horas en formato HH:MM (24 h). */
@@ -222,7 +253,7 @@ export type Setting =
   NotificationSettings | BackupInfo | AiSettings | CosmeticSettings | ProfileSettings | PrefsSettings
 
 export class GameDatabase extends Dexie {
-  bounties!: EntityTable<Bounty, 'id'>
+  habits!: EntityTable<Habit, 'id'>
   campaigns!: EntityTable<Campaign, 'id'>
   sideQuests!: EntityTable<SideQuest, 'id'>
   xpEvents!: EntityTable<XpEvent, 'id'>
@@ -232,9 +263,12 @@ export class GameDatabase extends Dexie {
   evidence!: EntityTable<Evidence, 'id'>
   dailies!: EntityTable<Daily, 'id'>
   reviews!: EntityTable<WeeklyReview, 'id'>
+  habitLogs!: EntityTable<HabitLog, 'id'>
+  dailyNotes!: EntityTable<DailyNote, 'id'>
 
   constructor(name = 'real-life-rpg') {
     super(name)
+    // Hasta la v4, los hábitos se llamaban «contratos diarios» y vivían en la tabla `bounties`.
     this.version(1).stores({
       bounties: 'id',
       campaigns: 'id',
@@ -265,5 +299,49 @@ export class GameDatabase extends Dexie {
       })
     // v4: revisiones semanales. Nada existente cambia.
     this.version(4).stores({ reviews: 'id' })
+    // v5: los contratos diarios pasan a ser hábitos diarios, con un registro por día. Cada día que
+    // se cumplió un contrato queda como «hecho» y su XP se conserva.
+    this.version(5)
+      .stores({ habits: 'id', habitLogs: 'id, habitId, day' })
+      .upgrade(async (transaction) => {
+        const bounties = (await transaction.table('bounties').toArray()) as Array<Omit<Habit, 'frequency' | 'order'>>
+        bounties.sort((a, b) => a.createdAt - b.createdAt)
+        await transaction
+          .table('habits')
+          .bulkAdd(bounties.map((bounty, order) => ({ ...bounty, frequency: { kind: 'daily' }, order })))
+        const logs: HabitLog[] = []
+        await transaction
+          .table('xpEvents')
+          .filter((event: { kind: string }) => event.kind === 'bounty')
+          .modify((event: XpEvent & { kind: string }) => {
+            event.kind = 'habit'
+            logs.push({ id: `${event.taskId}:${event.day}`, habitId: event.taskId, day: event.day, state: 'done' })
+          })
+        await transaction.table('habitLogs').bulkPut(logs)
+        await transaction
+          .table('evidence')
+          .filter((item: { taskKind: string }) => item.taskKind === 'bounty')
+          .modify((item: { taskKind: string }) => void (item.taskKind = 'habit'))
+        await transaction
+          .table('reviews')
+          .toCollection()
+          .modify((review: { adjustments: Array<Record<string, unknown>> }) => {
+            review.adjustments = review.adjustments.map(migrateAdjustment)
+          })
+      })
+    this.version(6).stores({ bounties: null })
+    // v7: notas diarias de la bitácora.
+    this.version(7).stores({ dailyNotes: 'id' })
+  }
+}
+
+/** Ajustes de revisiones guardadas antes de que los contratos se llamaran hábitos. */
+export function migrateAdjustment(adjustment: Record<string, unknown>): Record<string, unknown> {
+  const { kind, bountyId, bounty, ...rest } = adjustment
+  return {
+    ...rest,
+    kind: kind === 'archiveBounty' ? 'archiveHabit' : kind === 'addBounty' ? 'addHabit' : kind,
+    ...(bountyId !== undefined ? { habitId: bountyId } : {}),
+    ...(bounty !== undefined ? { habit: bounty } : {}),
   }
 }

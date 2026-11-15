@@ -1,7 +1,7 @@
 // Tipos, constantes y piezas internas que comparten todas las áreas del juego.
-import { type GameDay, addDays } from '../../game/gameDay'
-import { type DayOutcome, type Difficulty, nextStreak } from '../../game/rules'
-import type { Bounty, Evidence, GameDatabase, Player, Skill, TaskDetail } from '../db'
+import { type GameDay, addDays, weekdayOf } from '../../game/gameDay'
+import { type DayOutcome, type Difficulty, isScheduledWeekday, nextStreak } from '../../game/rules'
+import type { Habit, Evidence, GameDatabase, Player, Skill, TaskDetail } from '../db'
 
 export type TaskInput = { title: string; difficulty: Difficulty } & TaskDetail
 export type TaskChanges = Partial<TaskInput>
@@ -32,14 +32,21 @@ export const MAX_NOTES_PER_TASK = 6
 export const MAX_NOTE_LENGTH = 500
 export const MAX_SKILL_NAME = 40
 
-export function isActiveOn(bounty: Bounty, day: GameDay): boolean {
-  return bounty.createdDay <= day && (bounty.archivedDay === null || bounty.archivedDay > day)
+export function isActiveOn(habit: Habit, day: GameDay): boolean {
+  return habit.createdDay <= day && (habit.archivedDay === null || habit.archivedDay > day)
 }
 
-export function outcomeOf(bounties: Bounty[], completedTaskIds: Set<string>, day: GameDay): DayOutcome {
-  const active = bounties.filter((bounty) => isActiveOn(bounty, day))
-  if (active.length === 0) return 'neutral'
-  return active.every((bounty) => completedTaskIds.has(bounty.id)) ? 'fulfilled' : 'failed'
+/** El hábito existe ese día y le toca según su frecuencia. */
+export function isScheduledOn(habit: Habit, day: GameDay): boolean {
+  return isActiveOn(habit, day) && isScheduledWeekday(habit.frequency, weekdayOf(day))
+}
+
+/**
+ * Racha general: un día cuenta si se ganó XP con algo (una misión de campaña o del día, o un hábito
+ * hecho o a medias). Un día sin nada la reduce a la mitad.
+ */
+export function outcomeOf(completedTaskIds: Set<string> | undefined): DayOutcome {
+  return completedTaskIds && completedTaskIds.size > 0 ? 'fulfilled' : 'failed'
 }
 
 export async function completedTaskIdsOn(db: GameDatabase, day: GameDay): Promise<Set<string>> {
@@ -61,14 +68,16 @@ export function allSteps(count: number): number[] {
  */
 export async function projectPlayer(db: GameDatabase, today: GameDay): Promise<Player> {
   const yesterday = addDays(today, -1)
+  // Sin racha guardada todavía, se cuenta desde el primer día con XP (sea hábito, misión o misión del día).
+  const firstEvent = (await db.xpEvents.orderBy('day').first())?.day
   const player = (await db.player.get('player')) ?? {
     id: 'player',
     streak: 0,
-    lastSettledDay: yesterday,
+    lastSettledDay: firstEvent && firstEvent <= yesterday ? addDays(firstEvent, -1) : yesterday,
+    streakBeforeLast: 0,
   }
   if (player.lastSettledDay >= yesterday) return player
 
-  const bounties = await db.bounties.toArray()
   const events = await db.xpEvents.where('day').between(addDays(player.lastSettledDay, 1), today).toArray()
 
   const completedByDay = new Map<GameDay, Set<string>>()
@@ -79,12 +88,27 @@ export async function projectPlayer(db: GameDatabase, today: GameDay): Promise<P
   }
 
   let { streak, lastSettledDay: day } = player
+  let streakBeforeLast = streak
   while (day < yesterday) {
     day = addDays(day, 1)
-    streak = nextStreak(streak, outcomeOf(bounties, completedByDay.get(day) ?? new Set(), day))
+    streakBeforeLast = streak
+    streak = nextStreak(streak, outcomeOf(completedByDay.get(day)))
   }
 
-  return { ...player, streak, lastSettledDay: yesterday }
+  return { ...player, streak, lastSettledDay: yesterday, streakBeforeLast }
+}
+
+/**
+ * Después de corregir ayer (un hábito marcado o desmarcado tarde), recalcula la racha de ese día.
+ * Solo es posible si se conoce la racha con la que empezó ayer.
+ */
+export async function resettleYesterday(db: GameDatabase, today: GameDay): Promise<void> {
+  const player = await db.player.get('player')
+  const yesterday = addDays(today, -1)
+  if (!player || player.lastSettledDay !== yesterday || player.streakBeforeLast === undefined) return
+  const events = await db.xpEvents.where('day').equals(yesterday).toArray()
+  const streak = nextStreak(player.streakBeforeLast, outcomeOf(new Set(events.map((event) => event.taskId))))
+  if (streak !== player.streak) await db.player.put({ ...player, streak })
 }
 
 export async function settleClosedDays(db: GameDatabase, today: GameDay): Promise<Player> {
@@ -94,14 +118,26 @@ export async function settleClosedDays(db: GameDatabase, today: GameDay): Promis
 }
 
 export function gameTables(db: GameDatabase) {
-  return [db.bounties, db.sideQuests, db.xpEvents, db.player]
+  return [db.habits, db.habitLogs, db.sideQuests, db.xpEvents, db.player]
 }
 
 export function allTables(db: GameDatabase) {
-  return [db.bounties, db.campaigns, db.sideQuests, db.xpEvents, db.player, db.skills, db.evidence, db.dailies, db.reviews]
+  return [
+    db.habits,
+    db.campaigns,
+    db.sideQuests,
+    db.xpEvents,
+    db.player,
+    db.skills,
+    db.evidence,
+    db.dailies,
+    db.reviews,
+    db.habitLogs,
+    db.dailyNotes,
+  ]
 }
 
-export type TaskRef = { kind: 'bounty' | 'sideQuest' | 'daily'; id: string }
+export type TaskRef = { kind: 'habit' | 'sideQuest' | 'daily'; id: string }
 
 export function pathOf(skills: Map<string, Skill>, skillId: string | undefined): string | null {
   const names: string[] = []

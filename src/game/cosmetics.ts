@@ -27,7 +27,7 @@ export const TITLES: Array<Unlockable<TitleId>> = [
   { id: 'apprentice', name: 'Aprendiz', level: 1 },
   { id: 'explorer', name: 'Explorador', level: 2 },
   { id: 'adventurer', name: 'Aventurero', level: 4 },
-  { id: 'hunter', name: 'Cazador de Contratos', level: 6 },
+  { id: 'hunter', name: 'Cazador de Hábitos', level: 6 },
   { id: 'veteran', name: 'Veterano', level: 10 },
   { id: 'insomniac', name: 'Héroe Insomne', level: 15 },
   { id: 'legend', name: 'Leyenda Viviente', level: 20 },

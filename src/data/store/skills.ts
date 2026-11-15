@@ -47,7 +47,7 @@ export async function pruneSkills(db: GameDatabase): Promise<void> {
   const used = new Set<string>()
   for (const event of await db.xpEvents.toArray()) if (event.skillId) used.add(event.skillId)
   for (const quest of await db.sideQuests.toArray()) if (quest.skillId) used.add(quest.skillId)
-  for (const bounty of await db.bounties.toArray()) if (bounty.skillId) used.add(bounty.skillId)
+  for (const habit of await db.habits.toArray()) if (habit.skillId) used.add(habit.skillId)
   for (const daily of await db.dailies.toArray()) if (daily.skillId) used.add(daily.skillId)
   const branches = new Set<string>()
   for (const campaign of await db.campaigns.toArray()) {
@@ -136,12 +136,12 @@ export async function getSkillDetail(db: GameDatabase, skillId: string) {
       let entry = byTask.get(event.taskId)
       if (!entry) {
         const task =
-          event.kind === 'bounty'
-            ? await db.bounties.get(event.taskId)
+          event.kind === 'habit'
+            ? await db.habits.get(event.taskId)
             : event.kind === 'daily'
               ? await db.dailies.get(event.taskId)
               : await db.sideQuests.get(event.taskId)
-        const kind = event.kind === 'bounty' ? 'Contrato diario' : event.kind === 'daily' ? 'Misión del día' : 'Misión'
+        const kind = event.kind === 'habit' ? 'Hábito' : event.kind === 'daily' ? 'Misión del día' : 'Misión'
         entry = { title: task?.title ?? 'Misión borrada', kind, xp: 0, times: 0 }
         byTask.set(event.taskId, entry)
       }

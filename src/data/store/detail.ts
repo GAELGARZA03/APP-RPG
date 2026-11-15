@@ -1,9 +1,9 @@
-// Vista de detalle de una misión o contrato.
+// Vista de detalle de una misión, un hábito o la misión del día.
 import type { GameDay } from '../../game/gameDay'
-import { bountyXp, dailyXp, questXp } from '../../game/rules'
+import { habitXp, dailyXp, questXp } from '../../game/rules'
 import type { GameDatabase } from '../db'
 import { buildCampaignView } from './campaigns'
-import { type TaskRef, allTables, evidenceOf, pathOf, projectPlayer, skillMap } from './shared'
+import { type TaskRef, allTables, evidenceOf, isScheduledOn, pathOf, projectPlayer, skillMap } from './shared'
 
 /** Todo lo que muestra la vista de detalle de una misión. `null` si ya no existe. */
 export async function getTaskDetail(db: GameDatabase, ref: TaskRef, today: GameDay) {
@@ -19,17 +19,23 @@ export async function getTaskDetail(db: GameDatabase, ref: TaskRef, today: GameD
       evidence: await evidenceOf(db, ref.id),
     }
 
-    if (ref.kind === 'bounty') {
-      const task = await db.bounties.get(ref.id)
+    if (ref.kind === 'habit') {
+      const task = await db.habits.get(ref.id)
       if (!task) return null
       const player = await projectPlayer(db, today)
       return {
         ...shared,
-        kind: 'bounty' as const,
+        kind: 'habit' as const,
         task,
         done: (await db.xpEvents.get({ taskId: ref.id, day: today })) !== undefined,
-        xp: bountyXp(task.difficulty, player.streak),
-        completions: await db.xpEvents.where('taskId').equals(ref.id).count(),
+        state: (await db.habitLogs.get(`${ref.id}:${today}`))?.state ?? null,
+        scheduledToday: isScheduledOn(task, today),
+        xp: habitXp(task.difficulty, player.streak),
+        completions: await db.habitLogs
+          .where('habitId')
+          .equals(ref.id)
+          .filter((log) => log.state === 'done' || log.state === 'half')
+          .count(),
         stepsDone: task.stepsDone?.day === today ? task.stepsDone.done : [],
         skill: pathOf(skills, task.skillId),
       }
@@ -47,7 +53,7 @@ export async function getTaskDetail(db: GameDatabase, ref: TaskRef, today: GameD
         // Una misión del día caducada ya no se puede completar.
         lock: task.completedDay === null && task.id !== today ? 'Esta misión del día ya caducó' : null,
         done: task.completedDay !== null,
-        xp: dailyXp(task.difficulty),
+        xp: dailyXp(task.difficulty, (await projectPlayer(db, today)).streak),
         completions: task.completedDay ? 1 : 0,
         stepsDone: task.stepsDone ?? [],
         skill: pathOf(skills, task.skillId),

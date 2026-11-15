@@ -32,9 +32,22 @@ export function streakBonusPercent(streak: number): number {
   return Math.min(streak * STREAK_BONUS_PERCENT_PER_DAY, MAX_STREAK_BONUS_PERCENT)
 }
 
-export function bountyXp(difficulty: Difficulty, streak: number): number {
+/** XP de un hábito con el bono de racha. «A medias» da la mitad. */
+export function habitXp(difficulty: Difficulty, streak: number, state: 'done' | 'half' = 'done'): number {
   // Se calcula con enteros para evitar errores de redondeo de punto flotante.
-  return Math.round((baseXp(difficulty) * (100 + streakBonusPercent(streak))) / 100)
+  const full = Math.round((baseXp(difficulty) * (100 + streakBonusPercent(streak))) / 100)
+  return state === 'half' ? Math.round(full / 2) : full
+}
+
+/** Días anteriores a hoy en los que todavía se gana XP y cuenta para la racha (hoy y ayer). */
+export const HABIT_XP_WINDOW_DAYS = 1
+
+/** Un hábito toca ese día de la semana (0 = lunes … 6 = domingo). */
+export function isScheduledWeekday(
+  frequency: { kind: 'daily' } | { kind: 'weekdays'; days: number[] },
+  weekday: number,
+): boolean {
+  return frequency.kind === 'daily' || frequency.days.includes(weekday)
 }
 
 export function nextStreak(streak: number, outcome: DayOutcome): number {
@@ -50,7 +63,12 @@ export function nextStreak(streak: number, outcome: DayOutcome): number {
 
 /** Porcentaje de una campaña, según el XP de sus Side Quests completadas o saltadas. */
 export function campaignProgressPercent(
-  sideQuests: ReadonlyArray<{ difficulty: Difficulty; completedDay: string | null; skippedDay?: string | null; boss?: boolean }>,
+  sideQuests: ReadonlyArray<{
+    difficulty: Difficulty
+    completedDay: string | null
+    skippedDay?: string | null
+    boss?: boolean
+  }>,
 ): number {
   const totalXp = sideQuests.reduce((sum, quest) => sum + questXp(quest), 0)
   if (totalXp === 0) return 0
@@ -71,9 +89,9 @@ export function questXp(quest: { difficulty: Difficulty; boss?: boolean }): numb
   return baseXp(quest.difficulty) * (quest.boss ? BOSS_XP_MULTIPLIER : 1)
 }
 
-/** La misión del día da un 50% más que una misión normal de su dificultad. */
-export function dailyXp(difficulty: Difficulty): number {
-  return Math.round(baseXp(difficulty) * 1.5)
+/** La misión del día da un 50% más que una misión normal de su dificultad, más el bono de racha. */
+export function dailyXp(difficulty: Difficulty, streak = 0): number {
+  return Math.round((baseXp(difficulty) * 1.5 * (100 + streakBonusPercent(streak))) / 100)
 }
 
 export interface ActLike {
@@ -90,10 +108,7 @@ export interface QuestLike {
   skippedDay?: string | null
 }
 
-export type LockReason =
-  | { kind: 'act'; actNumber: number }
-  | { kind: 'boss' }
-  | { kind: 'planned'; actNumber: number }
+export type LockReason = { kind: 'act'; actNumber: number } | { kind: 'boss' } | { kind: 'planned'; actNumber: number }
 
 export type ActState = 'done' | 'current' | 'locked'
 

@@ -150,6 +150,34 @@ body {
     var(--color-void);
 }
 
+/* Libreta: fondo de puntos sutil, como una hoja de bullet journal, en el color del tema. */
+.notebook-paper {
+  background-color: color-mix(in srgb, var(--color-panel) 70%, transparent);
+  background-image: radial-gradient(color-mix(in srgb, var(--color-ink) 14%, transparent) 1px, transparent 1.2px);
+  background-size: 14px 14px;
+}
+
+/* Página del diario: renglones de 28 px (el alto de línea del texto) y el margen de una libreta. */
+.notebook-page {
+  background-color: color-mix(in srgb, var(--color-panel) 85%, transparent);
+  background-image:
+    linear-gradient(
+      to right,
+      transparent 2.25rem,
+      color-mix(in srgb, var(--color-ember) 35%, transparent) 2.25rem,
+      color-mix(in srgb, var(--color-ember) 35%, transparent) calc(2.25rem + 1px),
+      transparent calc(2.25rem + 1px)
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent 27px,
+      color-mix(in srgb, var(--color-ink) 9%, transparent) 27px,
+      color-mix(in srgb, var(--color-ink) 9%, transparent) 28px
+    );
+  background-position: 0 0, 0 1rem;
+}
+
 /* Árbol de habilidades: las ramas se dibujan desde la raíz y los nodos aparecen después. */
 @keyframes branch-grow {
   from {

@@ -1,6 +1,11 @@
 import type { CampaignDesign, MissionPlan } from '../ai/gemini'
 
-const mission = (title: string, difficulty: MissionPlan['difficulty'], skill: string, steps: string[]): MissionPlan => ({
+const mission = (
+  title: string,
+  difficulty: MissionPlan['difficulty'],
+  skill: string,
+  steps: string[],
+): MissionPlan => ({
   title,
   difficulty,
   description: `${title}: descripción de prueba.`,
@@ -30,17 +35,29 @@ export const guitarDesign: CampaignDesign = {
     { title: 'El concierto', goal: 'Semana 12: la prueba final.', difficulty: 5 },
   ],
   missions: [
-    mission('Afina tu guitarra y conoce sus cuerdas', 1, 'Fundamentos', ['Afina las 6 cuerdas', 'Nombra las cuerdas 3 veces']),
-    mission('Domina Mi menor y La menor', 2, 'Acordes abiertos', ['Forma cada acorde 10 veces', 'Cambia 20 veces a 60 bpm']),
+    mission('Afina tu guitarra y conoce sus cuerdas', 1, 'Fundamentos', [
+      'Afina las 6 cuerdas',
+      'Nombra las cuerdas 3 veces',
+    ]),
+    mission('Domina Mi menor y La menor', 2, 'Acordes abiertos', [
+      'Forma cada acorde 10 veces',
+      'Cambia 20 veces a 60 bpm',
+    ]),
     mission('Tu primera progresión', 3, 'Ritmo', ['Toca Sol–Re–Em–Do 2 minutos', 'Grábate y escucha']),
   ],
-  boss: mission('El concierto', 5, 'Repertorio', ['Toca 3 canciones para una persona', 'Sube la evidencia a tu bitácora']),
-  bounties: [mission('Practica cambios de acordes 10 minutos', 1, 'Acordes abiertos', ['Practica 10 minutos'])],
+  boss: mission('El concierto', 5, 'Repertorio', [
+    'Toca 3 canciones para una persona',
+    'Sube la evidencia a tu bitácora',
+  ]),
+  habits: [mission('Practica cambios de acordes 10 minutos', 1, 'Acordes abiertos', ['Practica 10 minutos'])],
 }
 
 export const actTwoMissions: MissionPlan[] = [
   mission('Rasguea abajo-arriba a 80 bpm', 3, 'Ritmo', ['Rasguea 3 minutos seguidos', 'Sube a 90 bpm']),
-  mission('Cambia de acorde sin mirar', 3, 'Acordes abiertos', ['Haz 30 cambios con los ojos cerrados', 'Cuenta los fallos']),
+  mission('Cambia de acorde sin mirar', 3, 'Acordes abiertos', [
+    'Haz 30 cambios con los ojos cerrados',
+    'Cuenta los fallos',
+  ]),
 ]
 
 /** Respuesta de `generateContent` con el JSON como texto. */

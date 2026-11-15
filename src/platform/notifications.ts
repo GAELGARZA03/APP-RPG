@@ -12,7 +12,7 @@ const DAILY_SLOTS = [
     id: 1,
     key: 'morning',
     title: 'Misión del día',
-    body: 'Revisa tus contratos de hoy y elige tu primera victoria.',
+    body: 'Revisa tus hábitos de hoy y elige tu primera victoria.',
   },
   {
     id: 2,
@@ -91,9 +91,7 @@ export async function applyNotificationSettings(
     notification(slot.id, slot.title, slot.body, parseTime(settings[slot.key])),
   )
   if (settings.weeklyBackupReminder) {
-    notifications.push(
-      notification(WEEKLY_BACKUP.id, WEEKLY_BACKUP.title, WEEKLY_BACKUP.body, WEEKLY_BACKUP.schedule),
-    )
+    notifications.push(notification(WEEKLY_BACKUP.id, WEEKLY_BACKUP.title, WEEKLY_BACKUP.body, WEEKLY_BACKUP.schedule))
   }
 
   await LocalNotifications.schedule({ notifications })

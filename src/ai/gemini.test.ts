@@ -22,14 +22,20 @@ const context: PlayerContext = {
   level: 3,
   streak: 4,
   campaigns: [{ title: 'El Despertar del Mago', skill: 'Magia › Cartas' }],
-  bounties: ['Tomar medicamentos', 'Leer 10 páginas'],
+  habits: ['Tomar medicamentos', 'Leer 10 páginas'],
   skillPaths: ['Magia › Cartas › Mezclas falsas'],
 }
 
 const credentials = { apiKey: 'llave-secreta', model: 'gemini-4-hydrogen' }
 const replying = (data: unknown, status = 200) => vi.fn<HttpRequest>().mockResolvedValue({ status, data })
 const design = (request: HttpRequest, thinking: 'high' | null = 'high') =>
-  designCampaign(request, { ...credentials, idea: 'Aprender guitarra', answers: [], context, thinking: thinking ?? undefined })
+  designCampaign(request, {
+    ...credentials,
+    idea: 'Aprender guitarra',
+    answers: [],
+    context,
+    thinking: thinking ?? undefined,
+  })
 
 let sleep: ReturnType<typeof vi.fn<(ms: number) => Promise<void>>>
 let warn: ReturnType<typeof vi.spyOn>
@@ -64,12 +70,18 @@ describe('Preguntas previas', () => {
       }),
     )
 
-    const questions = await askQuestions(request, { apiKey: 'llave-secreta', model: 'gemini-3.5-flash-lite', idea: 'Guitarra' })
+    const questions = await askQuestions(request, {
+      apiKey: 'llave-secreta',
+      model: 'gemini-3.5-flash-lite',
+      idea: 'Guitarra',
+    })
 
     expect(questions).toHaveLength(2)
     expect(questions[1].options).toEqual(['2 horas', '4 horas'])
     const sent = request.mock.calls[0][0]
-    expect(sent.url).toBe('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent')
+    expect(sent.url).toBe(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent',
+    )
     expect(sent.body).toMatchObject({ generationConfig: { responseMimeType: 'application/json' } })
   })
 
@@ -136,7 +148,7 @@ describe('Diseñar la campaña', () => {
     expect(input).toContain('¿Nivel? → Principiante')
     expect(input).not.toContain('¿Fecha?')
     expect(input).toContain('"El Despertar del Mago" [Magia › Cartas]')
-    expect(input).toContain('Contratos diarios que ya tiene (2)')
+    expect(input).toContain('Hábitos que ya tiene (2)')
     expect(input).toContain('Magia › Cartas › Mezclas falsas')
     expect(designInput('a'.repeat(20_000), [], context).length).toBeLessThan(9000)
   })
@@ -146,14 +158,23 @@ describe('Diseñar la campaña', () => {
       ...guitarDesign,
       campaign: `  ${'x'.repeat(300)}  `,
       analysis: { ...guitarDesign.analysis, diagnosis: 'd'.repeat(5000) },
-      missions: [{ title: 't'.repeat(200), difficulty: 9 }, { title: 'Paso', difficulty: '2', steps: ['a', '', 'b'] }],
+      missions: [
+        { title: 't'.repeat(200), difficulty: 9 },
+        { title: 'Paso', difficulty: '2', steps: ['a', '', 'b'] },
+      ],
     }
 
     const result = await design(replying(interactionReply(messy)))
 
     expect(result.campaign).toHaveLength(80)
     expect(result.analysis.diagnosis).toHaveLength(700)
-    expect(result.missions[0]).toMatchObject({ title: 't'.repeat(80), difficulty: 5, description: '', steps: [], why: '' })
+    expect(result.missions[0]).toMatchObject({
+      title: 't'.repeat(80),
+      difficulty: 5,
+      description: '',
+      steps: [],
+      why: '',
+    })
     expect(result.missions[1]).toMatchObject({ difficulty: 2, steps: ['a', 'b'] })
   })
 
@@ -164,14 +185,14 @@ describe('Diseñar la campaña', () => {
           ...guitarDesign,
           acts: Array.from({ length: 9 }, (_, index) => ({ title: `Acto ${index}`, goal: '', difficulty: 3 })),
           missions: Array.from({ length: 30 }, () => guitarDesign.missions[0]),
-          bounties: Array.from({ length: 10 }, () => guitarDesign.bounties[0]),
+          habits: Array.from({ length: 10 }, () => guitarDesign.habits[0]),
         }),
       ),
     )
 
     expect(result.acts).toHaveLength(5)
     expect(result.missions).toHaveLength(8)
-    expect(result.bounties).toHaveLength(3)
+    expect(result.habits).toHaveLength(3)
   })
 
   it('une habilidades repetidas con otro nombre y amarra cada misión a una que exista', async () => {
@@ -208,7 +229,9 @@ describe('Diseñar la campaña', () => {
     await expectKind(design(replying(interactionReply({ ...guitarDesign, boss: undefined }))), 'bad-response')
     await expectKind(design(replying(interactionReply({ ...guitarDesign, campaign: '   ' }))), 'bad-response')
     await expectKind(
-      design(replying({ status: 'completed', steps: [{ type: 'model_output', content: [{ type: 'text', text: 'Hola' }] }] })),
+      design(
+        replying({ status: 'completed', steps: [{ type: 'model_output', content: [{ type: 'text', text: 'Hola' }] }] }),
+      ),
       'bad-response',
     )
     await expectKind(design(replying('error')), 'bad-response')
@@ -227,7 +250,9 @@ describe('Diseñar la campaña', () => {
 describe('Errores de Gemini', () => {
   it('los errores de llave, permiso o formato no se reintentan', async () => {
     const disabled = {
-      error: { message: 'Gemini API has not been used in project 123 before or it is disabled. Enable it by visiting...' },
+      error: {
+        message: 'Gemini API has not been used in project 123 before or it is disabled. Enable it by visiting...',
+      },
     }
     for (const [status, data, kind] of [
       [400, { error: { message: 'API key not valid. Please pass a valid API key.' } }, 'invalid-key'],
@@ -240,7 +265,13 @@ describe('Errores de Gemini', () => {
       [500, {}, 'server'],
     ] as const) {
       const failing = replying(data, status)
-      const action = designCampaign(failing, { ...credentials, idea: 'x', answers: [], context, fallbackModel: 'respaldo' })
+      const action = designCampaign(failing, {
+        ...credentials,
+        idea: 'x',
+        answers: [],
+        context,
+        fallbackModel: 'respaldo',
+      })
       await expectKind(action, kind)
       // Ni reintentos ni modelo de respaldo: el error se muestra directamente.
       expect(failing).toHaveBeenCalledTimes(1)
@@ -319,7 +350,10 @@ describe('Reintentos y modelo de respaldo', () => {
     const last = request.mock.calls[4][0]
     expect(last.url).toContain('gemini-3.5-flash-lite:generateContent')
     expect(JSON.stringify(last.body)).not.toContain('thinking_level')
-    expect(statuses.at(-2)).toEqual({ stage: 'fallback', message: 'Activando el motor rápido de respaldo para darte respuesta...' })
+    expect(statuses.at(-2)).toEqual({
+      stage: 'fallback',
+      message: 'Activando el motor rápido de respaldo para darte respuesta...',
+    })
     expect(statuses.at(-1)).toEqual({ stage: 'done', message: '¡Listo!' })
   })
 
@@ -415,7 +449,10 @@ describe('Generar el siguiente acto', () => {
 
     expect(await generateAct(request, { ...credentials, brief, thinking: 'medium' })).toEqual(actTwoMissions)
     expect(request.mock.calls[0][0].body).toMatchObject({ generation_config: { thinking_level: 'medium' } })
-    await expectKind(generateAct(replying(interactionReply({ missions: [] })), { ...credentials, brief, thinking: 'medium' }), 'bad-response')
+    await expectKind(
+      generateAct(replying(interactionReply({ missions: [] })), { ...credentials, brief, thinking: 'medium' }),
+      'bad-response',
+    )
   })
 })
 
@@ -447,7 +484,10 @@ describe('Detallar una misión existente', () => {
 
   it('rechaza respuestas vacías', async () => {
     const empty = replying(generateReply({ description: '', steps: [] }))
-    await expectKind(detailTask(empty, { apiKey: 'k', model: 'm', title: 'x', campaign: null, daily: true }), 'bad-response')
+    await expectKind(
+      detailTask(empty, { apiKey: 'k', model: 'm', title: 'x', campaign: null, daily: true }),
+      'bad-response',
+    )
   })
 })
 
@@ -461,7 +501,14 @@ describe('Misión del día', () => {
 
   it('pide un reto pequeño ligado al acto actual, con el modelo rápido', async () => {
     const request = replying(
-      generateReply({ title: 'Reto de 60 cambios', difficulty: 4, description: 'Hazlo.', steps: ['Haz 60 cambios'], estimate: '20 min', skill: 'Ritmo' }),
+      generateReply({
+        title: 'Reto de 60 cambios',
+        difficulty: 4,
+        description: 'Hazlo.',
+        steps: ['Haz 60 cambios'],
+        estimate: '20 min',
+        skill: 'Ritmo',
+      }),
     )
 
     const daily = await generateDaily(request, { apiKey: 'k', model: 'gemini-3.5-flash-lite', context: dailyContext })

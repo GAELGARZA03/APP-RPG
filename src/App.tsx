@@ -6,13 +6,15 @@ import {
   ChevronRight,
   Flame,
   Lock,
-  Settings,
+  Menu,
+  NotebookPen,
+  NotebookTabs,
   Skull,
   Sparkles,
+  Star,
   Sun,
   Swords,
   Trophy,
-  UserRound,
   type LucideIcon,
 } from 'lucide-react'
 import { AnimatePresence, motion, MotionConfig } from 'motion/react'
@@ -20,18 +22,18 @@ import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { toast, Toaster } from 'sonner'
 import { generateNextAct } from './ai/actRunner'
 import { db } from './data/appDb'
-import type { Bounty, Campaign, SideQuest } from './data/db'
+import type { Habit, Campaign, SideQuest } from './data/db'
 import type { GameDay } from './game/gameDay'
 import {
-  archiveBounty,
-  createBounty,
+  archiveHabit,
+  createHabit,
   createCampaign,
   createSideQuest,
   deleteCampaign,
   deleteSideQuest,
   getHud,
   renameCampaign,
-  updateBounty,
+  updateHabit,
   getTaskDetail,
   updateSideQuest,
   type ActCompletion,
@@ -50,13 +52,17 @@ import { cn } from './ui/kit/cn'
 import {
   CampaignMap,
   GeneratorSheet,
-  JournalScreen,
+  JournalTab,
+  NotebookTab,
   preloadScreens,
   ReviewSheet,
   SkillTreeScreen,
 } from './ui/lazyScreens'
 import { Logo } from './ui/kit/Logo'
+import { SideMenu } from './ui/menu/SideMenu'
 import { MissionsTab } from './ui/MissionsTab'
+import { HabitsSheet } from './ui/notebook/HabitsSheet'
+import { Screen } from './ui/Screen'
 import { ProfileTab } from './ui/ProfileTab'
 import { ProfileSheet } from './ui/settings/ProfileSheet'
 import { SettingsSectionSheet, SettingsTab, type SettingsSection } from './ui/settings/SettingsTab'
@@ -65,18 +71,19 @@ import { playComplete, playLevelUp, setSoundPack } from './ui/sound'
 import { TodayTab } from './ui/TodayTab'
 import { useGameDay } from './ui/useGameDay'
 
-type Tab = 'today' | 'missions' | 'profile' | 'settings'
+type Tab = 'today' | 'missions' | 'notebook' | 'journal'
 
+// Cuatro pestañas: lo demás (Perfil, Ajustes, reglas…) vive en el menú del logotipo.
 const TABS: Array<{ id: Tab; label: string; icon: LucideIcon }> = [
   { id: 'today', label: 'Hoy', icon: Sun },
   { id: 'missions', label: 'Misiones', icon: Swords },
-  { id: 'profile', label: 'Perfil', icon: UserRound },
-  { id: 'settings', label: 'Ajustes', icon: Settings },
+  { id: 'notebook', label: 'Libreta', icon: NotebookTabs },
+  { id: 'journal', label: 'Bitácora', icon: NotebookPen },
 ]
 
 type Sheet =
-  | { kind: 'newBounty' }
-  | { kind: 'editBounty'; bounty: Bounty }
+  | { kind: 'newHabit' }
+  | { kind: 'editHabit'; habit: Habit }
   | { kind: 'newCampaign' }
   | { kind: 'editCampaign'; campaign: Campaign }
   | { kind: 'newQuest'; campaignId: string | null }
@@ -85,36 +92,40 @@ type Sheet =
   | { kind: 'settings'; section: SettingsSection }
   | { kind: 'profile' }
   | { kind: 'review'; weekStart: GameDay }
+  | { kind: 'habits' }
 
 /** Pantallas completas que se abren sobre las pestañas. */
-type FullScreen = { kind: 'map'; campaignId: string } | { kind: 'tree' } | { kind: 'journal' }
+type FullScreen =
+  { kind: 'map'; campaignId: string } | { kind: 'tree'; from?: 'profile' } | { kind: 'settings' } | { kind: 'profile' }
 
-type FormSheetKind = Exclude<Sheet, { kind: 'generate' | 'settings' | 'profile' | 'review' }>
+type FormSheetKind = Exclude<Sheet, { kind: 'generate' | 'settings' | 'profile' | 'review' | 'habits' }>
 
 function sheetProps(sheet: FormSheetKind): Omit<FormSheetProps, 'onClose'> {
   switch (sheet.kind) {
-    case 'newBounty':
+    case 'newHabit':
       return {
-        heading: 'Nuevo contrato diario',
+        heading: 'Nuevo hábito',
         submitLabel: 'Crear',
-        initialDifficulty: 2,
+        initialDifficulty: 1,
         withDetails: true,
-        onSubmit: async (values) => void (await createBounty(db, values)),
+        habit: {},
+        onSubmit: async (values) => void (await createHabit(db, values)),
       }
-    case 'editBounty':
+    case 'editHabit':
       return {
-        heading: 'Editar contrato',
+        heading: 'Editar hábito',
         submitLabel: 'Guardar',
-        initialTitle: sheet.bounty.title,
-        initialDifficulty: sheet.bounty.difficulty,
+        initialTitle: sheet.habit.title,
+        initialDifficulty: sheet.habit.difficulty,
         withDetails: true,
-        initialDescription: sheet.bounty.description,
-        initialSteps: sheet.bounty.steps,
-        onSubmit: (values) => updateBounty(db, sheet.bounty.id, values),
+        initialDescription: sheet.habit.description,
+        initialSteps: sheet.habit.steps,
+        habit: { emoji: sheet.habit.emoji, frequency: sheet.habit.frequency },
+        onSubmit: (values) => updateHabit(db, sheet.habit.id, values),
         danger: {
-          label: 'Archivar contrato',
+          label: 'Archivar hábito',
           confirmLabel: 'Toca otra vez para archivar (conservas el XP)',
-          action: () => archiveBounty(db, sheet.bounty.id),
+          action: () => archiveHabit(db, sheet.habit.id),
         },
       }
     case 'newCampaign':
@@ -181,14 +192,19 @@ export function App() {
   const [detail, setDetail] = useState<{ ref: TaskRef; initial: TaskDetailView } | null>(null)
   const [screen, setScreen] = useState<FullScreen | null>(null)
   const [celebration, setCelebration] = useState<ActCompletion | null>(null)
+  const [menuOpen, setMenuOpen] = useState(false)
   const previousLevel = useRef<number | null>(null)
-  const covered = screen !== null || detail !== null || celebration !== null
+  const covered = screen !== null || detail !== null || celebration !== null || menuOpen
 
   const closeDetail = useCallback(
     (taskId: string) => setDetail((current) => (current?.ref.id === taskId ? null : current)),
     [],
   )
-  const closeScreen = useCallback(() => setScreen(null), [])
+  // Una pantalla abierta desde otra (el árbol desde el Perfil) vuelve a esa al cerrarse.
+  const closeScreen = useCallback(
+    () => setScreen((current) => (current?.kind === 'tree' && current.from ? { kind: current.from } : null)),
+    [],
+  )
 
   // Se cargan los datos antes de abrir: así la tarjeta crece una sola vez, ya con su contenido.
   async function openDetail(ref: TaskRef) {
@@ -227,12 +243,12 @@ export function App() {
         icon: outcome.boss ? (
           <Skull aria-hidden className="size-5 text-ember" />
         ) : (
-          <Sparkles aria-hidden className="size-5 text-signal" />
+          <Star aria-hidden className="size-5 text-signal" />
         ),
-        duration: fromDetail || ref.kind === 'bounty' ? 1800 : 4000,
+        duration: fromDetail || ref.kind === 'habit' ? 1800 : 4000,
         // Desde una fila se ofrece dejar evidencia; en el detalle la bitácora ya está a la vista.
         action:
-          !fromDetail && ref.kind !== 'bounty'
+          !fromDetail && ref.kind !== 'habit'
             ? { label: 'Añadir evidencia', onClick: () => void openDetail(ref) }
             : undefined,
       })
@@ -320,7 +336,15 @@ export function App() {
         className="mx-auto flex min-h-dvh max-w-md flex-col gap-4 px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)] pb-[calc(env(safe-area-inset-bottom)+6.5rem)]"
       >
         <header className="flex items-center py-1">
-          <Logo />
+          <button
+            type="button"
+            onClick={() => setMenuOpen(true)}
+            aria-label="Abrir menú"
+            className="-ml-1 flex items-center gap-1.5 rounded-xl py-1 pr-2 pl-1 active:bg-raised"
+          >
+            <Logo />
+            <Menu aria-hidden className="size-4 text-muted" />
+          </button>
         </header>
 
         {/* Solo animación de entrada: esperar la salida hacía que cambiar de pestaña se sintiera lento. */}
@@ -334,7 +358,7 @@ export function App() {
           {tab === 'today' && notificationsSupported && notificationSettings?.enabled === false && (
             <button
               type="button"
-              onClick={() => setTab('settings')}
+              onClick={() => setScreen({ kind: 'settings' })}
               className="flex items-center gap-3 rounded-2xl border border-ember/50 bg-ember/10 p-3 text-left text-sm active:bg-ember/20"
             >
               <BellRing aria-hidden className="size-5 shrink-0 text-ember" />
@@ -351,14 +375,15 @@ export function App() {
               hud={hud}
               title={titleName(cosmetics?.title ?? 'apprentice')}
               profile={profile}
-              onProfile={() => setTab('profile')}
-              onCreate={() => setSheet({ kind: 'newBounty' })}
+              onProfile={() => setScreen({ kind: 'profile' })}
+              onCreate={() => setSheet({ kind: 'newHabit' })}
+              onNotebook={() => setTab('notebook')}
               onReview={(weekStart) => setSheet({ kind: 'review', weekStart })}
               onOpen={(ref) => void openDetail(ref)}
               onStreakInfo={() =>
                 toast('Cómo funciona la racha', {
                   description:
-                    'Completa todos tus contratos de hoy para sumar un día. Cada día de racha da +5% de XP en contratos, hasta +50%. Fallar un día la reduce a la mitad.',
+                    'Un día cuenta si completas una misión o haces un hábito (aunque sea a medias). Cada día de racha da +5 % de XP en hábitos y misiones del día, hasta +50 %. Un día sin nada la reduce a la mitad.',
                   icon: <Flame aria-hidden className="size-5 text-signal" />,
                   duration: 6000,
                 })
@@ -376,22 +401,20 @@ export function App() {
               onOutcome={handleOutcome}
             />
           )}
-          {tab === 'profile' && hud && cosmeticChoice && (
-            <ProfileTab
-              hud={hud}
-              choice={cosmeticChoice}
-              onOpenTree={() => setScreen({ kind: 'tree' })}
-              onOpenJournal={() => setScreen({ kind: 'journal' })}
-              onOpenReview={(weekStart) => setSheet({ kind: 'review', weekStart })}
-            />
+          {tab === 'notebook' && (
+            <Suspense fallback={null}>
+              <NotebookTab
+                today={today}
+                onManage={() => setSheet({ kind: 'habits' })}
+                onCreate={() => setSheet({ kind: 'newHabit' })}
+                onOutcome={handleOutcome}
+              />
+            </Suspense>
           )}
-          {tab === 'settings' && (
-            <SettingsTab
-              hud={hud}
-              title={titleName(cosmetics?.title ?? 'apprentice')}
-              onOpenSection={(section) => setSheet({ kind: 'settings', section })}
-              onEditProfile={() => setSheet({ kind: 'profile' })}
-            />
+          {tab === 'journal' && (
+            <Suspense fallback={null}>
+              <JournalTab today={today} onOpen={(ref) => void openDetail(ref)} />
+            </Suspense>
           )}
         </motion.div>
       </main>
@@ -459,8 +482,49 @@ export function App() {
           />
         )}
         {screen?.kind === 'tree' && <SkillTreeScreen onClose={closeScreen} />}
-        {screen?.kind === 'journal' && <JournalScreen onClose={closeScreen} onOpen={(ref) => void openDetail(ref)} />}
       </Suspense>
+      {screen?.kind === 'profile' && hud && cosmeticChoice && (
+        <Screen title="Perfil" onClose={closeScreen}>
+          <div className="mx-auto flex max-w-md flex-col gap-4 px-4 pb-10">
+            <ProfileTab
+              hud={hud}
+              choice={cosmeticChoice}
+              onOpenTree={() => setScreen({ kind: 'tree', from: 'profile' })}
+              onOpenJournal={() => {
+                setScreen(null)
+                setTab('journal')
+              }}
+              onOpenReview={(weekStart) => setSheet({ kind: 'review', weekStart })}
+            />
+          </div>
+        </Screen>
+      )}
+      {screen?.kind === 'settings' && (
+        <Screen title="Ajustes" onClose={closeScreen}>
+          <div className="mx-auto flex max-w-md flex-col gap-4 px-4 pb-10">
+            <SettingsTab
+              hud={hud}
+              title={titleName(cosmetics?.title ?? 'apprentice')}
+              onOpenSection={(section) => setSheet({ kind: 'settings', section })}
+              onEditProfile={() => setSheet({ kind: 'profile' })}
+            />
+          </div>
+        </Screen>
+      )}
+
+      <AnimatePresence>
+        {menuOpen && (
+          <SideMenu
+            onClose={() => setMenuOpen(false)}
+            onSelect={(destination) => {
+              setMenuOpen(false)
+              // Reglas y Acerca de son las mismas secciones de Ajustes, en su hoja.
+              if (destination === 'settings' || destination === 'profile') setScreen({ kind: destination })
+              else setSheet({ kind: 'settings', section: destination })
+            }}
+          />
+        )}
+      </AnimatePresence>
 
       {detail && (
         <TaskDetail
@@ -471,7 +535,7 @@ export function App() {
           onClose={closeDetail}
           onOutcome={handleOutcome}
           onEdit={(view) => {
-            if (view.kind === 'bounty') setSheet({ kind: 'editBounty', bounty: view.task })
+            if (view.kind === 'habit') setSheet({ kind: 'editHabit', habit: view.task })
             else if (view.kind === 'sideQuest') setSheet({ kind: 'editQuest', quest: view.task })
           }}
         />
@@ -483,7 +547,7 @@ export function App() {
             onClose={() => setSheet(null)}
             onOpenSettings={() => {
               setSheet(null)
-              setTab('settings')
+              setScreen({ kind: 'settings' })
             }}
             onCreated={(campaign) => {
               playComplete()
@@ -509,10 +573,18 @@ export function App() {
             }}
             onOpenSettings={() => {
               setSheet(null)
-              setTab('settings')
+              setScreen({ kind: 'settings' })
             }}
           />
         </Suspense>
+      )}
+      {sheet?.kind === 'habits' && (
+        <HabitsSheet
+          today={today}
+          onClose={() => setSheet(null)}
+          onCreate={() => setSheet({ kind: 'newHabit' })}
+          onEdit={(habit) => setSheet({ kind: 'editHabit', habit })}
+        />
       )}
       {sheet?.kind === 'settings' && <SettingsSectionSheet section={sheet.section} onClose={() => setSheet(null)} />}
       {sheet?.kind === 'profile' && <ProfileSheet onClose={() => setSheet(null)} />}
@@ -520,7 +592,8 @@ export function App() {
         sheet.kind !== 'generate' &&
         sheet.kind !== 'settings' &&
         sheet.kind !== 'profile' &&
-        sheet.kind !== 'review' && (
+        sheet.kind !== 'review' &&
+        sheet.kind !== 'habits' && (
           <FormSheet key={JSON.stringify(sheet)} {...sheetProps(sheet)} onClose={() => setSheet(null)} />
         )}
 

@@ -17,3 +17,9 @@ export function addDays(day: GameDay, amount: number): GameDay {
   const [year, month, date] = day.split('-').map(Number)
   return toGameDay(Date.UTC(year, month - 1, date + amount))
 }
+
+/** Día de la semana de un día de juego: 0 es lunes y 6 es domingo. */
+export function weekdayOf(day: GameDay): number {
+  const [year, month, date] = day.split('-').map(Number)
+  return (new Date(Date.UTC(year, month - 1, date)).getUTCDay() + 6) % 7
+}

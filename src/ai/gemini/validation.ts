@@ -73,10 +73,10 @@ export const designSchema = z.object({
     .min(1)
     .transform((missions) => missions.slice(0, 8)),
   boss: missionSchema,
-  bounties: z
+  habits: z
     .array(missionSchema)
     .default([])
-    .transform((bounties) => bounties.slice(0, 3)),
+    .transform((habits) => habits.slice(0, 3)),
 })
 
 export const actSchema = z.object({
@@ -126,7 +126,7 @@ export function normalizeSkills(design: z.infer<typeof designSchema>): CampaignD
     acts,
     missions: design.missions.map(fix),
     boss: fix(design.boss),
-    bounties: design.bounties.map(fix),
+    habits: design.habits.map(fix),
     skills: { area: design.skills.area, branch, leaves },
   }
 }

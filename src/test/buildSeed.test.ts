@@ -9,15 +9,17 @@ import {
   acceptCampaignPlan,
   addActMissions,
   addEvidence,
-  completeBounty,
+  completeHabit,
   completeQuest,
-  createBounty,
+  createHabit,
   createSideQuest,
   getCampaign,
   getHud,
   getWeekReport,
   planToReview,
+  setHabitState,
   saveDaily,
+  saveDailyNote,
   saveReview,
   skipSideQuest,
   toggleStep,
@@ -41,7 +43,7 @@ async function exportScenario(db: GameDatabase, name: string) {
   // La configuración no viaja: al cargar se conserva la del teléfono (llave, modelos, perfil).
   const stores: Record<string, unknown[]> = {}
   for (const table of [
-    db.bounties,
+    db.habits,
     db.campaigns,
     db.sideQuests,
     db.xpEvents,
@@ -50,6 +52,8 @@ async function exportScenario(db: GameDatabase, name: string) {
     db.evidence,
     db.dailies,
     db.reviews,
+    db.habitLogs,
+    db.dailyNotes,
   ]) {
     stores[table.name] = await table.toArray()
   }
@@ -109,10 +113,10 @@ const readingDesign: typeof guitarDesign = {
     skill: 'Comprensión',
     steps: ['Lee hasta la última página', 'Escribe una reseña de 100 palabras en tu bitácora'],
   },
-  bounties: [],
+  habits: [],
 }
 
-/** Una cuenta con algo de todo: campaña a medias, otra completada, contratos con racha y misión del día. */
+/** Una cuenta con algo de todo: campaña a medias, otra completada, hábitos con racha y misión del día. */
 async function buildDemo(db: GameDatabase) {
   // Campaña en curso: Acto 1 cerrado (una misión saltada), Acto 2 generado y a medias.
   const guitar = await acceptCampaignPlan(db, guitarDesign, ago(6))
@@ -144,18 +148,18 @@ async function buildDemo(db: GameDatabase) {
   )
   await completeQuest(db, readingQuests[2].id, ago(8))
 
-  // Contratos con tres días de racha y uno pendiente hoy.
-  const water = await createBounty(
+  // Hábitos con tres días de racha y uno pendiente hoy.
+  const water = await createHabit(
     db,
     { title: 'Tomar 2 litros de agua', difficulty: 1, steps: ['Litro de la mañana', 'Litro de la tarde'] },
     ago(6),
   )
-  const [practice] = (await db.bounties.toArray()).filter((bounty) => bounty.id !== water.id)
+  const [practice] = (await db.habits.toArray()).filter((habit) => habit.id !== water.id)
   for (const days of [3, 2, 1]) {
-    await completeBounty(db, water.id, ago(days))
-    await completeBounty(db, practice.id, ago(days))
+    await completeHabit(db, water.id, ago(days))
+    await completeHabit(db, practice.id, ago(days))
   }
-  await completeBounty(db, water.id, ago(0))
+  await completeHabit(db, water.id, ago(0))
 
   await createSideQuest(
     db,
@@ -176,6 +180,21 @@ async function buildDemo(db: GameDatabase) {
     },
     ago(0),
   )
+
+  // Diario: notas de días anteriores (la de hoy queda para escribirla).
+  await saveDailyNote(
+    db,
+    gameDayOf(ago(1)),
+    { text: 'Fui al estadio a ver el clásico y ganamos 2 a 1. Gritamos como locos.' },
+    ago(1, 22),
+  )
+  await saveDailyNote(
+    db,
+    gameDayOf(ago(3)),
+    { text: 'Toqué mi primera progresión completa sin detenerme. Se sintió increíble.' },
+    ago(3, 21),
+  )
+  await saveDailyNote(db, gameDayOf(ago(6)), { text: 'Gracias a mi hermano por prestarme su guitarra.' }, ago(6, 23))
 
   const hud = await getHud(db, gameDayOf(new Date()))
   expect(hud.streak).toBeGreaterThanOrEqual(3)
@@ -272,7 +291,7 @@ it.runIf(building)('escenario arbol', async () => {
             skill: leaf,
           })),
           boss: { ...guitarDesign.boss, title: `Prueba final de ${branch}`, skill: leaves[leaves.length - 1] },
-          bounties: [],
+          habits: [],
         },
         now,
       )
@@ -303,26 +322,26 @@ const noonOf = (day: GameDay) => {
 }
 
 /**
- * La semana pasada, variada: avance en guitarra, una misión saltada, un contrato que casi no se cumplió,
+ * La semana pasada, variada: avance en guitarra, una misión saltada, un hábito que casi no se cumplió,
  * una misión atascada y misiones del día hechas y no hechas.
  */
 async function buildLastWeek(db: GameDatabase) {
   const start = lastWeekStart()
   const day = (offset: number) => noonOf(addDays(start, offset))
-  const water = await createBounty(db, { title: 'Tomar 2 litros de agua', difficulty: 1 }, day(-10))
-  const read = await createBounty(
+  const water = await createHabit(db, { title: 'Tomar 2 litros de agua', difficulty: 1 }, day(-10))
+  const read = await createHabit(
     db,
     { title: 'Leer 20 minutos', difficulty: 1, steps: ['Abre el libro', 'Lee 20 minutos sin celular'] },
     day(-10),
   )
   for (const offset of [-3, -2, -1]) {
-    await completeBounty(db, water.id, day(offset))
-    await completeBounty(db, read.id, day(offset))
+    await completeHabit(db, water.id, day(offset))
+    await completeHabit(db, read.id, day(offset))
   }
-  for (let offset = 0; offset < 7; offset++) await completeBounty(db, water.id, day(offset))
-  for (const offset of [0, 3]) await completeBounty(db, read.id, day(offset))
+  for (let offset = 0; offset < 7; offset++) await completeHabit(db, water.id, day(offset))
+  for (const offset of [0, 3]) await completeHabit(db, read.id, day(offset))
 
-  const guitar = await acceptCampaignPlan(db, { ...guitarDesign, bounties: [] }, day(-9))
+  const guitar = await acceptCampaignPlan(db, { ...guitarDesign, habits: [] }, day(-9))
   const [tune, chords] = (await getCampaign(db, guitar.id))!.actViews[0].quests
   await skipSideQuest(db, tune.id, day(1))
   await completeQuest(db, chords.id, day(4))
@@ -364,7 +383,7 @@ it.runIf(building)('escenario revision', async () => {
   const { start } = await buildLastWeek(db)
   const report = await getWeekReport(db, start)
   const stuck = report.stuck[0]
-  const read = report.bounties.find((item) => item.title === 'Leer 20 minutos')!
+  const read = report.habits.find((item) => item.title === 'Leer 20 minutos')!
   expect(stuck).toBeDefined()
   const review = planToReview(
     {
@@ -399,12 +418,12 @@ it.runIf(building)('escenario revision', async () => {
             },
           ],
         },
-        { kind: 'archiveBounty', ref: read.ref, reason: 'Casi no se cumple y te quita la racha.' },
+        { kind: 'archiveHabit', ref: read.ref, reason: 'Casi no se cumple y te quita la racha.' },
         {
-          kind: 'addBounty',
+          kind: 'addHabit',
           ref: '',
-          reason: 'Un contrato mínimo mantiene el hábito sin presión.',
-          bounty: { title: 'Leer 1 página', difficulty: 1, steps: ['Abre el libro', 'Lee una página'] },
+          reason: 'Un hábito mínimo mantiene la lectura sin presión.',
+          habit: { title: 'Leer 1 página', difficulty: 1, steps: ['Abre el libro', 'Lee una página'] },
         },
       ],
       focus: [{ ref: stuck.ref, title: stuck.title, why: 'Es lo único que falta para cerrar el Acto 1.' }],
@@ -419,6 +438,47 @@ it.runIf(building)('escenario revision', async () => {
 /** El jugador ya existía, pero la semana pasada no hizo nada: la tarjeta muestra el mensaje sin llamar a la IA. */
 it.runIf(building)('escenario semana-vacia', async () => {
   const db = new GameDatabase('escenario-semana-vacia')
-  await createBounty(db, { title: 'Tomar 2 litros de agua', difficulty: 1 }, noonOf(addDays(lastWeekStart(), -5)))
+  await createHabit(db, { title: 'Tomar 2 litros de agua', difficulty: 1 }, noonOf(addDays(lastWeekStart(), -5)))
   await exportScenario(db, 'semana-vacia')
+})
+
+/**
+ * Libreta llena: 12 hábitos (diarios y de ciertos días) con el mes en curso registrado, incluidos días a medias
+ * y no hechos, para ver la cuadrícula con muchas columnas, el cumplimiento y las rachas.
+ */
+it.runIf(building)('escenario libreta', async () => {
+  const db = new GameDatabase('escenario-libreta')
+  const today = gameDayOf(new Date())
+  const monthStart = `${today.slice(0, 7)}-01`
+  const start = addDays(monthStart, -3)
+  const habits: Array<[string, string, number[] | null, number]> = [
+    ['Tomar 2 litros de agua', '💧', null, 0.95],
+    ['Leer 20 minutos', '📚', null, 0.7],
+    ['Meditar 10 minutos', '🧘', null, 0.55],
+    ['Gimnasio', '🏋️', [0, 2, 4], 0.8],
+    ['Correr 5 km', '🏃', [1, 5], 0.6],
+    ['Practicar guitarra', '🎸', null, 0.65],
+    ['Dormir antes de las 12', '🌙', null, 0.5],
+    ['Sin redes antes de las 10', '📵', null, 0.45],
+    ['Estudiar inglés', '🇬🇧', [0, 1, 2, 3, 4], 0.75],
+    ['Escribir el diario', '✍️', null, 0.4],
+    ['Cocinar en casa', '🍳', [5, 6], 0.7],
+    ['Llamar a la familia', '📞', [6], 0.9],
+  ]
+  // Pseudoaleatorio con semilla: el mismo escenario sale igual cada vez.
+  let seed = 7
+  const random = () => (seed = (seed * 9301 + 49297) % 233280) / 233280
+  for (const [title, emoji, days, odds] of habits) {
+    const habit = await createHabit(
+      db,
+      { title, emoji, difficulty: 1, frequency: days ? { kind: 'weekdays', days } : { kind: 'daily' } },
+      noonOf(start),
+    )
+    for (let day = start; day < today; day = addDays(day, 1)) {
+      const roll = random()
+      const state = roll < odds ? 'done' : roll < odds + 0.12 ? 'half' : roll < odds + 0.3 ? 'missed' : null
+      if (state) await setHabitState(db, habit.id, day, state, noonOf(day))
+    }
+  }
+  await exportScenario(db, 'libreta')
 })

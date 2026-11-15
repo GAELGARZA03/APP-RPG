@@ -37,14 +37,16 @@ export type SettingsSection = 'reminders' | 'backup' | 'ai' | 'rules' | 'about' 
 const DIFFICULTIES: Difficulty[] = [1, 2, 3, 4, 5]
 
 const RULES = [
-  'Completa todos tus contratos diarios para sumar un día de racha.',
-  'Cada día de racha da +5% de XP en contratos, hasta +50%.',
-  'Fallar un día reduce la racha a la mitad.',
+  'Un día suma a tu racha si completas una misión o haces un hábito, aunque sea a medias.',
+  'Cada día de racha da +5% de XP en hábitos y misiones del día, hasta +50%.',
+  'Un día sin nada reduce la racha a la mitad.',
+  'Un hábito hecho da su XP completo; a medias, la mitad. Hoy y ayer dan XP; los días anteriores se corrigen en la libreta solo como registro.',
+  'Cada hábito tiene su racha: días seguidos que le tocaban, hechos o a medias. Los días que no le tocan no la rompen.',
   'El día cierra a las 4:00 a. m.',
   'En una campaña solo está abierto el primer acto sin terminar; nunca se bloquea por tu nivel.',
   'La misión jefe da el doble de XP y pide una foto o una nota como evidencia.',
   'Saltar una misión («Ya sé hacer esto») cuenta para avanzar, pero no da XP.',
-  'La misión del día da 50% más de XP y no afecta tu racha.',
+  'La misión del día da 50% más de XP y cuenta para tu racha.',
 ]
 
 function RulesPanel({ headingId }: { headingId: string }) {
@@ -121,7 +123,11 @@ function MenuRow(props: { icon: LucideIcon; tone: string; label: string; summary
 function lastBackupText(lastBackupAt: string | null | undefined) {
   if (!lastBackupAt) return 'Nunca has respaldado'
   const days = Math.floor((Date.now() - new Date(lastBackupAt).getTime()) / 86_400_000)
-  return days <= 0 ? 'Último respaldo: hoy' : days === 1 ? 'Último respaldo: ayer' : `Último respaldo: hace ${days} días`
+  return days <= 0
+    ? 'Último respaldo: hoy'
+    : days === 1
+      ? 'Último respaldo: ayer'
+      : `Último respaldo: hace ${days} días`
 }
 
 export function SettingsTab(props: {
@@ -161,9 +167,7 @@ export function SettingsTab(props: {
       >
         <Avatar photo={profile?.photo ?? null} name={profile?.name ?? ''} size="md" />
         <span className="min-w-0 flex-1">
-          <span className="block truncate font-display text-xl font-semibold">
-            {profile?.name || 'Tu perfil'}
-          </span>
+          <span className="block truncate font-display text-xl font-semibold">{profile?.name || 'Tu perfil'}</span>
           <span className="block text-sm text-muted">
             {props.title} · Nivel {props.hud?.level ?? 1}
           </span>

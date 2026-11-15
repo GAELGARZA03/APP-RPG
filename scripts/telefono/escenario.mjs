@@ -11,7 +11,7 @@ import { APPS } from './app.mjs'
 import { load } from './volcado.mjs'
 
 const ESCENARIOS = {
-  demo: 'Algo de todo: campaña a medias, otra completada, contratos con racha y misión del día.',
+  demo: 'Algo de todo: campaña a medias, otra completada, hábitos con racha, misión del día y notas del diario.',
   temas: 'La demo con nivel 14: todos los temas, títulos y sonidos desbloqueados (Perfil).',
   jefe: 'Solo falta el jefe de «El lector de medianoche»: pide foto o nota y da el doble de XP.',
   acto: 'Al Acto 1 de guitarra le queda una misión: complétala para ver la celebración y «Generar Acto 2».',
@@ -19,6 +19,7 @@ const ESCENARIOS = {
   vacio: 'Juego en cero, como recién instalado.',
   semana: 'Semana pasada variada y sin revisar: abre «Tu revisión semanal» en Hoy (1 llamada al modelo rápido).',
   revision: 'La misma semana con la revisión ya hecha: prueba «Aplicar» y «Descartar» sin gastar llamadas.',
+  libreta: 'Libreta con 12 hábitos y el mes registrado (hecho, a medias, no hecho): cuadrícula, cumplimiento y rachas.',
   'semana-vacia': 'La semana pasada no hubo actividad: Hoy muestra «Semana tranquila» sin llamar a la IA.',
 }
 
