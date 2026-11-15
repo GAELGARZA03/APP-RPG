@@ -1,0 +1,6 @@
+<?xml version='1.0' encoding='utf-8'?>
+<!-- Solo cambia el nombre visible; el resto de textos viene de main. -->
+<resources>
+    <string name="app_name">RPG Pruebas</string>
+    <string name="title_activity_main">RPG Pruebas</string>
+</resources>

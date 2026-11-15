@@ -17,6 +17,13 @@ android {
         }
     }
     buildTypes {
+        // App de pruebas: se instala junto a la personal, con sus propios datos, nombre e icono.
+        // Usa el modelo de IA rápido por defecto (src/platform/build.ts).
+        pruebas {
+            initWith debug
+            applicationIdSuffix ".pruebas"
+            matchingFallbacks = ['debug']
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'

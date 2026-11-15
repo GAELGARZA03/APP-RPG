@@ -4,13 +4,14 @@ import { useEffect, useState } from 'react'
 import { AiError, checkConnection, GEMINI_KEY_SECRET } from '../../ai/gemini'
 import { DEFAULT_FAST_MODEL, DEFAULT_MAIN_MODEL } from '../../ai/models'
 import { db } from '../../data/appDb'
-import { getAiSettings, saveAiModels } from '../../data/settings'
+import { getAiSettings, saveAiModels, saveAiSaver } from '../../data/settings'
+import { isTestBuild } from '../../platform/build'
 import { httpRequest } from '../../platform/http'
 import { getSecret, removeSecret, secretsPersist, setSecret } from '../../platform/secrets'
 import { Badge } from '../kit/Badge'
 import { Button } from '../kit/Button'
 import { Card } from '../kit/Card'
-import { Field, Input } from '../kit/controls'
+import { Field, Input, SettingRow, Switch } from '../kit/controls'
 import { QuotaPanel } from './QuotaPanel'
 
 export function GeminiPanel({ embedded, headingId }: { embedded?: boolean; headingId?: string } = {}) {
@@ -20,7 +21,10 @@ export function GeminiPanel({ embedded, headingId }: { embedded?: boolean; headi
   const [confirmingRemoval, setConfirmingRemoval] = useState(false)
   const [message, setMessage] = useState<{ error: boolean; text: string } | null>(null)
 
+  const [testBuild, setTestBuild] = useState(false)
+
   useEffect(() => {
+    void isTestBuild().then(setTestBuild)
     getSecret(GEMINI_KEY_SECRET)
       .then((key) => setHasKey(key !== null))
       .catch(() => setHasKey(false))
@@ -167,6 +171,20 @@ export function GeminiPanel({ embedded, headingId }: { embedded?: boolean; headi
               className="text-sm"
             />
           </Field>
+          <SettingRow
+            label="Modo ahorro"
+            description={
+              testBuild
+                ? 'Todo usa el modelo rápido, también diseñar campañas y actos. Activo por defecto en la app de pruebas.'
+                : 'Todo usa el modelo rápido, también diseñar campañas y actos. Útil para probar sin gastar llamadas del principal.'
+            }
+          >
+            <Switch
+              label="Modo ahorro"
+              checked={aiSettings.saver ?? testBuild}
+              onChange={(checked) => void saveAiSaver(db, checked)}
+            />
+          </SettingRow>
           <p className="text-xs text-muted">
             Si el modelo principal falla, la app te muestra el motivo y te deja reintentar o usar el rápido: nunca
             cambia de modelo sin avisarte. En el nivel gratuito, Google puede usar lo que envías para mejorar sus

@@ -431,9 +431,13 @@ export function GeneratorSheet(props: {
     }
   }
 
-  /** `fast`: el usuario eligió usar el modelo rápido tras un error; nunca se cambia en silencio. */
-  async function design(fast: boolean) {
+  /**
+   * `fast`: el usuario eligió usar el modelo rápido tras un error, o está activo el modo ahorro
+   * (Ajustes › Inteligencia artificial). Nunca se cambia de modelo en silencio.
+   */
+  async function design(chosenFast: boolean) {
     if (!session || !idea.trim()) return
+    const fast = chosenFast || session.saver
     const current = ++requestNumber.current
     setStep({ kind: 'designing', fast })
     try {

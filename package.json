@@ -14,8 +14,11 @@
     "test:flow": "vitest run src/flow",
     "test:watch": "vitest",
     "seed:build": "vitest run src/test/buildSeed.test.ts",
-    "phone:save": "node scripts/telefono/datos.mjs guardar",
-    "phone:demo": "npm run seed:build && node scripts/telefono/datos.mjs cargar scripts/telefono/datos-demo.json"
+    "phone:save": "node scripts/telefono/datos.mjs guardar --personal",
+    "phone:pruebas": "node scripts/telefono/instalar.mjs pruebas",
+    "phone:instalar": "node scripts/telefono/instalar.mjs personal",
+    "phone:llave": "node scripts/telefono/llave.mjs",
+    "escenario": "node scripts/telefono/escenario.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.6.0",

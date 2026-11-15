@@ -156,6 +156,8 @@ export interface AiSettings {
   fastModel: string
   /** Diseñar campañas y generar actos. */
   mainModel: string
+  /** Modo ahorro: todo va al modelo rápido. Sin elegir, solo está activo en la app de pruebas. */
+  saver?: boolean
 }
 
 export interface PrefsSettings {

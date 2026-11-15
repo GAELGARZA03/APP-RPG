@@ -51,6 +51,11 @@ export async function generateNextAct(campaignId: string, fast = false): Promise
       })
       return false
     }
+    // En modo ahorro (activo en la app de pruebas) siempre responde el modelo rápido.
+    if (session.saver && !fast) {
+      fast = true
+      setState(campaignId, { status: 'running', fast })
+    }
     const report = await getActReport(db, campaignId)
     if (!report) {
       // El acto ya no está pendiente (otra generación terminó o la campaña cambió).

@@ -45,7 +45,13 @@ export async function getAiSettings(db: GameDatabase): Promise<AiSettings> {
     id: 'ai',
     fastModel: stored?.fastModel?.trim() || DEFAULT_FAST_MODEL,
     mainModel: stored?.mainModel?.trim() || DEFAULT_MAIN_MODEL,
+    saver: stored?.saver,
   }
+}
+
+export async function saveAiSaver(db: GameDatabase, saver: boolean): Promise<void> {
+  const settings: AiSettings = { ...(await getAiSettings(db)), saver }
+  await db.settings.put(settings)
 }
 
 export async function saveAiModels(
@@ -57,6 +63,7 @@ export async function saveAiModels(
     id: 'ai',
     fastModel: (changes.fastModel ?? current.fastModel).trim() || DEFAULT_FAST_MODEL,
     mainModel: (changes.mainModel ?? current.mainModel).trim() || DEFAULT_MAIN_MODEL,
+    saver: current.saver,
   }
   await db.settings.put(settings)
 }
