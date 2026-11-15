@@ -51,7 +51,7 @@ export async function getTaskDetail(db: GameDatabase, ref: TaskRef, today: GameD
         task,
         campaign,
         // Una misión del día caducada ya no se puede completar.
-        lock: task.completedDay === null && task.id !== today ? 'Esta misión del día ya caducó' : null,
+        lock: task.completedDay === null && task.day !== today ? 'Esta misión del día ya caducó' : null,
         done: task.completedDay !== null,
         xp: dailyXp(task.difficulty, (await projectPlayer(db, today)).streak),
         completions: task.completedDay ? 1 : 0,

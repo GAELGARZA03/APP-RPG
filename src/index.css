@@ -18,6 +18,8 @@
   --color-on-signal: #0c1a00;
   --color-info: #5aa9ff;
   --color-ember: #ffb347;
+  /* Oro de la tienda: el mismo en todos los temas (todos son oscuros). */
+  --color-gold: #f6c945;
   --font-sans: 'Inter Variable', system-ui, sans-serif;
   --font-display: 'Fredoka Variable', 'Inter Variable', system-ui, sans-serif;
 }

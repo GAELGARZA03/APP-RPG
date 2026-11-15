@@ -164,7 +164,7 @@ export async function getWeekReport(db: GameDatabase, weekStart: GameDay) {
       const name = skillName(event.skillId)
       if (name) xpBySkill.set(name, (xpBySkill.get(name) ?? 0) + event.xp)
     }
-    const weekDailies = dailies.filter((daily) => inWeek(daily.id))
+    const weekDailies = dailies.filter((daily) => inWeek(daily.day))
     const evidenceCount = evidence.filter((item) => inWeek(item.day)).length
 
     return {

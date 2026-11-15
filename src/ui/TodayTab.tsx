@@ -5,6 +5,7 @@ import type { ProfileSettings } from '../data/db'
 import {
   completeHabit,
   getTodayHabits,
+  getWallet,
   getWeek,
   undoHabit,
   type Hud,
@@ -31,6 +32,7 @@ export function TodayTab(props: {
   onProfile: () => void
   onCreate: () => void
   onNotebook: () => void
+  onShop: () => void
   onOpenDiary: (day: GameDay) => void
   onReview: (weekStart: GameDay) => void
   onOpen: (ref: TaskRef) => void
@@ -40,6 +42,7 @@ export function TodayTab(props: {
   const { today, hud, title, profile, onProfile, onCreate, onOpen, onStreakInfo, onOutcome } = props
   const habits = useLiveQuery(() => getTodayHabits(db, today), [today])
   const week = useLiveQuery(() => getWeek(db, today), [today])
+  const wallet = useLiveQuery(() => getWallet(db), [])
 
   async function toggle(habit: TodayHabit) {
     if (habit.doneToday) await undoHabit(db, habit.id)
@@ -53,7 +56,14 @@ export function TodayTab(props: {
 
   return (
     <>
-      <HudCard hud={hud} title={title} profile={profile} onOpen={onProfile} />
+      <HudCard
+        hud={hud}
+        title={title}
+        profile={profile}
+        gold={wallet?.balance}
+        onOpen={onProfile}
+        onShop={props.onShop}
+      />
       <StreakCard hud={hud} week={week} onInfo={onStreakInfo} />
       <SleepCard today={today} />
       <DailyCard today={today} onOpen={onOpen} onOutcome={onOutcome} />

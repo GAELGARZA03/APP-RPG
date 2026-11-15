@@ -24,7 +24,15 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { generateNextAct, useActRun } from '../ai/actRunner'
 import { db } from '../data/appDb'
 import type { Campaign } from '../data/db'
-import { getCampaign, type ActView, type CampaignView, type QuestView, type TaskRef } from '../data/gameStore'
+import {
+  getCampaign,
+  getCampaignStreaks,
+  type ActView,
+  type CampaignView,
+  type QuestView,
+  type TaskRef,
+} from '../data/gameStore'
+import { gameDayOf } from '../game/gameDay'
 import { haptic } from '../platform/haptics'
 import { useBack } from './backStack'
 import { Badge } from './kit/Badge'
@@ -400,6 +408,7 @@ export function CampaignMap(props: {
 }) {
   const { campaignId, onClose, onOpen, onEdit, onAddQuest } = props
   const campaign = useLiveQuery(() => getCampaign(db, campaignId), [campaignId])
+  const streaks = useLiveQuery(() => getCampaignStreaks(db, gameDayOf(new Date())), [campaign])
   const [analysisOpen, setAnalysisOpen] = useState(false)
   const container = useRef<HTMLDivElement>(null)
   const focusRef = useRef<HTMLButtonElement>(null)
@@ -432,6 +441,7 @@ export function CampaignMap(props: {
   }, [campaign])
 
   if (!campaign) return null
+  const streak = streaks?.[campaign.id] ?? 0
   const done = campaign.currentAct === null && campaign.sideQuests.length > 0
   let offset = 0
 
@@ -443,7 +453,7 @@ export function CampaignMap(props: {
           ? `Campaña · ${campaign.sideQuests.length} misiones`
           : done
             ? 'Campaña completada'
-            : `Campaña · Acto ${campaign.currentAct} de ${campaign.actViews.length}`
+            : `Campaña · Acto ${campaign.currentAct} de ${campaign.actViews.length}${streak ? ` · 🔥 ${streak} ${streak === 1 ? 'día' : 'días'}` : ''}`
       }
       onClose={onClose}
       action={

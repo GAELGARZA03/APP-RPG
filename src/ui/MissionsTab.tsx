@@ -1,17 +1,19 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Castle, Check, ChevronDown, ChevronRight, Crown, Flag, ListTodo, Lock, Plus, Sparkles } from 'lucide-react'
+import { Castle, Check, ChevronDown, ChevronRight, Crown, Flag, Flame, ListTodo, Lock, Plus, Sparkles } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useState } from 'react'
 import { db } from '../data/appDb'
 import type { SideQuest } from '../data/db'
 import {
   completeQuest,
+  getCampaignStreaks,
   getMissions,
   undoSideQuest,
   type CampaignView,
   type Outcome,
   type TaskRef,
 } from '../data/gameStore'
+import { gameDayOf } from '../game/gameDay'
 import { baseXp } from '../game/rules'
 import { Button } from './kit/Button'
 import { Card, cardSurface } from './kit/Card'
@@ -29,6 +31,7 @@ export function MissionsTab(props: {
 }) {
   const { onGenerate, onCreateCampaign, onOpenCampaign, onCreateQuest, onOpen, onOutcome } = props
   const missions = useLiveQuery(() => getMissions(db), [])
+  const streaks = useLiveQuery(() => getCampaignStreaks(db, gameDayOf(new Date())), [missions])
 
   async function toggle(quest: SideQuest) {
     if (quest.completedDay !== null) await undoSideQuest(db, quest.id)
@@ -63,7 +66,12 @@ export function MissionsTab(props: {
       )}
 
       {active.map((campaign) => (
-        <CampaignCard key={campaign.id} campaign={campaign} onOpen={() => onOpenCampaign(campaign.id)} />
+        <CampaignCard
+          key={campaign.id}
+          campaign={campaign}
+          streak={streaks?.[campaign.id] ?? 0}
+          onOpen={() => onOpenCampaign(campaign.id)}
+        />
       ))}
 
       {missions.campaigns.length > 0 && (
@@ -134,7 +142,7 @@ function FinishedCampaigns({ campaigns, onOpen }: { campaigns: CampaignView[]; o
           >
             <div className="flex flex-col gap-3">
               {campaigns.map((campaign) => (
-                <CampaignCard key={campaign.id} campaign={campaign} onOpen={() => onOpen(campaign.id)} />
+                <CampaignCard key={campaign.id} campaign={campaign} streak={0} onOpen={() => onOpen(campaign.id)} />
               ))}
             </div>
           </motion.div>
@@ -145,7 +153,7 @@ function FinishedCampaigns({ campaigns, onOpen }: { campaigns: CampaignView[]; o
 }
 
 /** Tarjeta de campaña: muestra el camino por actos en miniatura y abre el mapa al tocarla. */
-function CampaignCard({ campaign, onOpen }: { campaign: CampaignView; onOpen: () => void }) {
+function CampaignCard({ campaign, streak, onOpen }: { campaign: CampaignView; streak: number; onOpen: () => void }) {
   const finished = campaign.currentAct === null && campaign.sideQuests.length > 0
   const next = campaign.sideQuests.find(
     (quest) => quest.completedDay === null && (quest.skippedDay ?? null) === null && !quest.lock,
@@ -172,6 +180,12 @@ function CampaignCard({ campaign, onOpen }: { campaign: CampaignView; onOpen: ()
                 : `Campaña · Acto ${campaign.currentAct} de ${campaign.actViews.length}`}
           </span>
           <span className="mt-1 block font-display text-xl leading-tight font-semibold">{campaign.title}</span>
+          {streak > 0 && (
+            <span className="mt-1 flex items-center gap-1 text-xs font-semibold text-signal">
+              <Flame aria-hidden className="size-3.5" />
+              {streak} {streak === 1 ? 'día' : 'días'} seguidos avanzando
+            </span>
+          )}
         </span>
         <span className="grid size-10 shrink-0 place-items-center rounded-full bg-white/[0.06] text-muted">
           <ChevronRight aria-hidden className="size-5" />

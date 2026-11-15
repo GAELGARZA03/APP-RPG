@@ -1,4 +1,4 @@
-import { Check, Flame, Minus, Shield, X } from 'lucide-react'
+import { Check, Coins, Flame, Minus, Shield, X } from 'lucide-react'
 import { motion } from 'motion/react'
 import type { ProfileSettings } from '../data/db'
 import type { Hud, WeekDay } from '../data/gameStore'
@@ -8,7 +8,14 @@ import { cardSurface } from './kit/Card'
 import { cn } from './kit/cn'
 import { ProgressBar } from './kit/controls'
 
-export function HudCard(props: { hud: Hud; title: string; profile: ProfileSettings | undefined; onOpen: () => void }) {
+export function HudCard(props: {
+  hud: Hud
+  title: string
+  profile: ProfileSettings | undefined
+  gold: number | undefined
+  onOpen: () => void
+  onShop: () => void
+}) {
   const { hud, title, profile, onOpen } = props
   return (
     <motion.section
@@ -26,6 +33,20 @@ export function HudCard(props: { hud: Hud; title: string; profile: ProfileSettin
               {profile?.name ? `${profile.name} · Nivel ${hud.level}` : `Nivel ${hud.level}`}
             </p>
             <p className="truncate font-display text-2xl font-semibold">{title}</p>
+            {props.gold !== undefined && (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  props.onShop()
+                }}
+                aria-label={`${props.gold} de oro: abrir la tienda`}
+                className="mt-1 flex min-h-8 items-center gap-1.5 rounded-full bg-gold/15 px-2.5 text-sm font-semibold text-gold tabular-nums active:bg-gold/25"
+              >
+                <Coins aria-hidden className="size-4" />
+                {props.gold}
+              </button>
+            )}
           </div>
         </div>
         {/* Al subir de nivel, el número aparece con un pequeño salto. */}

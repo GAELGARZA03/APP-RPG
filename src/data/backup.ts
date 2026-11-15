@@ -12,14 +12,15 @@ import { markBackupDone } from './settings'
 
 const BACKUP_APP = 'real-life-rpg'
 /**
+ * Versión 7: tres misiones del día, premios y canjes de la tienda.
  * Versión 6: registro de sueño.
  * Versión 5: notas diarias de la bitácora.
  * Versión 4: los contratos diarios pasan a ser hábitos, con registro por día.
  * Versión 3: revisiones semanales. Versión 2: actos, análisis, habilidades, bitácora y misión del día.
  * Las versiones 1 a 3 se siguen importando: sus contratos se convierten en hábitos diarios (`upgradeLegacy`).
  */
-const BACKUP_VERSION = 6
-const SUPPORTED_VERSIONS = [1, 2, 3, 4, 5, BACKUP_VERSION] as const
+const BACKUP_VERSION = 7
+const SUPPORTED_VERSIONS = [1, 2, 3, 4, 5, 6, BACKUP_VERSION] as const
 
 const id = z.string().min(1).max(100)
 const title = z.string().trim().min(1).max(200)
@@ -186,7 +187,10 @@ const dataSchema = z.object({
   dailies: z
     .array(
       z.object({
-        id: day,
+        id: z.string().min(1).max(20),
+        day,
+        slot: z.number().int().min(1).max(3),
+        kind: z.enum(['campaign', 'habit', 'free']).optional(),
         title,
         difficulty,
         ...detail,
@@ -195,6 +199,47 @@ const dataSchema = z.object({
         completedDay: day.nullable(),
         stepsDone: stepIndexes.optional(),
         campaignId: id.optional(),
+      }),
+    )
+    .default([]),
+  // No existen en los respaldos de las versiones 1 a 6.
+  rewards: z
+    .array(
+      z.object({
+        id,
+        title,
+        emoji: text(16).optional(),
+        price: z.number().int().min(0).max(100_000),
+        repeatable: z.boolean(),
+        createdAt: timestamp,
+        archived: z.boolean().optional(),
+        goal: z
+          .discriminatedUnion('kind', [
+            z.object({ kind: z.literal('campaign'), targetId: id, label: text(200) }),
+            z.object({ kind: z.literal('act'), targetId: id, label: text(200) }),
+            z.object({ kind: z.literal('quest'), targetId: id, label: text(200) }),
+            z.object({
+              kind: z.literal('habitStreak'),
+              targetId: id,
+              days: z.number().int().min(1).max(365),
+              label: text(200),
+            }),
+          ])
+          .optional(),
+        earnedDay: day.nullable().optional(),
+      }),
+    )
+    .default([]),
+  redemptions: z
+    .array(
+      z.object({
+        id,
+        rewardId: id,
+        title,
+        emoji: text(16).optional(),
+        cost: z.number().int().min(0),
+        day,
+        createdAt: timestamp,
       }),
     )
     .default([]),
@@ -265,6 +310,8 @@ function tables(db: GameDatabase) {
     db.habitLogs,
     db.dailyNotes,
     db.sleep,
+    db.rewards,
+    db.redemptions,
   ]
 }
 
@@ -281,6 +328,8 @@ export async function createBackup(db: GameDatabase, now = new Date()): Promise<
         habitLogs: await db.habitLogs.toArray(),
         dailyNotes: await db.dailyNotes.toArray(),
         sleep: await db.sleep.toArray(),
+        rewards: await db.rewards.toArray(),
+        redemptions: await db.redemptions.toArray(),
         campaigns: await db.campaigns.toArray(),
         sideQuests: await db.sideQuests.toArray(),
         xpEvents: await db.xpEvents.toArray(),
@@ -322,7 +371,7 @@ export function parseBackup(text: string): Backup {
     throw new BackupError('El archivo no es un respaldo válido.')
   }
 
-  const result = backupSchema.safeParse(upgradeLegacy(json))
+  const result = backupSchema.safeParse(upgradeDailies(upgradeLegacy(json)))
   if (result.success) {
     if (!isConsistent(result.data)) throw new BackupError('El respaldo está incompleto o dañado.')
     return result.data
@@ -340,6 +389,26 @@ export function parseBackup(text: string): Backup {
  * Los respaldos de las versiones 1 a 3 guardaban «contratos diarios» (`bounties`). Se convierten en hábitos
  * diarios, cada día cumplido queda como «hecho» y su XP se conserva, igual que la migración de la base de datos.
  */
+/** Antes de la versión 7 había una sola misión del día, cuyo id era el día: pasa a ser la número 1 de ese día. */
+function upgradeDailies(json: unknown): unknown {
+  if (typeof json !== 'object' || json === null) return json
+  const backup = json as { version?: unknown; data?: Record<string, unknown> }
+  if (
+    typeof backup.version !== 'number' ||
+    backup.version >= 7 ||
+    !backup.data ||
+    !Array.isArray(backup.data.dailies)
+  ) {
+    return json
+  }
+  const dailies = (backup.data.dailies as Array<Record<string, unknown>>).map((daily) => ({
+    ...daily,
+    day: typeof daily.id === 'string' ? daily.id.slice(0, 10) : daily.id,
+    slot: 1,
+  }))
+  return { ...backup, data: { ...backup.data, dailies } }
+}
+
 function upgradeLegacy(json: unknown): unknown {
   if (typeof json !== 'object' || json === null) return json
   const backup = json as { version?: unknown; data?: Record<string, unknown> }
@@ -405,6 +474,8 @@ export async function restoreBackup(db: GameDatabase, backup: Backup): Promise<v
       await db.habitLogs.bulkAdd(backup.data.habitLogs)
       await db.dailyNotes.bulkAdd(backup.data.dailyNotes)
       await db.sleep.bulkAdd(backup.data.sleep)
+      await db.rewards.bulkAdd(backup.data.rewards)
+      await db.redemptions.bulkAdd(backup.data.redemptions)
       await db.campaigns.bulkAdd(backup.data.campaigns)
       await db.sideQuests.bulkAdd(backup.data.sideQuests)
       await db.xpEvents.bulkAdd(backup.data.xpEvents)

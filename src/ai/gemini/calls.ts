@@ -26,9 +26,9 @@ import {
   type ThinkingLevel,
 } from './types'
 import {
-  type DailyPlan,
+  type DailiesPlan,
   actSchema,
-  dailySchema,
+  dailiesSchema,
   designSchema,
   detailSchema,
   normalizeSkills,
@@ -120,7 +120,8 @@ export async function detailTask(
 }
 
 /** Reto pequeño del día (modelo rápido). */
-export async function generateDaily(
+/** Las tres misiones del día, en una sola llamada al modelo rápido. */
+export async function generateDailies(
   request: HttpRequest,
   options: Credentials & {
     context: {
@@ -128,16 +129,20 @@ export async function generateDaily(
       act: { number: number; title: string; goal: string } | null
       pending: string[]
       skills: string[]
+      habits: string[]
     }
   },
-): Promise<DailyPlan> {
+): Promise<DailiesPlan> {
   const { context } = options
   const input = [
-    context.campaign ? `Campaña activa: ${context.campaign}` : 'No hay campaña activa: básate en las habilidades.',
+    context.campaign
+      ? `Campaña activa: ${context.campaign}`
+      : 'No hay campaña activa: básate en los hábitos y las habilidades.',
     context.act ? `Acto actual: ${context.act.number}. ${context.act.title}. Objetivo: ${context.act.goal}` : null,
     context.pending.length > 0
       ? `Misiones pendientes del acto (no las copies): ${context.pending.map((item) => `"${item}"`).join('; ')}`
       : null,
+    context.habits.length > 0 ? `Hábitos: ${context.habits.map((item) => `"${item}"`).join('; ')}` : null,
     context.skills.length > 0 ? `Habilidades: ${context.skills.join('; ')}` : null,
   ]
     .filter(Boolean)
@@ -152,7 +157,7 @@ export async function generateDaily(
     schema: DAILY_JSON_SCHEMA,
     temperature: 0.9,
   })
-  return validated(dailySchema, json)
+  return validated(dailiesSchema, json).missions
 }
 
 /**

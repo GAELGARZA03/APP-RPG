@@ -199,3 +199,14 @@ export function skillKey(name: string): string {
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()
 }
+
+// --- Oro y tienda ----------------------------------------------------------------
+
+/** Cada 10 XP dan 1 de oro (redondeado). Así deshacer algo devuelve exactamente su oro. */
+export const XP_PER_GOLD = 10
+/** Oro extra por cerrar un acto (incluido el último, al derrotar al jefe). */
+export const ACT_BONUS_GOLD = 20
+
+export function goldForXp(xp: number): number {
+  return Math.round(xp / XP_PER_GOLD)
+}

@@ -12,6 +12,8 @@ import {
   completeHabit,
   completeQuest,
   createHabit,
+  createReward,
+  redeemReward,
   createSideQuest,
   getCampaign,
   getHud,
@@ -56,6 +58,8 @@ async function exportScenario(db: GameDatabase, name: string) {
     db.habitLogs,
     db.dailyNotes,
     db.sleep,
+    db.rewards,
+    db.redemptions,
   ]) {
     stores[table.name] = await table.toArray()
   }
@@ -177,8 +181,33 @@ async function buildDemo(db: GameDatabase) {
       steps: ['Haz 60 cambios sin detenerte', 'Anota cuántos sonaron limpios'],
       estimate: '20 min',
       skill: 'Ritmo',
+      kind: 'campaign',
       campaignId: guitar.id,
       branchId: guitar.skillId,
+    },
+    ago(0),
+  )
+  await saveDaily(
+    db,
+    {
+      title: 'Lee 10 páginas antes de dormir',
+      difficulty: 1,
+      description: 'Diez páginas de tu libro, sin el celular cerca.',
+      steps: ['Lee 10 páginas'],
+      estimate: '15 min',
+      kind: 'habit',
+    },
+    ago(0),
+  )
+  await saveDaily(
+    db,
+    {
+      title: 'Camina 15 minutos sin el celular',
+      difficulty: 1,
+      description: 'Sal a caminar y observa tres cosas que nunca habías notado.',
+      steps: ['Camina 15 minutos', 'Anota 3 cosas que viste'],
+      estimate: '15 min',
+      kind: 'free',
     },
     ago(0),
   )
@@ -211,6 +240,21 @@ async function buildDemo(db: GameDatabase) {
   }
 
   await addSleep(db, 14)
+
+  // Tienda: premios con precio, un canje y un premio por meta (7 días seguidos tomando agua).
+  await createReward(db, { title: 'Un capítulo de mi serie', emoji: '📺', price: 30 }, ago(5))
+  const dessert = await createReward(db, { title: 'Un postre', emoji: '🍦', price: 20 }, ago(5))
+  await createReward(db, { title: 'Pedir una pizza', emoji: '🍕', price: 400, repeatable: false }, ago(5))
+  await redeemReward(db, dessert.id, ago(2))
+  await createReward(
+    db,
+    {
+      title: 'Ir al cine',
+      emoji: '🎬',
+      goal: { kind: 'habitStreak', targetId: water.id, days: 7, label: '7 días seguidos: «Tomar 2 litros de agua»' },
+    },
+    ago(5),
+  )
 
   const hud = await getHud(db, gameDayOf(new Date()))
   expect(hud.streak).toBeGreaterThanOrEqual(3)
@@ -390,7 +434,7 @@ async function buildLastWeek(db: GameDatabase) {
       },
       day(offset),
     )
-    if (done) await db.dailies.update(addDays(start, offset), { completedDay: addDays(start, offset) })
+    if (done) await db.dailies.update(`${addDays(start, offset)}#1`, { completedDay: addDays(start, offset) })
   }
   return { start, read }
 }

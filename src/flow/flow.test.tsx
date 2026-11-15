@@ -29,19 +29,42 @@ const QUESTIONS = {
   ],
 }
 const DAILY = {
-  title: 'Reto de 60 cambios de acorde',
-  difficulty: 2,
-  description: 'Cambia entre Em y Am.',
-  steps: ['Haz 60 cambios'],
-  estimate: '20 min',
-  skill: 'Ritmo',
+  missions: [
+    {
+      title: 'Reto de 60 cambios de acorde',
+      difficulty: 2,
+      description: 'Cambia entre Em y Am.',
+      steps: ['Haz 60 cambios'],
+      estimate: '20 min',
+      skill: 'Ritmo',
+      kind: 'campaign',
+    },
+    {
+      title: 'Lee 10 páginas',
+      difficulty: 1,
+      description: 'Hazlo.',
+      steps: ['Lee'],
+      estimate: '15 min',
+      skill: '',
+      kind: 'habit',
+    },
+    {
+      title: 'Camina 15 minutos',
+      difficulty: 1,
+      description: 'Sal.',
+      steps: ['Camina'],
+      estimate: '15 min',
+      skill: '',
+      kind: 'free',
+    },
+  ],
 }
 
 const ok = (data: unknown): HttpResponse => ({ status: 200, data })
 const bodyText = (sent: Sent) => JSON.stringify(sent.body)
 const isInteraction = (sent: Sent) => sent.url.endsWith('/interactions')
 const isQuestions = (sent: Sent) => bodyText(sent).includes('escribe de 2 a 4 preguntas')
-const isDaily = (sent: Sent) => bodyText(sent).includes('misión del día')
+const isDaily = (sent: Sent) => bodyText(sent).includes('misiones del día')
 const isAct = (sent: Sent) => bodyText(sent).includes('Diseña ahora las misiones del Acto')
 
 /** Gemini simulado: responde según la tarea que se le pide. `overrides` permite forzar fallos. */
@@ -382,7 +405,7 @@ describe('Misión del día', () => {
     await createHabit(db, { title: 'Tomar agua', difficulty: 1 })
 
     const first = render(<App />)
-    const card = await screen.findByRole('region', { name: 'Misión del día' })
+    const card = await screen.findByRole('region', { name: 'Misiones del día' })
     expect(within(card).getByText('Reto de 60 cambios de acorde')).toBeTruthy()
     expect(calls(isDaily)).toHaveLength(1)
     expect(calls(isDaily)[0].url).toContain('gemini-3.5-flash-lite:generateContent')
@@ -391,7 +414,7 @@ describe('Misión del día', () => {
     // Abrir la app otra vez reutiliza la misión ya generada.
     first.unmount()
     render(<App />)
-    const again = await screen.findByRole('region', { name: 'Misión del día' })
+    const again = await screen.findByRole('region', { name: 'Misiones del día' })
     expect(calls(isDaily)).toHaveLength(1)
 
     await user.click(within(again).getByRole('checkbox', { name: 'Reto de 60 cambios de acorde' }))
@@ -406,8 +429,8 @@ describe('Misión del día', () => {
     gemini({ daily: () => ({ status: 500, data: {} }) })
 
     const first = render(<App />)
-    const retry = await screen.findByRole('button', { name: /No se pudo generar la misión del día/ })
-    expect(screen.queryByRole('region', { name: 'Misión del día' })).toBeNull()
+    const retry = await screen.findByRole('button', { name: /No se pudieron generar las misiones del día/ })
+    expect(screen.queryByRole('region', { name: 'Misiones del día' })).toBeNull()
     expect(screen.getByText('Hábitos de hoy')).toBeTruthy()
 
     // Volver a abrir la app el mismo día no repite la llamada automática.
@@ -420,8 +443,8 @@ describe('Misión del día', () => {
 
     // El botón de reintentar sí vuelve a llamar, y al funcionar aparece la misión.
     gemini()
-    await user.click(await screen.findByRole('button', { name: /No se pudo generar la misión del día/ }))
-    expect(await screen.findByRole('region', { name: 'Misión del día' })).toBeTruthy()
+    await user.click(await screen.findByRole('button', { name: /No se pudieron generar las misiones del día/ }))
+    expect(await screen.findByRole('region', { name: 'Misiones del día' })).toBeTruthy()
     expect(calls(isDaily)).toHaveLength(2)
   }, 30_000)
 
@@ -439,7 +462,7 @@ describe('Misión del día', () => {
     await screen.findByText('Hábitos de hoy')
     await new Promise((resolve) => setTimeout(resolve, 50))
     expect(calls(isDaily)).toHaveLength(0)
-    expect(screen.queryByRole('region', { name: 'Misión del día' })).toBeNull()
+    expect(screen.queryByRole('region', { name: 'Misiones del día' })).toBeNull()
   }, 30_000)
 })
 
@@ -489,5 +512,29 @@ describe('Libreta y navegación', () => {
       within(await screen.findByRole('dialog', { name: 'Menú' })).getByRole('button', { name: /Perfil/ }),
     )
     await screen.findByRole('dialog', { name: 'Perfil' })
+  }, 30_000)
+
+  it('la tienda: crear un premio, canjearlo con el oro ganado y verlo en el historial', async () => {
+    const habit = await createHabit(db, { title: 'Correr', difficulty: 5 })
+    render(<App />)
+    await user.click(await screen.findByRole('checkbox', { name: 'Correr' }))
+    await waitFor(async () => expect((await getHud(db, today())).totalXp).toBe(200))
+
+    await user.click(await screen.findByRole('button', { name: /20 de oro: abrir la tienda/ }))
+    await screen.findByRole('dialog', { name: 'Tienda' })
+    await user.click(await screen.findByRole('button', { name: 'Nuevo premio' }))
+    await user.type(await screen.findByPlaceholderText('Pedir una pizza'), 'Un postre')
+    const price = screen.getByRole('spinbutton')
+    await user.clear(price)
+    await user.type(price, '15')
+    await user.click(screen.getByRole('button', { name: 'Crear' }))
+
+    await user.click(await screen.findByRole('button', { name: 'Canjear' }))
+    const confirm = await screen.findByRole('dialog', { name: /¿Canjear «Un postre»\?/ })
+    await user.click(within(confirm).getByRole('button', { name: 'Canjear' }))
+    await waitFor(async () => expect(await db.redemptions.count()).toBe(1))
+    expect((await db.redemptions.toArray())[0]).toMatchObject({ title: 'Un postre', cost: 15 })
+    await screen.findByRole('region', { name: 'Historial de canjes' })
+    expect(habit.title).toBe('Correr')
   }, 30_000)
 })

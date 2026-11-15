@@ -95,6 +95,20 @@ export const dailySchema = detailSchema.extend({
 
 export type DailyPlan = z.infer<typeof dailySchema>
 
+/** Las tres misiones del día; si la IA manda menos, se usan las que haya. */
+export const dailiesSchema = z.object({
+  missions: z
+    .array(
+      dailySchema.extend({
+        kind: z.enum(['campaign', 'habit', 'free']).catch('free'),
+      }),
+    )
+    .min(1)
+    .transform((list) => list.slice(0, 3)),
+})
+
+export type DailiesPlan = z.infer<typeof dailiesSchema>['missions']
+
 const MAX_LEAVES = 8
 
 /** Quita sub-habilidades repetidas con otro nombre y amarra cada misión a una que exista. */

@@ -10,6 +10,7 @@ const loaders = {
   notebook: () => import('./notebook/NotebookTab'),
   generator: () => import('./generator/GeneratorSheet'),
   review: () => import('./review/ReviewSheet'),
+  shop: () => import('./shop/ShopScreen'),
 }
 
 export const CampaignMap = lazy(() => loaders.map().then((module) => ({ default: module.CampaignMap })))
@@ -19,6 +20,8 @@ export const JournalTab = lazy(() => loaders.journal().then((module) => ({ defau
 export const NotebookTab = lazy(() => loaders.notebook().then((module) => ({ default: module.NotebookTab })))
 export const GeneratorSheet = lazy(() => loaders.generator().then((module) => ({ default: module.GeneratorSheet })))
 export const ReviewSheet = lazy(() => loaders.review().then((module) => ({ default: module.ReviewSheet })))
+
+export const ShopScreen = lazy(() => loaders.shop().then((module) => ({ default: module.ShopScreen })))
 
 /** Descarga todas las pantallas diferidas cuando la app ya terminó de arrancar. */
 export function preloadScreens() {

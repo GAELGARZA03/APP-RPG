@@ -5,6 +5,7 @@ import {
   BellRing,
   ChevronRight,
   Flame,
+  Gift,
   Lock,
   Menu,
   NotebookPen,
@@ -26,6 +27,7 @@ import type { Habit, Campaign, SideQuest } from './data/db'
 import type { GameDay } from './game/gameDay'
 import {
   archiveHabit,
+  checkGoalRewards,
   createHabit,
   createCampaign,
   createSideQuest,
@@ -43,6 +45,7 @@ import {
 } from './data/gameStore'
 import { getCosmetics, getNotificationSettings, getPrefs, getProfile } from './data/settings'
 import { effectiveCosmetics, THEMES, titleName, unlocksBetween } from './game/cosmetics'
+import { goldForXp } from './game/rules'
 import { haptic, setHapticsEnabled } from './platform/haptics'
 import { applyNotificationSettings, notificationsSupported } from './platform/notifications'
 import { ActCelebration } from './ui/ActCelebration'
@@ -56,6 +59,7 @@ import {
   NotebookTab,
   preloadScreens,
   ReviewSheet,
+  ShopScreen,
   SkillTreeScreen,
 } from './ui/lazyScreens'
 import { Logo } from './ui/kit/Logo'
@@ -96,7 +100,12 @@ type Sheet =
 
 /** Pantallas completas que se abren sobre las pestañas. */
 type FullScreen =
-  { kind: 'map'; campaignId: string } | { kind: 'tree'; from?: 'profile' } | { kind: 'settings' } | { kind: 'profile' }
+  | { kind: 'map'; campaignId: string }
+  | { kind: 'tree'; from?: 'profile' }
+  | { kind: 'settings' }
+  | { kind: 'profile' }
+  | { kind: 'shop' }
+  | { kind: 'shop' }
 
 type FormSheetKind = Exclude<Sheet, { kind: 'generate' | 'settings' | 'profile' | 'review' | 'habits' }>
 
@@ -246,7 +255,9 @@ export function App() {
     if (outcome.xp > 0) {
       playComplete()
       haptic(outcome.boss ? 'boss' : 'complete')
-      toast(outcome.boss ? `¡Jefe derrotado! +${outcome.xp} XP` : `+${outcome.xp} XP`, {
+      const gold = goldForXp(outcome.xp)
+      const reward = `+${outcome.xp} XP${gold > 0 ? ` · +${gold} de oro` : ''}`
+      toast(outcome.boss ? `¡Jefe derrotado! ${reward}` : reward, {
         icon: outcome.boss ? (
           <Skull aria-hidden className="size-5 text-ember" />
         ) : (
@@ -265,7 +276,26 @@ export function App() {
       haptic('unlock')
       setCelebration(outcome.act)
     }
+    void announceEarnedRewards()
   }
+
+  /** Premios por meta que se acaban de cumplir: aviso, vibración y quedan listos en la tienda. */
+  async function announceEarnedRewards() {
+    for (const reward of await checkGoalRewards(db, today)) {
+      haptic('unlock')
+      toast(`¡Ganaste tu premio! ${reward.emoji ?? '🎁'} ${reward.title}`, {
+        description: reward.goal?.label,
+        icon: <Gift aria-hidden className="size-5 text-gold" />,
+        duration: 6000,
+        action: { label: 'Ir a la tienda', onClick: () => setScreen({ kind: 'shop' }) },
+      })
+    }
+  }
+
+  // Al abrir la app o cambiar de día también se revisan (por ejemplo, una racha que se cumplió ayer).
+  useEffect(() => {
+    void announceEarnedRewards()
+  }, [today])
 
   // Las pantallas pesadas no van en el paquete inicial; se descargan en cuanto la app queda libre.
   useEffect(() => preloadScreens(), [])
@@ -385,6 +415,7 @@ export function App() {
               onProfile={() => setScreen({ kind: 'profile' })}
               onCreate={() => setSheet({ kind: 'newHabit' })}
               onNotebook={() => setTab('notebook')}
+              onShop={() => setScreen({ kind: 'shop' })}
               onOpenDiary={openDiary}
               onReview={(weekStart) => setSheet({ kind: 'review', weekStart })}
               onOpen={(ref) => void openDetail(ref)}
@@ -508,6 +539,11 @@ export function App() {
           </div>
         </Screen>
       )}
+      {screen?.kind === 'shop' && (
+        <Suspense fallback={null}>
+          <ShopScreen today={today} onClose={closeScreen} />
+        </Suspense>
+      )}
       {screen?.kind === 'settings' && (
         <Screen title="Ajustes" onClose={closeScreen}>
           <div className="mx-auto flex max-w-md flex-col gap-4 px-4 pb-10">
@@ -528,8 +564,9 @@ export function App() {
             onSelect={(destination) => {
               setMenuOpen(false)
               // Reglas y Acerca de son las mismas secciones de Ajustes, en su hoja.
-              if (destination === 'settings' || destination === 'profile') setScreen({ kind: destination })
-              else setSheet({ kind: 'settings', section: destination })
+              if (destination === 'settings' || destination === 'profile' || destination === 'shop') {
+                setScreen({ kind: destination })
+              } else setSheet({ kind: 'settings', section: destination })
             }}
           />
         )}

@@ -179,6 +179,8 @@ export async function resetProgress(db: GameDatabase, options: { keepHabits: boo
         db.habitLogs,
         db.dailyNotes,
         db.sleep,
+        db.rewards,
+        db.redemptions,
       ].map((table) => table.clear()),
     )
     if (options.keepHabits) {

@@ -47,12 +47,11 @@ export async function connect(app) {
         : 'La app personal no está instalada.',
     )
   }
-  let pid = pidOf(app)
-  if (!pid) {
-    run('shell', 'monkey', '-p', app, '-c', 'android.intent.category.LAUNCHER', '1')
-    await new Promise((resolve) => setTimeout(resolve, 4000))
-    pid = pidOf(app)
-  }
+  // Siempre se trae la app al frente: en segundo plano, su WebView no ejecuta nada y el script se queda esperando.
+  const wasRunning = Boolean(pidOf(app))
+  run('shell', 'monkey', '-p', app, '-c', 'android.intent.category.LAUNCHER', '1')
+  await new Promise((resolve) => setTimeout(resolve, wasRunning ? 1500 : 4000))
+  const pid = pidOf(app)
   if (!pid) throw new Error('La app no está abierta y no se pudo abrir. ¿El teléfono está desbloqueado?')
   run('forward', 'tcp:9229', `localabstract:webview_devtools_remote_${pid}`)
   const pages = await (await fetch('http://127.0.0.1:9229/json')).json()

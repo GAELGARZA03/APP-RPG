@@ -1,12 +1,12 @@
 import { db } from '../data/appDb'
-import { getDaily, getDailyContext, saveDaily } from '../data/gameStore'
+import { getDailies, getDailyContext, saveDailies } from '../data/gameStore'
 import { gameDayOf } from '../game/gameDay'
 import { httpRequest } from '../platform/http'
-import { generateDaily } from './gemini'
+import { generateDailies } from './gemini'
 import { aiSession } from './session'
 
 /**
- * `ready`: ya hay misión de hoy. `none`: no hay de dónde generarla (sin llave, sin campañas ni habilidades).
+ * `ready`: ya hay misiones de hoy. `none`: no hay de dónde generarlas (sin llave, sin campañas, hábitos ni habilidades).
  * `failed`: la llamada falló; se puede reintentar a mano. `waiting`: ya se intentó hoy y no se repite sola.
  */
 export type DailyStatus = 'ready' | 'none' | 'failed' | 'waiting'
@@ -32,7 +32,7 @@ function markAttempt(today: string) {
 
 async function run(now: Date, manual: boolean): Promise<DailyStatus> {
   const today = gameDayOf(now)
-  if (await getDaily(db, today)) return 'ready'
+  if ((await getDailies(db, today)).length > 0) return 'ready'
   // Una sola llamada automática por día de juego; el botón de reintentar sí puede repetirla.
   if (!manual && attemptedToday(today)) return 'waiting'
 
@@ -43,14 +43,14 @@ async function run(now: Date, manual: boolean): Promise<DailyStatus> {
 
   markAttempt(today)
   try {
-    const plan = await generateDaily(httpRequest, {
+    const missions = await generateDailies(httpRequest, {
       apiKey: session.apiKey,
       model: session.fastModel,
       context,
       // Es una llamada de fondo y sigue siendo una sola por día: si falla, se ofrece reintentar a mano.
       retry: false,
     })
-    await saveDaily(db, { ...plan, campaignId: context.campaignId, branchId: context.branchId }, now)
+    await saveDailies(db, missions, { campaignId: context.campaignId, branchId: context.branchId }, now)
     return 'ready'
   } catch {
     return 'failed'
@@ -58,7 +58,7 @@ async function run(now: Date, manual: boolean): Promise<DailyStatus> {
 }
 
 /**
- * Genera la misión del día si hace falta. Las llamadas simultáneas (por ejemplo, el doble
+ * Genera las tres misiones del día si hace falta (una sola llamada). Las llamadas simultáneas (por ejemplo, el doble
  * montaje de React o abrir la app dos veces seguidas) comparten la misma petición.
  */
 export function ensureDailyMission(now = new Date(), manual = false): Promise<DailyStatus> {

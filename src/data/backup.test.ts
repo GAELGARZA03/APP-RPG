@@ -14,7 +14,7 @@ import {
   createCampaign,
   createSideQuest,
   getCampaign,
-  getDaily,
+  getDailies,
   getHud,
   getJournal,
   getMissions,
@@ -117,13 +117,13 @@ describe('Respaldo', () => {
     await saveAiModels(target, { mainModel: 'modelo-de-este-telefono' })
 
     const backup = parseBackup(JSON.stringify(await createBackup(source, noon)))
-    expect(backup.version).toBe(6)
+    expect(backup.version).toBe(7)
     await restoreBackup(target, backup)
 
     expect(await getCampaign(target, campaign.id)).toEqual(await getCampaign(source, campaign.id))
     expect(await getSkillTree(target)).toEqual(await getSkillTree(source))
     expect(await getJournal(target)).toEqual(await getJournal(source))
-    expect(await getDaily(target, today)).toEqual(await getDaily(source, today))
+    expect(await getDailies(target, today)).toEqual(await getDailies(source, today))
     expect(await getHud(target, today)).toEqual(await getHud(source, today))
     expect((await getPrefs(target)).haptics).toBe(false)
     // Los modelos de IA no viajan en el respaldo: se conservan los del teléfono que importa.

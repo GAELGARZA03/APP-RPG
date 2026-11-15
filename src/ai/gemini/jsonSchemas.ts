@@ -92,12 +92,24 @@ export const DETAIL_JSON_SCHEMA = {
 export const DAILY_JSON_SCHEMA = {
   type: 'object',
   properties: {
-    title: text,
-    difficulty: { type: 'integer', minimum: 1, maximum: 2 },
-    description: text,
-    steps: { type: 'array', items: text, minItems: 1, maxItems: 3 },
-    estimate: text,
-    skill: text,
+    missions: {
+      type: 'array',
+      minItems: 3,
+      maxItems: 3,
+      items: {
+        type: 'object',
+        properties: {
+          title: text,
+          difficulty: { type: 'integer', minimum: 1, maximum: 2 },
+          description: text,
+          steps: { type: 'array', items: text, minItems: 1, maxItems: 3 },
+          estimate: text,
+          skill: text,
+          kind: { type: 'string', enum: ['campaign', 'habit', 'free'] },
+        },
+        required: ['title', 'difficulty', 'description', 'steps', 'estimate', 'skill', 'kind'],
+      },
+    },
   },
-  required: ['title', 'difficulty', 'description', 'steps', 'estimate', 'skill'],
+  required: ['missions'],
 }

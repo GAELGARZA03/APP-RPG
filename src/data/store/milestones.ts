@@ -6,7 +6,7 @@ import type { GameDatabase } from '../db'
 import { buildCampaignView } from './campaigns'
 import { allTables } from './shared'
 
-export type MilestoneKind = 'level' | 'act' | 'boss' | 'mastery'
+export type MilestoneKind = 'level' | 'act' | 'boss' | 'mastery' | 'reward'
 
 export interface Milestone {
   id: string
@@ -87,6 +87,28 @@ export async function getMilestones(db: GameDatabase): Promise<Milestone[]> {
           subtitle: campaign.title,
         })
       }
+    }
+
+    // Premios: los ganados al cumplir una meta y los canjes de la tienda.
+    for (const reward of await db.rewards.toArray()) {
+      if (reward.goal && reward.earnedDay) {
+        milestones.push({
+          id: `premio-${reward.id}`,
+          day: reward.earnedDay,
+          kind: 'reward',
+          title: `Ganaste tu premio: ${reward.emoji ? `${reward.emoji} ` : ''}${reward.title}`,
+          subtitle: reward.goal.label,
+        })
+      }
+    }
+    for (const item of await db.redemptions.toArray()) {
+      milestones.push({
+        id: `canje-${item.id}`,
+        day: item.day,
+        kind: 'reward',
+        title: `Canjeaste: ${item.emoji ? `${item.emoji} ` : ''}${item.title}`,
+        subtitle: item.cost > 0 ? `${item.cost} de oro` : 'Premio ganado',
+      })
     }
 
     return milestones.sort((a, b) => b.day.localeCompare(a.day))

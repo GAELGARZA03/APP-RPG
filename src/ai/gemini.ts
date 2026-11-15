@@ -11,7 +11,7 @@ export type {
   TaskDetailPlan,
   ThinkingLevel,
 } from './gemini/types'
-export type { DailyPlan } from './gemini/validation'
+export type { DailiesPlan, DailyPlan } from './gemini/validation'
 export { buildRequest, errorForStatus } from './gemini/transport'
 export { STATUS_MESSAGES, retryConfig } from './gemini/resilience'
 export type { CallStage, CallStatus, Resilience, StatusListener } from './gemini/resilience'
@@ -23,7 +23,7 @@ export {
   designCampaign,
   detailTask,
   generateAct,
-  generateDaily,
+  generateDailies,
   listModels,
 } from './gemini/calls'
 export { generateWeeklyReview, reviewInput } from './gemini/review'

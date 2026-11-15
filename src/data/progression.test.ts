@@ -18,7 +18,7 @@ import {
   getActReport,
   getAiContext,
   getCampaign,
-  getDaily,
+  getDailies,
   getDailyContext,
   getHud,
   getJournal,
@@ -27,6 +27,7 @@ import {
   getTaskDetail,
   getTodayHabits,
   resetProgress,
+  saveDailies,
   saveDaily,
   skipSideQuest,
   toggleStep,
@@ -612,17 +613,33 @@ describe('Misión del día', () => {
     expect(context.skills).toEqual(['Fundamentos', 'Acordes abiertos', 'Ritmo', 'Repertorio'])
   })
 
-  it('sin campañas activas ni habilidades no hay de dónde generarla', async () => {
+  it('sin campañas, hábitos ni habilidades no hay de dónde generarlas; con un hábito sí', async () => {
     expect(await getDailyContext(db, gameDayOf(day(0)))).toBeNull()
+    await createHabit(db, { title: 'Leer', difficulty: 1 }, day(0))
+    expect(await getDailyContext(db, gameDayOf(day(0)))).toMatchObject({ campaign: null, habits: ['Leer'] })
   })
 
-  it('hay una sola por día de juego, da XP extra y cuenta para la racha', async () => {
+  it('son tres por día de juego, dan XP extra y cuentan para la racha', async () => {
     const campaign = await guitar()
-    const first = await saveDaily(db, { ...plan, campaignId: campaign.id, branchId: campaign.skillId }, day(0))
-    const second = await saveDaily(db, { ...plan, title: 'Otra' }, day(0, 20))
-
-    expect(second.title).toBe('Reto relámpago')
-    expect(await db.dailies.count()).toBe(1)
+    const saved = await saveDailies(
+      db,
+      [
+        { ...plan, kind: 'campaign' },
+        { ...plan, title: 'Lee 10 páginas', kind: 'habit', skill: '' },
+        { ...plan, title: 'Camina 15 minutos', kind: 'free', skill: '' },
+        { ...plan, title: 'Sobra', kind: 'free' },
+      ],
+      { campaignId: campaign.id, branchId: campaign.skillId },
+      day(0),
+    )
+    const first = saved[0]
+    expect(saved.map((daily) => daily.slot)).toEqual([1, 2, 3])
+    // Solo la de campaña queda ligada a la campaña.
+    expect(saved.map((daily) => daily.campaignId ?? null)).toEqual([campaign.id, null, null])
+    // Pedirlas otra vez el mismo día conserva las que había.
+    const again = await saveDailies(db, [{ ...plan, title: 'Otra' }], {}, day(0, 20))
+    expect(again.map((daily) => daily.title)).toEqual(saved.map((daily) => daily.title))
+    expect((await getDailies(db, gameDayOf(day(0)))).map((daily) => daily.title)).toHaveLength(3)
 
     expect(await completeDaily(db, first.id, day(0))).toEqual({ ok: true, xp: 75 })
     expect(await completeDaily(db, first.id, day(0))).toMatchObject({ ok: false })
@@ -637,8 +654,8 @@ describe('Misión del día', () => {
     await guitar()
     const first = await saveDaily(db, plan, day(0))
 
-    expect(await getDaily(db, gameDayOf(day(1, 3)))).not.toBeNull()
-    expect(await getDaily(db, gameDayOf(day(1, 5)))).toBeNull()
+    expect(await getDailies(db, gameDayOf(day(1, 3)))).toHaveLength(1)
+    expect(await getDailies(db, gameDayOf(day(1, 5)))).toHaveLength(0)
     expect(await completeDaily(db, first.id, day(1, 5))).toMatchObject({ ok: false, blocked: 'locked' })
     expect(await toggleStep(db, { kind: 'daily', id: first.id }, 0, day(1, 5))).toMatchObject({ ok: false })
 

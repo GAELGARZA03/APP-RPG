@@ -5,10 +5,11 @@ import { useBack } from '../backStack'
 import { Button } from '../kit/Button'
 import { Logo } from '../kit/Logo'
 
-export type MenuDestination = 'profile' | 'settings' | 'rules' | 'about'
+export type MenuDestination = 'profile' | 'shop' | 'settings' | 'rules' | 'about'
 
 const ITEMS: Array<{ id: MenuDestination; label: string; hint: string; icon: LucideIcon }> = [
   { id: 'profile', label: 'Perfil', hint: 'Nivel, árbol de habilidades, títulos y temas', icon: UserRound },
+  { id: 'shop', label: 'Tienda', hint: 'Canjea tu oro por premios reales', icon: Gift },
   { id: 'settings', label: 'Ajustes', hint: 'Recordatorios, IA y respaldo', icon: Settings },
   { id: 'rules', label: 'Reglas del juego', hint: 'XP, rachas, hábitos y actos', icon: BookOpen },
   { id: 'about', label: 'Acerca de', hint: 'Versión y privacidad', icon: Info },
@@ -72,10 +73,6 @@ export function SideMenu({
             </span>
           </motion.button>
         ))}
-        <p className="mt-auto flex items-center gap-2 px-3 text-xs text-muted">
-          <Gift aria-hidden className="size-4" />
-          Pronto: la tienda de recompensas.
-        </p>
       </motion.div>
     </div>
   )

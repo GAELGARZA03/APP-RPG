@@ -46,7 +46,9 @@ const RULES = [
   'En una campaña solo está abierto el primer acto sin terminar; nunca se bloquea por tu nivel.',
   'La misión jefe da el doble de XP y pide una foto o una nota como evidencia.',
   'Saltar una misión («Ya sé hacer esto») cuenta para avanzar, pero no da XP.',
-  'La misión del día da 50% más de XP y cuenta para tu racha.',
+  'Cada día hay tres misiones del día: dan 50% más de XP, cuentan para tu racha y caducan a las 4:00 a. m.',
+  'Ganas 1 de oro por cada 10 XP y 20 por cerrar un acto. Canjéalo en la Tienda por premios que tú defines; deshacer algo devuelve su oro.',
+  'Un premio por meta se gana al cumplirla (terminar una campaña o un acto, completar una misión o una racha de un hábito) y se canjea gratis.',
 ]
 
 function RulesPanel({ headingId }: { headingId: string }) {

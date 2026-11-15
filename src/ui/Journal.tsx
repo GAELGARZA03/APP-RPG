@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Award, BookHeart, Flag, NotebookPen, Skull, Star, Trophy, type LucideIcon } from 'lucide-react'
+import { Award, BookHeart, Flag, Gift, NotebookPen, Skull, Star, Trophy, type LucideIcon } from 'lucide-react'
 import { AnimatePresence } from 'motion/react'
 import { useEffect, useState } from 'react'
 import { db } from '../data/appDb'
@@ -113,7 +113,13 @@ const FILTERS: Array<{ id: ProgressFilter; label: string }> = [
   { id: 'evidence', label: 'Evidencias' },
   { id: 'milestones', label: 'Hitos' },
 ]
-const MILESTONE_ICON: Record<MilestoneKind, LucideIcon> = { level: Star, act: Flag, boss: Skull, mastery: Award }
+const MILESTONE_ICON: Record<MilestoneKind, LucideIcon> = {
+  level: Star,
+  act: Flag,
+  boss: Skull,
+  mastery: Award,
+  reward: Gift,
+}
 
 function Progress({ onOpen }: { onOpen: (ref: TaskRef) => void }) {
   const allEntries = useLiveQuery(() => getJournal(db), [])

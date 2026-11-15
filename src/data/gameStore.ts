@@ -70,7 +70,15 @@ export {
 export { toggleStep } from './store/steps'
 export { addEvidence, deleteEvidence, getJournal } from './store/journal'
 export type { JournalEntry } from './store/journal'
-export { completeDaily, getDaily, getDailyContext, saveDaily, undoDaily } from './store/daily'
+export {
+  completeDaily,
+  DAILIES_PER_DAY,
+  getDailies,
+  getDailyContext,
+  saveDailies,
+  saveDaily,
+  undoDaily,
+} from './store/daily'
 export type { DailyContext, DailyView } from './store/daily'
 export {
   applyAdjustment,
@@ -99,3 +107,15 @@ export { clampSleep, getSleep, getSleepRange, MAX_SLEEP_HOURS, setSleep, SLEEP_G
 export type { SleepRange } from './store/sleep'
 export { getMilestones } from './store/milestones'
 export type { Milestone, MilestoneKind } from './store/milestones'
+export {
+  archiveReward,
+  checkGoalRewards,
+  createReward,
+  getCampaignStreaks,
+  getShop,
+  getWallet,
+  MAX_REWARD_PRICE,
+  redeemReward,
+  updateReward,
+} from './store/shop'
+export type { RedeemResult, RewardInput, Shop, Wallet } from './store/shop'

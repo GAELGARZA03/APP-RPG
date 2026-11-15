@@ -37,7 +37,7 @@ export async function toggleStep(db: GameDatabase, ref: TaskRef, index: number, 
     if (ref.kind === 'daily') {
       const daily = await db.dailies.get(ref.id)
       const count = daily?.steps?.length ?? 0
-      if (!daily || index < 0 || index >= count || daily.id !== today) return FAILED
+      if (!daily || index < 0 || index >= count || daily.day !== today) return FAILED
       const done = toggled(daily.stepsDone ?? [], index)
 
       if (daily.completedDay !== null && done.length < count) await undoDaily(db, ref.id)

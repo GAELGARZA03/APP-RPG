@@ -102,8 +102,15 @@ export interface SideQuest extends TaskDetail {
 }
 
 /** Reto pequeño generado una vez por día de juego. Su `id` es el día, así nunca hay dos. */
+/** Una de las tres misiones del día. `id` es `día#número` (las de antes de la v9 usaban solo el día). */
 export interface Daily extends TaskDetail {
-  id: GameDay
+  id: string
+  /** Día de juego al que pertenece; caduca a las 4:00 a. m. del día siguiente. */
+  day: GameDay
+  /** Posición (1 a 3). */
+  slot: number
+  /** De dónde sale: del acto de una campaña, de un hábito o habilidad, o un reto libre. */
+  kind?: 'campaign' | 'habit' | 'free'
   title: string
   difficulty: Difficulty
   createdAt: number
@@ -160,6 +167,41 @@ export interface DailyNote {
 export interface SleepLog {
   id: GameDay
   hours: number
+}
+
+/** Premio real que el jugador se da: se canjea con oro o se gana al cumplir una meta. */
+export interface Reward {
+  id: string
+  title: string
+  emoji?: string
+  /** Precio en oro; 0 en los premios por meta. */
+  price: number
+  /** Se puede canjear varias veces (los premios por meta, una sola). */
+  repeatable: boolean
+  createdAt: number
+  /** Ya no se ofrece en la tienda (su historial de canjes se conserva). */
+  archived?: boolean
+  /** Premio por meta: se gana al cumplirla y se canjea gratis. */
+  goal?: RewardGoal
+  /** Día en que se cumplió la meta. */
+  earnedDay?: GameDay | null
+}
+
+export type RewardGoal =
+  | { kind: 'campaign'; targetId: string; label: string }
+  | { kind: 'act'; targetId: string; label: string }
+  | { kind: 'quest'; targetId: string; label: string }
+  | { kind: 'habitStreak'; targetId: string; days: number; label: string }
+
+/** Un canje en la tienda. Se guarda el nombre por si después cambia o se borra el premio. */
+export interface Redemption {
+  id: string
+  rewardId: string
+  title: string
+  emoji?: string
+  cost: number
+  day: GameDay
+  createdAt: number
 }
 
 /** Una misión propuesta por la IA, sin el resto de campos de una misión guardada. */
@@ -272,6 +314,8 @@ export class GameDatabase extends Dexie {
   habitLogs!: EntityTable<HabitLog, 'id'>
   dailyNotes!: EntityTable<DailyNote, 'id'>
   sleep!: EntityTable<SleepLog, 'id'>
+  rewards!: EntityTable<Reward, 'id'>
+  redemptions!: EntityTable<Redemption, 'id'>
 
   constructor(name = 'real-life-rpg') {
     super(name)
@@ -341,6 +385,19 @@ export class GameDatabase extends Dexie {
     this.version(7).stores({ dailyNotes: 'id' })
     // v8: registro de sueño.
     this.version(8).stores({ sleep: 'id' })
+    // v9: tres misiones del día (índice por día), premios y canjes. Las misiones del día de antes
+    // conservan su id (el día) y pasan a ser la número 1 de ese día.
+    this.version(9)
+      .stores({ dailies: 'id, day', rewards: 'id', redemptions: 'id, day' })
+      .upgrade(async (transaction) => {
+        await transaction
+          .table('dailies')
+          .toCollection()
+          .modify((daily: Partial<Daily> & { id: string }) => {
+            daily.day ??= daily.id.slice(0, 10)
+            daily.slot ??= 1
+          })
+      })
   }
 }
 

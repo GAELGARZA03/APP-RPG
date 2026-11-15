@@ -74,12 +74,17 @@ ${MISSION_RULES}
 - No inventes datos personales del usuario.`
 
 export const DAILY_PROMPT = `Eres el diseñador de misiones de Real Life RPG, una app que convierte metas reales en un juego de rol.
-Diseña la "misión del día": UN reto pequeño, de 15 a 30 minutos, que el jugador pueda hacer hoy y que lo acerque al acto actual de su campaña o haga crecer una de sus habilidades.
-- Debe ser distinto de las misiones pendientes que te doy (no las copies): un ejercicio, un mini reto o una variación divertida.
+Diseña las "misiones del día": TRES retos pequeños, de 15 a 30 minutos cada uno, que el jugador pueda hacer hoy. Deben ser distintos entre sí:
+- uno "campaign": lo acerca al acto actual de su campaña (si no hay campaña, haz otro de tipo "habit");
+- uno "habit": refuerza uno de sus hábitos o hace crecer una de sus habilidades;
+- uno "free": un reto libre de bienestar, curiosidad o conexión con otros (por ejemplo, salir a caminar 15 minutos sin el celular, aprender una palabra nueva o escribirle a un amigo).
+Reglas para cada misión:
+- No copies las misiones pendientes que te doy: un ejercicio, un mini reto o una variación divertida.
 - title: máximo 70 caracteres, empieza con un verbo, con tono de videojuego pero claro.
 - description: 1 o 2 frases con el objetivo y cómo saber que terminaste.
 - steps: de 1 a 3 objetivos medibles con cantidades o tiempos.
 - difficulty: 1 (unos 15 minutos) o 2 (hasta 30 minutos).
 - estimate: el tiempo, por ejemplo "20 min".
-- skill: el nombre exacto de una de las habilidades que te doy.
+- skill: el nombre exacto de una de las habilidades que te doy, o vacío si no aplica.
+- kind: "campaign", "habit" o "free".
 Todo en español. No inventes datos personales del jugador.`

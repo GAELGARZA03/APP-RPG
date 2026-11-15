@@ -11,7 +11,7 @@ import {
   designInput,
   detailTask,
   generateAct,
-  generateDaily,
+  generateDailies,
   retryConfig,
   type ActBrief,
   type CallStatus,
@@ -497,32 +497,50 @@ describe('Misión del día', () => {
     act: { number: 1, title: 'Primeros acordes', goal: 'Sonar limpio' },
     pending: ['Domina Em y Am'],
     skills: ['Fundamentos', 'Ritmo'],
+    habits: ['Leer 20 minutos'],
   }
+  const mission = (title: string, kind: string, difficulty = 1) => ({
+    title,
+    difficulty,
+    description: 'Hazlo.',
+    steps: ['Uno'],
+    estimate: '20 min',
+    skill: 'Ritmo',
+    kind,
+  })
 
-  it('pide un reto pequeño ligado al acto actual, con el modelo rápido', async () => {
+  it('pide tres retos variados en una sola llamada al modelo rápido', async () => {
     const request = replying(
       generateReply({
-        title: 'Reto de 60 cambios',
-        difficulty: 4,
-        description: 'Hazlo.',
-        steps: ['Haz 60 cambios'],
-        estimate: '20 min',
-        skill: 'Ritmo',
+        missions: [
+          mission('Reto de 60 cambios', 'campaign', 4),
+          mission('Lee 10 páginas', 'habit'),
+          mission('Camina 15 min', 'free'),
+        ],
       }),
     )
 
-    const daily = await generateDaily(request, { apiKey: 'k', model: 'gemini-3.5-flash-lite', context: dailyContext })
+    const missions = await generateDailies(request, {
+      apiKey: 'k',
+      model: 'gemini-3.5-flash-lite',
+      context: dailyContext,
+    })
 
-    // La dificultad se limita a 1 o 2: es un reto de 15 a 30 minutos.
-    expect(daily).toMatchObject({ title: 'Reto de 60 cambios', difficulty: 2, skill: 'Ritmo' })
+    // La dificultad se limita a 1 o 2: son retos de 15 a 30 minutos.
+    expect(missions.map(({ title, kind, difficulty }) => ({ title, kind, difficulty }))).toEqual([
+      { title: 'Reto de 60 cambios', kind: 'campaign', difficulty: 2 },
+      { title: 'Lee 10 páginas', kind: 'habit', difficulty: 1 },
+      { title: 'Camina 15 min', kind: 'free', difficulty: 1 },
+    ])
+    expect(request).toHaveBeenCalledTimes(1)
     const sent = request.mock.calls[0][0]
     expect(sent.url).toContain('gemini-3.5-flash-lite:generateContent')
     expect(JSON.stringify(sent.body)).toContain('Primeros acordes')
-    expect(JSON.stringify(sent.body)).toContain('Domina Em y Am')
+    expect(JSON.stringify(sent.body)).toContain('Leer 20 minutos')
   })
 
-  it('rechaza una misión sin título', async () => {
-    const request = replying(generateReply({ title: '', difficulty: 1 }))
-    await expectKind(generateDaily(request, { apiKey: 'k', model: 'm', context: dailyContext }), 'bad-response')
+  it('rechaza una respuesta sin misiones válidas', async () => {
+    const request = replying(generateReply({ missions: [{ title: '', difficulty: 1 }] }))
+    await expectKind(generateDailies(request, { apiKey: 'k', model: 'm', context: dailyContext }), 'bad-response')
   })
 })
