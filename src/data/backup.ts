@@ -44,6 +44,7 @@ const detail = {
   why: text(400).optional(),
   tip: text(400).optional(),
   skillId: id.optional(),
+  principle: text(8).optional(),
 }
 
 const act = z.object({
@@ -87,6 +88,7 @@ const review = z.object({
         id,
         kind: z.enum(['split', 'difficulty', 'archiveHabit', 'addHabit']),
         reason: text(400),
+        principle: text(8).optional(),
         questId: id.optional(),
         habitId: id.optional(),
         targetTitle: text(200).optional(),
@@ -221,6 +223,7 @@ const dataSchema = z.object({
         emoji: text(16).optional(),
         why: text(400),
         levels: z.array(text(120)).min(1).max(6),
+        principle: text(8).optional(),
         frequency: z.discriminatedUnion('kind', [
           z.object({ kind: z.literal('daily') }),
           z.object({ kind: z.literal('weekdays'), days: z.array(z.number().int().min(0).max(6)).min(1).max(7) }),

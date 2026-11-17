@@ -17,6 +17,8 @@ export interface TaskDetail {
   tip?: string
   /** Habilidad del árbol que crece al completarla. */
   skillId?: string
+  /** Principio de la biblioteca en el que se basó la IA (H4, A1…). */
+  principle?: string
 }
 
 /**
@@ -61,6 +63,8 @@ export interface RouteItem {
   /** Del nivel mínimo al más alto; el texto de cada nivel es el nombre del hábito en ese nivel. */
   levels: string[]
   frequency: HabitFrequency
+  /** Principio de la biblioteca en el que se basó la IA (H4, A1…). */
+  principle?: string
   status: 'pending' | 'active' | 'mastered'
   habitId?: string
   /** Las sugerencias de este paso no se muestran hasta este día (el jugador dijo «Ahora no»). */
@@ -250,6 +254,8 @@ export interface ReviewAdjustment {
    */
   kind: 'split' | 'difficulty' | 'archiveHabit' | 'addHabit'
   reason: string
+  /** Principio de la biblioteca en el que se basó la IA (H4, A1…). */
+  principle?: string
   questId?: string
   habitId?: string
   /** Título de la misión o el hábito al momento de la revisión, por si después cambia. */

@@ -1,4 +1,5 @@
 // Validación con zod de lo que responde el modelo.
+import { principleId } from '../../game/library'
 import { type Difficulty, skillKey } from '../../game/rules'
 import { z } from 'zod'
 import { type CampaignDesign, MAX_TITLE_LENGTH, type MissionPlan } from './types'
@@ -20,6 +21,9 @@ const steps = z
 
 export const detailSchema = z.object({ description: optionalText(400), steps })
 
+/** Id de un principio de la biblioteca; cualquier otro valor se descarta. */
+export const principle = z.string().optional().catch(undefined).transform(principleId)
+
 const missionSchema = detailSchema.extend({
   title,
   difficulty,
@@ -27,6 +31,7 @@ const missionSchema = detailSchema.extend({
   why: optionalText(240),
   tip: optionalText(240),
   skill: optionalText(40),
+  principle,
 })
 
 export const questionsSchema = z.object({
@@ -91,6 +96,7 @@ export const dailySchema = detailSchema.extend({
   difficulty: z.coerce.number().transform((value) => (value >= 2 ? 2 : 1) as Difficulty),
   estimate: optionalText(60),
   skill: optionalText(80),
+  principle,
 })
 
 export type DailyPlan = z.infer<typeof dailySchema>

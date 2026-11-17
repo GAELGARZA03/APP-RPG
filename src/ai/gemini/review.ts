@@ -3,6 +3,8 @@ import { z } from 'zod'
 import type { Difficulty } from '../../game/rules'
 import type { ReviewPlan, WeekReport } from '../../data/gameStore'
 import type { HttpRequest } from '../../platform/http'
+import { principlesPrompt } from '../../game/library'
+import { principle } from './validation'
 import { callJson, validated, type Resilience } from './resilience'
 import type { ThinkingLevel } from './types'
 
@@ -22,7 +24,10 @@ Responde en español:
   Cada ajuste lleva reason: una frase con el porqué, usando los datos. Si la semana fue buena y nada necesita cambio, lista vacía.
 - focus: de 1 a 3 misiones pendientes (m#) recomendadas para la próxima semana, con title y why (una frase). Prioriza lo que destraba el avance.
 
-No menciones las referencias (m1, c1) en los textos que lee el jugador: usa los nombres.`
+No menciones las referencias (m1, c1) en los textos que lee el jugador: usa los nombres.
+
+${principlesPrompt('review')}
+En la revisión, "principle" va en cada ajuste.`
 
 const text = { type: 'string' }
 const difficultySchema = { type: 'integer', minimum: 1, maximum: 5 }
@@ -51,6 +56,7 @@ export const REVIEW_JSON_SCHEMA = {
           kind: { type: 'string', enum: ['split', 'difficulty', 'archiveHabit', 'addHabit'] },
           ref: text,
           reason: text,
+          principle: text,
           difficulty: difficultySchema,
           parts: {
             type: 'array',
@@ -68,7 +74,7 @@ export const REVIEW_JSON_SCHEMA = {
             required: ['title', 'difficulty', 'steps'],
           },
         },
-        required: ['kind', 'reason'],
+        required: ['kind', 'reason', 'principle'],
       },
     },
     focus: {
@@ -113,6 +119,7 @@ export const reviewSchema = z.object({
         kind: z.enum(['split', 'difficulty', 'archiveHabit', 'addHabit']),
         ref: clipped(10).default(''),
         reason: clipped(300).default(''),
+        principle,
         difficulty: difficulty.optional(),
         parts: z
           .array(z.object({ title: required(80), difficulty, description: clipped(300).default(''), steps }))

@@ -12,6 +12,7 @@ const loaders = {
   review: () => import('./review/ReviewSheet'),
   shop: () => import('./shop/ShopScreen'),
   route: () => import('./route/RouteScreen'),
+  library: () => import('./library/LibraryScreen'),
 }
 
 export const CampaignMap = lazy(() => loaders.map().then((module) => ({ default: module.CampaignMap })))
@@ -25,6 +26,8 @@ export const ReviewSheet = lazy(() => loaders.review().then((module) => ({ defau
 export const ShopScreen = lazy(() => loaders.shop().then((module) => ({ default: module.ShopScreen })))
 
 export const RouteScreen = lazy(() => loaders.route().then((module) => ({ default: module.RouteScreen })))
+
+export const LibraryScreen = lazy(() => loaders.library().then((module) => ({ default: module.LibraryScreen })))
 
 /** Descarga todas las pantallas diferidas cuando la app ya terminó de arrancar. */
 export function preloadScreens() {

@@ -3,6 +3,8 @@ import { z } from 'zod'
 import type { HabitFrequency } from '../../data/db'
 import type { RoutePlanItem } from '../../data/gameStore'
 import type { HttpRequest } from '../../platform/http'
+import { principlesPrompt } from '../../game/library'
+import { principle } from './validation'
 import { callJson, validated, type Resilience } from './resilience'
 import type { ThinkingLevel } from './types'
 
@@ -18,7 +20,11 @@ Para cada hábito:
 - why: una frase con por qué importa y en qué ayuda.
 - levels: de 2 a 4 niveles, del más fácil al más exigente. El primero es la VERSIÓN MÍNIMA, tan pequeña que sea casi imposible fallar (por ejemplo "Leer 2 páginas", "Hacer 5 sentadillas", "Meditar 2 minutos"). Cada nivel es una frase corta que empieza con un verbo y dice cantidades o tiempos. Ejemplo: "Leer 2 páginas" → "Leer 10 páginas" → "Leer 30 minutos".
 - frequency: la frecuencia sugerida. kind "daily" (todos los días), "weekdays" (days: lista de 0 = lunes a 6 = domingo) o "timesPerWeek" (times: de 1 a 6). Usa "timesPerWeek" para cosas como el ejercicio intenso, que no conviene diario.
-Respeta el contexto del jugador (horarios, nivel actual). Todo en español. No inventes datos personales.`
+Respeta el contexto del jugador (horarios, nivel actual).
+
+${principlesPrompt('route')}
+
+Todo en español. No inventes datos personales.`
 
 const text = { type: 'string' }
 
@@ -46,8 +52,9 @@ export const ROUTE_JSON_SCHEMA = {
             },
             required: ['kind'],
           },
+          principle: text,
         },
-        required: ['title', 'emoji', 'why', 'levels', 'frequency'],
+        required: ['title', 'emoji', 'why', 'levels', 'frequency', 'principle'],
       },
     },
   },
@@ -90,6 +97,7 @@ export const routeSchema = z.object({
           .transform((list) => list.filter(Boolean).slice(0, 4))
           .pipe(z.array(z.string()).min(1)),
         frequency,
+        principle,
       }),
     )
     .min(1)

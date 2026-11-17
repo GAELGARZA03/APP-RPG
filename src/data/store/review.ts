@@ -201,6 +201,7 @@ export interface ReviewPlan {
     kind: ReviewAdjustment['kind']
     ref: string
     reason: string
+    principle?: string
     difficulty?: Difficulty
     parts?: ReviewAdjustment['parts']
     habit?: ReviewAdjustment['habit']
@@ -216,7 +217,13 @@ export function planToReview(plan: ReviewPlan, report: WeekReport, model: string
   }
   const adjustments: ReviewAdjustment[] = []
   for (const item of plan.adjustments) {
-    const base = { id: crypto.randomUUID(), kind: item.kind, reason: item.reason, status: 'pending' as const }
+    const base = {
+      id: crypto.randomUUID(),
+      kind: item.kind,
+      reason: item.reason,
+      ...(item.principle ? { principle: item.principle } : {}),
+      status: 'pending' as const,
+    }
     if (item.kind === 'split' || item.kind === 'difficulty') {
       const quest = target(item.ref, 'sideQuest')
       if (!quest || quest.resolved) continue
@@ -334,6 +341,7 @@ export async function applyAdjustment(
             difficulty: part.difficulty,
             description: part.description,
             steps: part.steps,
+            ...(adjustment.principle ? { principle: adjustment.principle } : {}),
             campaignId: quest.campaignId,
             ...(quest.actId ? { actId: quest.actId } : {}),
             ...(quest.skillId ? { skillId: quest.skillId } : {}),
@@ -348,7 +356,8 @@ export async function applyAdjustment(
       if (!habit || habit.archivedDay !== null) return fail('El hábito ya no está activo.')
       await archiveHabit(db, habit.id, now)
     } else if (adjustment.habit) {
-      await createHabit(db, { ...adjustment.habit }, now)
+      const principle = adjustment.principle ? { principle: adjustment.principle } : {}
+      await createHabit(db, { ...adjustment.habit, ...principle }, now)
     }
 
     await setStatus(db, review, adjustmentId, 'applied')

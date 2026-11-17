@@ -61,6 +61,7 @@ import {
   preloadScreens,
   ReviewSheet,
   ShopScreen,
+  LibraryScreen,
   RouteScreen,
   SkillTreeScreen,
 } from './ui/lazyScreens'
@@ -108,7 +109,7 @@ type FullScreen =
   | { kind: 'profile' }
   | { kind: 'shop' }
   | { kind: 'route' }
-  | { kind: 'shop' }
+  | { kind: 'library' }
 
 type FormSheetKind = Exclude<Sheet, { kind: 'generate' | 'settings' | 'profile' | 'review' | 'habits' }>
 
@@ -557,6 +558,11 @@ export function App() {
           <RouteScreen today={today} onClose={closeScreen} onOpenSettings={() => setScreen({ kind: 'settings' })} />
         </Suspense>
       )}
+      {screen?.kind === 'library' && (
+        <Suspense fallback={null}>
+          <LibraryScreen onClose={closeScreen} />
+        </Suspense>
+      )}
       {screen?.kind === 'shop' && (
         <Suspense fallback={null}>
           <ShopScreen today={today} onClose={closeScreen} />
@@ -582,7 +588,12 @@ export function App() {
             onSelect={(destination) => {
               setMenuOpen(false)
               // Reglas y Acerca de son las mismas secciones de Ajustes, en su hoja.
-              if (destination === 'settings' || destination === 'profile' || destination === 'shop') {
+              if (
+                destination === 'settings' ||
+                destination === 'profile' ||
+                destination === 'shop' ||
+                destination === 'library'
+              ) {
                 setScreen({ kind: destination })
               } else setSheet({ kind: 'settings', section: destination })
             }}

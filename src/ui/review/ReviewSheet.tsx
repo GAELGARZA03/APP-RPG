@@ -20,6 +20,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { AiError, type CallStatus } from '../../ai/gemini'
 import { createWeeklyReview } from '../../ai/weeklyReview'
 import { db } from '../../data/appDb'
+import { PrincipleChip } from '../library/PrincipleChip'
 import type { ReviewAdjustment, WeeklyReview } from '../../data/db'
 import { applyAdjustment, dismissAdjustment, getReview, listReviews, type TaskRef } from '../../data/gameStore'
 import type { GameDay } from '../../game/gameDay'
@@ -314,6 +315,7 @@ function AdjustmentCard({ weekStart, adjustment }: { weekStart: GameDay; adjustm
         </p>
       )}
       <p className="text-muted">{adjustment.reason}</p>
+      <PrincipleChip id={adjustment.principle} />
       {error && (
         <p role="alert" className="text-ember">
           {error}

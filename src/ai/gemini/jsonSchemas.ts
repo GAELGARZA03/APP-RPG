@@ -15,8 +15,9 @@ const missionJsonSchema = {
     why: text,
     tip: text,
     skill: text,
+    principle: text,
   },
-  required: ['title', 'difficulty', 'description', 'steps', 'estimate', 'why', 'tip', 'skill'],
+  required: ['title', 'difficulty', 'description', 'steps', 'estimate', 'why', 'tip', 'skill', 'principle'],
 }
 
 export const QUESTIONS_JSON_SCHEMA = {
@@ -106,8 +107,9 @@ export const DAILY_JSON_SCHEMA = {
           estimate: text,
           skill: text,
           kind: { type: 'string', enum: ['campaign', 'habit', 'free'] },
+          principle: text,
         },
-        required: ['title', 'difficulty', 'description', 'steps', 'estimate', 'skill', 'kind'],
+        required: ['title', 'difficulty', 'description', 'steps', 'estimate', 'skill', 'kind', 'principle'],
       },
     },
   },

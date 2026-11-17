@@ -1,15 +1,16 @@
-import { BookOpen, Gift, Info, Settings, UserRound, X, type LucideIcon } from 'lucide-react'
+import { BookMarked, BookOpen, Gift, Info, Settings, UserRound, X, type LucideIcon } from 'lucide-react'
 import { motion } from 'motion/react'
 import { useEffect, useRef } from 'react'
 import { useBack } from '../backStack'
 import { Button } from '../kit/Button'
 import { Logo } from '../kit/Logo'
 
-export type MenuDestination = 'profile' | 'shop' | 'settings' | 'rules' | 'about'
+export type MenuDestination = 'profile' | 'shop' | 'library' | 'settings' | 'rules' | 'about'
 
 const ITEMS: Array<{ id: MenuDestination; label: string; hint: string; icon: LucideIcon }> = [
   { id: 'profile', label: 'Perfil', hint: 'Nivel, árbol de habilidades, títulos y temas', icon: UserRound },
   { id: 'shop', label: 'Tienda', hint: 'Canjea tu oro por premios reales', icon: Gift },
+  { id: 'library', label: 'Biblioteca', hint: 'Los principios en los que se basa la IA', icon: BookMarked },
   { id: 'settings', label: 'Ajustes', hint: 'Recordatorios, IA y respaldo', icon: Settings },
   { id: 'rules', label: 'Reglas del juego', hint: 'XP, rachas, hábitos y actos', icon: BookOpen },
   { id: 'about', label: 'Acerca de', hint: 'Versión y privacidad', icon: Info },

@@ -18,6 +18,7 @@ import { useState } from 'react'
 import { AiError, type CallStatus, type RoutePlan } from '../../ai/gemini'
 import { planHabitRoute } from '../../ai/habitRoute'
 import { db } from '../../data/appDb'
+import { PrincipleChip } from '../library/PrincipleChip'
 import { activateNextRouteItem, deleteRoute, getRoute, startRoute, type RouteStep } from '../../data/gameStore'
 import type { GameDay } from '../../game/gameDay'
 import { haptic } from '../../platform/haptics'
@@ -179,6 +180,7 @@ function RouteBuilder(props: { onOpenSettings: () => void; onDone: () => void; o
               </p>
               <p className="text-sm text-muted">{item.why}</p>
               <p className="text-xs text-ink/80">{item.levels.join(' → ')}</p>
+              <PrincipleChip id={item.principle} />
             </li>
           ))}
         </ol>
@@ -310,6 +312,7 @@ function RoutePath({ route, onRebuild }: { route: RouteStep[]; onRebuild: () => 
                     : `Constancia en las últimas dos semanas: ${Math.round(step.rate * 100)} %`}
                 {step.archived ? ' · archivado' : ''}
               </p>
+              <PrincipleChip id={step.principle} />
             </div>
           </li>
         ))}

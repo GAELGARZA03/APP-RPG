@@ -14,6 +14,8 @@ const mission = (
   why: 'Porque acerca a la meta.',
   tip: 'Ve despacio.',
   skill,
+  // Como lo haría la IA: lo diminuto empieza el hábito, lo difícil es la habilidad real, lo demás es práctica deliberada.
+  principle: difficulty === 1 ? 'H4' : difficulty >= 4 ? 'A8' : 'A1',
 })
 
 /** La campaña del Anexo A de la especificación, como la devolvería la IA ya validada. */

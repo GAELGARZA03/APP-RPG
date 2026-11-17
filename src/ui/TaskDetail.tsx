@@ -44,6 +44,7 @@ import type { GameDay } from '../game/gameDay'
 import { haptic } from '../platform/haptics'
 import { httpRequest } from '../platform/http'
 import { EvidenceSection } from './EvidenceSection'
+import { PrincipleChip } from './library/PrincipleChip'
 import { Badge } from './kit/Badge'
 import { Button } from './kit/Button'
 import { SectionLabel } from './kit/Card'
@@ -384,6 +385,8 @@ export function TaskDetail(props: {
                   )}
                 </div>
               )}
+
+              <PrincipleChip id={view.task.principle} />
 
               {!hasDetail && view.kind !== 'daily' && (
                 <div className="rounded-2xl border border-dashed border-white/15 p-4 text-sm text-muted">

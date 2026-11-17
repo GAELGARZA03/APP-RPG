@@ -27,6 +27,8 @@ export interface MissionPlan extends TaskDetailPlan {
   tip: string
   /** Sub-rama del árbol de habilidades. */
   skill: string
+  /** Principio de la biblioteca en el que se basó la IA (H4, A1…). */
+  principle?: string
 }
 
 export interface Question {

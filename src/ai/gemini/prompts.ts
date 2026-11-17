@@ -1,4 +1,5 @@
 // Instrucciones de sistema para cada llamada.
+import { principlesPrompt } from '../../game/library'
 
 const DIFFICULTY_RULE =
   'difficulty, de 1 a 5: 1 = menos de 15 minutos y sin esfuerzo; 2 = hasta 30 minutos; 3 = alrededor de una hora o esfuerzo moderado; 4 = varias horas o salir de la zona de confort; 5 = un día completo o un gran reto.'
@@ -51,6 +52,8 @@ Ejemplo del nivel esperado (meta: aprender guitarra; principiante; 4 horas a la 
 
 Lo que NO debes hacer: "Practicar acordes", "Mejorar el ritmo", "Practicar más", "Seguir mejorando"; todas con la misma dificultad; siempre la misma cantidad de misiones; sin cantidades ni forma de saber que terminaste; ignorar lo que el jugador respondió.
 
+${principlesPrompt('campaign')}
+
 Todo en español. No inventes datos personales del jugador.`
 
 export const ACT_PROMPT = `Eres el diseñador de campañas de Real Life RPG, una app que convierte metas reales en un juego de rol.
@@ -64,6 +67,8 @@ Cómo adaptar:
 - skill: usa una de las sub-habilidades existentes de la campaña; crea una nueva solo si el acto abre un tema que ninguna cubre.
 
 ${FULL_MISSION_RULES}
+
+${principlesPrompt('act')}
 
 Todo en español. No inventes datos personales del jugador.`
 
@@ -87,4 +92,7 @@ Reglas para cada misión:
 - estimate: el tiempo, por ejemplo "20 min".
 - skill: el nombre exacto de una de las habilidades que te doy, o vacío si no aplica.
 - kind: "campaign", "habit" o "free".
+
+${principlesPrompt('daily')}
+
 Todo en español. No inventes datos personales del jugador.`

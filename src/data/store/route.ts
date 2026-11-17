@@ -21,6 +21,7 @@ export interface RoutePlanItem {
   why: string
   levels: string[]
   frequency: HabitFrequency
+  principle?: string
 }
 
 const credit = (state: HabitState | undefined) => (state === 'done' ? 1 : state === 'half' ? 0.5 : 0)
@@ -118,6 +119,7 @@ export async function startRoute(
         why: entry.why,
         levels: entry.levels,
         frequency: entry.frequency,
+        ...(entry.principle ? { principle: entry.principle } : {}),
         status: 'pending',
         createdAt: now.getTime() + index,
       }
@@ -135,6 +137,7 @@ async function activate(db: GameDatabase, item: RouteItem, now: Date): Promise<v
       difficulty: 1,
       ...(item.emoji ? { emoji: item.emoji } : {}),
       frequency: item.frequency,
+      ...(item.principle ? { principle: item.principle } : {}),
       routeItemId: item.id,
       level: 0,
     },
