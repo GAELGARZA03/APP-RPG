@@ -4,7 +4,12 @@ import type { NotificationSettings } from '../data/db'
 
 export const notificationsSupported = Capacitor.isNativePlatform()
 
-const CHANNEL_ID = 'recordatorios'
+// El sonido de un canal no se puede cambiar una vez creado: por eso el canal con sonido propio tiene otro id
+// y el anterior («recordatorios», con el sonido normal) se borra.
+const CHANNEL_ID = 'recordatorios-rpg'
+const OLD_CHANNEL_ID = 'recordatorios'
+/** Sonido propio de la app (android/app/src/main/res/raw/rlrpg_aviso.wav), para reconocer sus avisos. */
+const SOUND = 'rlrpg_aviso.wav'
 const TEST_NOTIFICATION_ID = 99
 
 const DAILY_SLOTS = [
@@ -52,11 +57,13 @@ export async function requestNotificationPermission(): Promise<PermissionState> 
 async function ensureChannel() {
   await LocalNotifications.createChannel({
     id: CHANNEL_ID,
-    name: 'Recordatorios diarios',
-    description: 'Mañana, tarde y noche, más el recordatorio de respaldo.',
+    name: 'Recordatorios de Real Life RPG',
+    description: 'Hábitos, misiones y respaldo, con el sonido de la app.',
     importance: 4,
     visibility: 1,
+    sound: SOUND,
   })
+  await LocalNotifications.deleteChannel({ id: OLD_CHANNEL_ID }).catch(() => {})
 }
 
 function notification(
@@ -65,7 +72,7 @@ function notification(
   body: string,
   on: { hour: number; minute: number; weekday?: Weekday },
 ): LocalNotificationSchema {
-  return { id, title, body, channelId: CHANNEL_ID, schedule: { on, allowWhileIdle: true } }
+  return { id, title, body, channelId: CHANNEL_ID, sound: SOUND, schedule: { on, allowWhileIdle: true } }
 }
 
 function parseTime(time: string) {
@@ -107,6 +114,7 @@ export async function sendTestNotification(): Promise<void> {
         title: 'Prueba de Real Life RPG',
         body: 'Así se verán tus recordatorios.',
         channelId: CHANNEL_ID,
+        sound: SOUND,
         schedule: { at: new Date(Date.now() + 5000), allowWhileIdle: true },
       },
     ],
@@ -168,6 +176,7 @@ async function replaceHabitReminders(
         title: `${item.emoji ? `${item.emoji} ` : ''}${item.title}`,
         body: 'Tu hábito de hoy te espera. Márcalo en la app para cuidar tu racha.',
         channelId: CHANNEL_ID,
+        sound: SOUND,
         schedule: { at, allowWhileIdle: true },
       })
     }

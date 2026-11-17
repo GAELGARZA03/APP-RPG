@@ -46,6 +46,7 @@ export function RewardSheet(props: { today: GameDay; reward?: Reward; draft?: Re
   const [goalKind, setGoalKind] = useState<GoalKind>('campaign')
   const [targetId, setTargetId] = useState('')
   const [days, setDays] = useState('7')
+  const [query, setQuery] = useState('')
   const [confirmArchive, setConfirmArchive] = useState(false)
 
   const missions = useLiveQuery(() => getMissions(db), [])
@@ -68,6 +69,13 @@ export function RewardSheet(props: { today: GameDay; reward?: Reward; draft?: Re
     habitStreak: (habits ?? []).map((habit) => ({ id: habit.id, label: habit.title })),
   }
   const target = options[goalKind].find((option) => option.id === targetId) ?? options[goalKind][0]
+  // Con muchas opciones (por ejemplo, decenas de misiones) aparece un buscador.
+  const searchable = options[goalKind].length > 6
+  const normalize = (text: string) => text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+  const visible =
+    searchable && query.trim()
+      ? options[goalKind].filter((option) => normalize(option.label).includes(normalize(query.trim())))
+      : options[goalKind]
   const dayCount = Math.min(365, Math.max(1, Number(days) || 1))
   const priceValue = Math.min(MAX_REWARD_PRICE, Math.max(1, Math.round(Number(price) || 0)))
 
@@ -185,6 +193,7 @@ export function RewardSheet(props: { today: GameDay; reward?: Reward; draft?: Re
                     onClick={() => {
                       setGoalKind(kind.id)
                       setTargetId('')
+                      setQuery('')
                     }}
                     className={cn(
                       'min-h-12 rounded-2xl border px-2 text-sm leading-tight',
@@ -203,10 +212,20 @@ export function RewardSheet(props: { today: GameDay; reward?: Reward; draft?: Re
             ) : (
               <fieldset className="flex flex-col gap-2">
                 <legend className="mb-1.5 text-xs font-medium text-muted">
-                  {goalKind === 'habitStreak' ? 'Hábito' : 'Cuál'}
+                  {goalKind === 'habitStreak' ? 'Hábito' : 'Cuál'} · {options[goalKind].length}
                 </legend>
-                <div role="radiogroup" className="flex max-h-56 flex-col gap-1.5 overflow-y-auto">
-                  {options[goalKind].map((option) => (
+                {searchable && (
+                  <Input
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    placeholder="Buscar…"
+                    aria-label="Buscar"
+                    enterKeyHint="search"
+                  />
+                )}
+                <div role="radiogroup" className="flex max-h-56 flex-col gap-1.5 overflow-y-auto overscroll-contain">
+                  {visible.length === 0 && <p className="px-1 text-sm text-muted">Nada coincide con «{query}».</p>}
+                  {visible.map((option) => (
                     <button
                       key={option.id}
                       type="button"
@@ -252,15 +271,6 @@ export function RewardSheet(props: { today: GameDay; reward?: Reward; draft?: Re
 
         {editing && reward.goal && <p className="text-sm text-muted">Meta: {reward.goal.label}</p>}
 
-        <div className="flex gap-2">
-          <Button onClick={props.onClose} className="flex-1">
-            Cancelar
-          </Button>
-          <Button type="submit" variant="primary" disabled={!canSave} className="flex-1">
-            {editing ? 'Guardar' : 'Crear'}
-          </Button>
-        </div>
-
         {editing && (
           <Button
             variant={confirmArchive ? 'danger' : 'ghost'}
@@ -273,6 +283,16 @@ export function RewardSheet(props: { today: GameDay; reward?: Reward; draft?: Re
             {confirmArchive ? 'Toca otra vez para quitarlo (el historial se conserva)' : 'Quitar de la tienda'}
           </Button>
         )}
+
+        {/* Siempre a la vista, abajo, aunque el formulario sea largo. */}
+        <div className="sticky bottom-0 z-10 -mx-5 mt-1 flex gap-2 border-t border-white/[0.06] bg-panel/95 px-5 pt-3 pb-2 backdrop-blur">
+          <Button onClick={props.onClose} className="flex-1">
+            Cancelar
+          </Button>
+          <Button type="submit" variant="primary" disabled={!canSave} className="flex-1">
+            {editing ? 'Guardar' : 'Crear'}
+          </Button>
+        </div>
       </form>
     </Sheet>
   )

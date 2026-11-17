@@ -1,14 +1,21 @@
-// Selector de hora propio (en lugar del reloj de Android): horas y minutos en botones grandes.
-import { Clock, Minus, Plus } from 'lucide-react'
-import { useId, useState } from 'react'
+// Selector de hora propio, estilo ruedas del iPhone: hora, minuto y a. m./p. m. que se giran con el dedo.
+import { Clock } from 'lucide-react'
+import { useEffect, useId, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { haptic } from '../../platform/haptics'
 import { useBack } from '../backStack'
 import { Sheet, SheetTitle } from '../Sheet'
 import { Button } from './Button'
 import { cn } from './cn'
 
 const pad = (value: number) => String(value).padStart(2, '0')
-const HOURS = Array.from({ length: 24 }, (_, hour) => hour)
-const MINUTES = Array.from({ length: 12 }, (_, index) => index * 5)
+const HOURS = Array.from({ length: 12 }, (_, index) => String(index + 1))
+const MINUTES = Array.from({ length: 60 }, (_, minute) => pad(minute))
+const PERIODS = ['a. m.', 'p. m.']
+
+/** Alto de cada renglón de una rueda y cuántos se ven (el del centro es el elegido). */
+const ROW = 44
+const VISIBLE = 5
 
 /** «7:30 p. m.» para mostrar; el valor guardado sigue siendo «19:30». */
 export function formatTime(value: string): string {
@@ -39,18 +46,21 @@ export function TimeField(props: {
           {props.value ? formatTime(props.value) : (props.placeholder ?? 'Elegir hora')}
         </span>
       </button>
-      {open && (
-        <TimePicker
-          label={props.label}
-          value={props.value || '08:00'}
-          onClear={props.onClear}
-          onClose={() => setOpen(false)}
-          onChange={(value) => {
-            props.onChange(value)
-            setOpen(false)
-          }}
-        />
-      )}
+      {/* Va en un portal: dentro del <label> de un campo, tocar fuera «tocaba» el botón y lo reabría. */}
+      {open &&
+        createPortal(
+          <TimePicker
+            label={props.label}
+            value={props.value || '08:00'}
+            onClear={props.onClear}
+            onClose={() => setOpen(false)}
+            onChange={(value) => {
+              props.onChange(value)
+              setOpen(false)
+            }}
+          />,
+          document.body,
+        )}
     </>
   )
 }
@@ -63,16 +73,24 @@ function TimePicker(props: {
   onClose: () => void
 }) {
   const headingId = useId()
-  const [hour, setHour] = useState(Number(props.value.split(':')[0]))
-  const [minute, setMinute] = useState(Number(props.value.split(':')[1]))
+  const [initialHour, initialMinute] = props.value.split(':').map(Number)
+  const [hour12, setHour12] = useState(((initialHour + 11) % 12) + 1)
+  const [minute, setMinute] = useState(initialMinute)
+  const [pm, setPm] = useState(initialHour >= 12)
+  const hourRef = useRef(((initialHour + 11) % 12) + 1)
+
+  /** Como en un reloj de 12 horas: pasar de 11 a 12 (o de 12 a 11) cambia entre a. m. y p. m. */
+  function changeHour(next: number) {
+    const previous = hourRef.current
+    if ((previous === 11 && next === 12) || (previous === 12 && next === 11)) setPm((value) => !value)
+    hourRef.current = next
+    setHour12(next)
+  }
   // El botón atrás cierra solo este selector, no la hoja de abajo.
   useBack(true, props.onClose)
 
-  const nudge = (amount: number) => {
-    const total = (hour * 60 + minute + amount + 1440) % 1440
-    setHour(Math.floor(total / 60))
-    setMinute(total % 60)
-  }
+  const hour24 = (hour12 % 12) + (pm ? 12 : 0)
+  const value = `${pad(hour24)}:${pad(minute)}`
 
   return (
     <Sheet labelledBy={headingId} focusSheet onClose={props.onClose}>
@@ -80,62 +98,34 @@ function TimePicker(props: {
         <SheetTitle id={headingId} icon={<Clock aria-hidden className="size-5 text-signal" />}>
           {props.label}
         </SheetTitle>
-        <div className="flex items-center justify-center gap-3">
-          <Button size="icon" variant="secondary" aria-label="Un minuto menos" onClick={() => nudge(-1)}>
-            <Minus aria-hidden />
-          </Button>
-          <output aria-live="polite" className="min-w-40 text-center font-display text-4xl font-semibold tabular-nums">
-            {formatTime(`${pad(hour)}:${pad(minute)}`)}
-          </output>
-          <Button size="icon" variant="secondary" aria-label="Un minuto más" onClick={() => nudge(1)}>
-            <Plus aria-hidden />
-          </Button>
+
+        <div className="relative flex justify-center gap-1" style={{ height: ROW * VISIBLE }}>
+          {/* Banda del centro: lo que quede ahí es lo elegido. */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-x-2 rounded-2xl bg-white/[0.07]"
+            style={{ top: ROW * 2, height: ROW }}
+          />
+          <Wheel
+            label="Hora"
+            items={HOURS}
+            index={hour12 - 1}
+            onChange={(index) => changeHour(index + 1)}
+            loop
+            className="w-20"
+          />
+          <span aria-hidden className="relative z-10 self-center font-display text-2xl font-semibold text-muted">
+            :
+          </span>
+          <Wheel label="Minuto" items={MINUTES} index={minute} onChange={setMinute} loop className="w-20" />
+          <Wheel
+            label="a. m. o p. m."
+            items={PERIODS}
+            index={pm ? 1 : 0}
+            onChange={(index) => setPm(index === 1)}
+            className="w-24"
+          />
         </div>
-
-        <fieldset className="flex flex-col gap-2">
-          <legend className="mb-1 text-xs font-medium text-muted">Hora</legend>
-          <div className="grid grid-cols-6 gap-1.5">
-            {HOURS.map((option) => (
-              <button
-                key={option}
-                type="button"
-                aria-pressed={hour === option}
-                onClick={() => setHour(option)}
-                className={cn(
-                  'min-h-10 rounded-xl border text-sm font-semibold tabular-nums',
-                  hour === option
-                    ? 'border-signal bg-signal text-on-signal'
-                    : 'border-white/[0.06] bg-void/50 text-muted',
-                )}
-              >
-                {option}
-              </button>
-            ))}
-          </div>
-        </fieldset>
-
-        <fieldset className="flex flex-col gap-2">
-          <legend className="mb-1 text-xs font-medium text-muted">Minutos</legend>
-          <div className="grid grid-cols-6 gap-1.5">
-            {MINUTES.map((option) => (
-              <button
-                key={option}
-                type="button"
-                aria-pressed={minute === option}
-                onClick={() => setMinute(option)}
-                className={cn(
-                  'min-h-10 rounded-xl border text-sm font-semibold tabular-nums',
-                  minute === option
-                    ? 'border-signal bg-signal text-on-signal'
-                    : 'border-white/[0.06] bg-void/50 text-muted',
-                )}
-              >
-                :{pad(option)}
-              </button>
-            ))}
-          </div>
-          <p className="text-xs text-muted">Para un minuto exacto, usa − y +.</p>
-        </fieldset>
 
         <div className="flex gap-2">
           {props.onClear ? (
@@ -153,11 +143,123 @@ function TimePicker(props: {
               Cancelar
             </Button>
           )}
-          <Button variant="primary" onClick={() => props.onChange(`${pad(hour)}:${pad(minute)}`)} className="flex-1">
-            Listo
+          <Button variant="primary" onClick={() => props.onChange(value)} className="flex-1">
+            Listo · {formatTime(value)}
           </Button>
         </div>
       </div>
     </Sheet>
+  )
+}
+
+/**
+ * Una rueda: se desliza hacia arriba o abajo y se acomoda sola en el renglón más cercano (scroll-snap).
+ * Con `loop`, da vueltas sin fin (después de 12 viene 1; después de 59, 00): los valores se dibujan tres veces
+ * y, al detenerse cerca de una orilla, la rueda salta sin que se note a la copia del centro.
+ * También responde a las flechas del teclado y a tocar un renglón.
+ */
+function Wheel(props: {
+  label: string
+  items: string[]
+  index: number
+  onChange: (index: number) => void
+  loop?: boolean
+  className?: string
+}) {
+  const { items, index, onChange, loop = false } = props
+  const count = items.length
+  const copies = loop ? 3 : 1
+  const base = loop ? count : 0
+  const scroller = useRef<HTMLDivElement>(null)
+  const settle = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const current = useRef(index)
+
+  // Al abrir, la rueda se coloca en el valor actual (en la copia del centro) sin animación.
+  useEffect(() => {
+    scroller.current?.scrollTo({ top: (base + index) * ROW })
+  }, [])
+
+  // Si el valor cambia desde fuera (por ejemplo, a. m./p. m. al dar la vuelta a la hora), la rueda gira sola.
+  useEffect(() => {
+    if (index === current.current) return
+    current.current = index
+    scroller.current?.scrollTo({ top: (base + index) * ROW, behavior: 'smooth' })
+  }, [index, base])
+
+  function handleScroll() {
+    const element = scroller.current
+    if (!element) return
+    const position = Math.min(count * copies - 1, Math.max(0, Math.round(element.scrollTop / ROW)))
+    const next = position % count
+    if (next !== current.current) {
+      current.current = next
+      haptic('tap')
+      onChange(next)
+    }
+    if (settle.current) clearTimeout(settle.current)
+    settle.current = setTimeout(() => {
+      // Si quedó en la primera o la última copia, salta a la del centro: el contenido es igual, no se nota.
+      if (loop && (position < count || position >= count * 2)) element.scrollTo({ top: (count + next) * ROW })
+      else element.scrollTo({ top: position * ROW, behavior: 'smooth' })
+    }, 140)
+  }
+
+  /** Mueve la rueda `steps` renglones (negativo, hacia arriba). */
+  function move(steps: number) {
+    const element = scroller.current
+    if (!element) return
+    const position = Math.round(element.scrollTop / ROW)
+    const target = loop ? position + steps : Math.min(count - 1, Math.max(0, position + steps))
+    element.scrollTo({ top: target * ROW, behavior: 'smooth' })
+  }
+
+  return (
+    <div
+      ref={scroller}
+      role="listbox"
+      aria-label={props.label}
+      aria-activedescendant={`${props.label}-${base + index}`}
+      tabIndex={0}
+      onScroll={handleScroll}
+      onKeyDown={(event) => {
+        if (event.key === 'ArrowDown') move(1)
+        if (event.key === 'ArrowUp') move(-1)
+      }}
+      className={cn(
+        'relative z-10 h-full snap-y snap-mandatory overflow-y-auto overscroll-contain outline-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+        props.className,
+      )}
+      style={{
+        paddingBlock: ROW * 2,
+        // Los renglones se desvanecen hacia arriba y hacia abajo, como en una rueda.
+        maskImage: 'linear-gradient(to bottom, transparent, black 30%, black 70%, transparent)',
+      }}
+    >
+      {Array.from({ length: count * copies }, (_, position) => {
+        const value = position % count
+        return (
+          <div
+            key={position}
+            id={`${props.label}-${position}`}
+            role="option"
+            aria-selected={value === index}
+            aria-hidden={loop && (position < count || position >= count * 2) ? true : undefined}
+            onClick={(event) => {
+              const element = scroller.current
+              if (!element) return
+              event.stopPropagation()
+              move(position - Math.round(element.scrollTop / ROW))
+            }}
+            className={cn(
+              'grid snap-center place-items-center font-display tabular-nums transition-colors',
+              value === index ? 'text-2xl font-semibold text-ink' : 'text-xl text-muted',
+            )}
+            style={{ height: ROW }}
+          >
+            {items[value]}
+          </div>
+        )
+      })}
+    </div>
   )
 }

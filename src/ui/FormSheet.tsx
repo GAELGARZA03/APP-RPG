@@ -285,7 +285,19 @@ export function FormSheet(props: FormSheetProps) {
           </fieldset>
         )}
 
-        <div className="flex gap-2">
+        {danger && (
+          <Button
+            variant={confirming ? 'danger' : 'ghost'}
+            disabled={busy}
+            onClick={() => (confirming ? void run(danger.action) : setConfirming(true))}
+          >
+            <Trash2 aria-hidden />
+            {confirming ? danger.confirmLabel : danger.label}
+          </Button>
+        )}
+
+        {/* Siempre a la vista, abajo, aunque el formulario sea largo. */}
+        <div className="sticky bottom-0 z-10 -mx-5 mt-1 flex gap-2 border-t border-white/[0.06] bg-panel/95 px-5 pt-3 pb-2 backdrop-blur">
           <Button onClick={onClose} className="flex-1">
             Cancelar
           </Button>
@@ -300,17 +312,6 @@ export function FormSheet(props: FormSheetProps) {
             {submitLabel}
           </Button>
         </div>
-
-        {danger && (
-          <Button
-            variant={confirming ? 'danger' : 'ghost'}
-            disabled={busy}
-            onClick={() => (confirming ? void run(danger.action) : setConfirming(true))}
-          >
-            <Trash2 aria-hidden />
-            {confirming ? danger.confirmLabel : danger.label}
-          </Button>
-        )}
       </form>
     </Sheet>
   )
