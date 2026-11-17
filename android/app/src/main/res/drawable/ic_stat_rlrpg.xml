@@ -1,11 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Icono monocromo para la barra de notificaciones. -->
+<!--
+  Icono monocromo para la barra de notificaciones: el emblema de la app (hexágono con dos flechas de
+  "subir de nivel"), recortado del icono adaptable de 108 dp a su zona central de 56 dp. Android solo usa la
+  transparencia: el color lo pone `iconColor` en capacitor.config.ts.
+-->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
-    android:viewportWidth="24"
-    android:viewportHeight="24">
-    <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M12,2 L14.5,9.5 L22,12 L14.5,14.5 L12,22 L9.5,14.5 L2,12 L9.5,9.5 Z" />
+    android:viewportWidth="56"
+    android:viewportHeight="56">
+    <group android:translateX="-26" android:translateY="-26">
+        <path
+            android:pathData="M54,30 L74.8,42 L74.8,66 L54,78 L33.2,66 L33.2,42 Z"
+            android:strokeWidth="5"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeLineJoin="round" />
+        <path
+            android:pathData="M43,67 L54,56 L65,67"
+            android:strokeWidth="6"
+            android:strokeColor="#99FFFFFF"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
+        <path
+            android:pathData="M43,56 L54,45 L65,56"
+            android:strokeWidth="6"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
+    </group>
 </vector>
