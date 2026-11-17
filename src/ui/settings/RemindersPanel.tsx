@@ -17,7 +17,9 @@ import { isBatteryUnrestricted, requestBatteryUnrestricted } from '../../platfor
 import { Badge } from '../kit/Badge'
 import { Button } from '../kit/Button'
 import { Card } from '../kit/Card'
-import { Input, SettingRow, Switch } from '../kit/controls'
+import { SettingRow, Switch } from '../kit/controls'
+import { TimeField } from '../kit/TimeField'
+import { cn } from '../kit/cn'
 
 interface DeviceStatus {
   permission: PermissionState
@@ -124,16 +126,13 @@ export function RemindersPanel({ embedded, headingId }: { embedded?: boolean; he
 
       <div className="my-2 flex flex-col gap-2">
         {TIMES.map(({ key, label }) => (
-          <label key={key} className="flex items-center justify-between gap-3 text-sm">
+          <div
+            key={key}
+            className={cn('flex items-center justify-between gap-3 text-sm', !settings.enabled && 'opacity-50')}
+          >
             {label}
-            <Input
-              type="time"
-              value={settings[key]}
-              disabled={!settings.enabled}
-              onChange={(event) => event.target.value && void save({ [key]: event.target.value })}
-              className="w-40"
-            />
-          </label>
+            <TimeField label={label} value={settings[key]} onChange={(value) => void save({ [key]: value })} />
+          </div>
         ))}
       </div>
 

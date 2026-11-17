@@ -5,6 +5,7 @@ import { baseXp, type Difficulty } from '../game/rules'
 import { Button } from './kit/Button'
 import { cn } from './kit/cn'
 import { Field, Input, Textarea } from './kit/controls'
+import { TimeField } from './kit/TimeField'
 import { Sheet, SheetTitle } from './Sheet'
 
 const DIFFICULTIES: Difficulty[] = [1, 2, 3, 4, 5]
@@ -29,6 +30,15 @@ export interface FormValues {
 }
 
 const WEEKDAYS = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
+
+/** La hora del recordatorio ya pasó hoy (los avisos solo se programan a futuro). */
+function passedToday(time: string): boolean {
+  const [hour, minute] = time.split(':').map(Number)
+  const now = new Date()
+  // Antes de las 4:00 a. m. todavía es el día de juego anterior.
+  if (hour < 4) return now.getHours() < 4 && now.getHours() * 60 + now.getMinutes() >= hour * 60 + minute
+  return now.getHours() >= 4 && now.getHours() * 60 + now.getMinutes() >= hour * 60 + minute
+}
 const WEEKDAY_NAMES = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo']
 
 export interface FormSheetProps {
@@ -211,19 +221,18 @@ export function FormSheet(props: FormSheetProps) {
               label="Recordatorio (opcional)"
               hint="Te avisa a esta hora los días que toca, si aún no lo marcaste."
             >
-              <div className="flex items-center gap-2">
-                <Input
-                  type="time"
-                  value={reminder}
-                  onChange={(event) => setReminder(event.target.value)}
-                  className="w-36"
-                />
-                {reminder && (
-                  <Button size="sm" variant="ghost" onClick={() => setReminder('')}>
-                    Quitar
-                  </Button>
-                )}
-              </div>
+              <TimeField
+                label="Recordatorio"
+                value={reminder}
+                onChange={setReminder}
+                onClear={() => setReminder('')}
+                placeholder="Sin recordatorio"
+              />
+              {reminder && passedToday(reminder) && (
+                <p className="mt-1 text-xs text-ember">
+                  Hoy ya pasó esa hora: el primer aviso llegará el próximo día que toque.
+                </p>
+              )}
             </Field>
           </>
         )}

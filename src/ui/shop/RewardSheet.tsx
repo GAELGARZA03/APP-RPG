@@ -34,9 +34,6 @@ export interface RewardDraft {
   goal?: boolean
 }
 
-const selectClass =
-  'min-h-11 w-full rounded-xl border border-line bg-void px-3 text-sm text-ink outline-none focus:border-signal'
-
 export function RewardSheet(props: { today: GameDay; reward?: Reward; draft?: RewardDraft; onClose: () => void }) {
   const { reward, draft } = props
   const headingId = useId()
@@ -177,38 +174,64 @@ export function RewardSheet(props: { today: GameDay; reward?: Reward; draft?: Re
 
         {byGoal && !editing && (
           <>
-            <Field label="Meta">
-              <select
-                value={goalKind}
-                onChange={(event) => {
-                  setGoalKind(event.target.value as GoalKind)
-                  setTargetId('')
-                }}
-                className={selectClass}
-              >
+            <fieldset className="flex flex-col gap-2">
+              <legend className="mb-1.5 text-xs font-medium text-muted">Meta</legend>
+              <div className="grid grid-cols-2 gap-2">
                 {GOAL_KINDS.map((kind) => (
-                  <option key={kind.id} value={kind.id}>
+                  <button
+                    key={kind.id}
+                    type="button"
+                    aria-pressed={goalKind === kind.id}
+                    onClick={() => {
+                      setGoalKind(kind.id)
+                      setTargetId('')
+                    }}
+                    className={cn(
+                      'min-h-12 rounded-2xl border px-2 text-sm leading-tight',
+                      goalKind === kind.id
+                        ? 'border-info bg-info/15 text-info'
+                        : 'border-white/[0.06] bg-void/50 text-muted',
+                    )}
+                  >
                     {kind.label}
-                  </option>
+                  </button>
                 ))}
-              </select>
-            </Field>
+              </div>
+            </fieldset>
             {options[goalKind].length === 0 ? (
               <p className="text-sm text-muted">No hay nada pendiente de este tipo.</p>
             ) : (
-              <Field label={goalKind === 'habitStreak' ? 'Hábito' : 'Cuál'}>
-                <select
-                  value={target?.id ?? ''}
-                  onChange={(event) => setTargetId(event.target.value)}
-                  className={selectClass}
-                >
+              <fieldset className="flex flex-col gap-2">
+                <legend className="mb-1.5 text-xs font-medium text-muted">
+                  {goalKind === 'habitStreak' ? 'Hábito' : 'Cuál'}
+                </legend>
+                <div role="radiogroup" className="flex max-h-56 flex-col gap-1.5 overflow-y-auto">
                   {options[goalKind].map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.label}
-                    </option>
+                    <button
+                      key={option.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={target?.id === option.id}
+                      onClick={() => setTargetId(option.id)}
+                      className={cn(
+                        'flex min-h-11 items-center gap-2.5 rounded-xl border px-3 text-left text-sm',
+                        target?.id === option.id ? 'border-signal bg-signal/10' : 'border-white/[0.06] bg-void/50',
+                      )}
+                    >
+                      <span
+                        aria-hidden
+                        className={cn(
+                          'grid size-4 shrink-0 place-items-center rounded-full border-2',
+                          target?.id === option.id ? 'border-signal' : 'border-white/25',
+                        )}
+                      >
+                        {target?.id === option.id && <span className="size-2 rounded-full bg-signal" />}
+                      </span>
+                      <span className="min-w-0 flex-1">{option.label}</span>
+                    </button>
                   ))}
-                </select>
-              </Field>
+                </div>
+              </fieldset>
             )}
             {goalKind === 'habitStreak' && (
               <Field label="Días seguidos">

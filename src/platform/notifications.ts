@@ -131,7 +131,19 @@ const HABIT_IDS = { from: 1000, to: 1999 }
  * Reprograma los recordatorios de hábitos según el plan (los próximos 7 días). Los de un día en que el hábito
  * ya se marcó no están en el plan, así que quedan cancelados.
  */
-export async function scheduleHabitReminders(
+let queue: Promise<unknown> = Promise.resolve()
+
+export function scheduleHabitReminders(
+  plan: Array<{ title: string; emoji?: string; at: Date[] }>,
+): Promise<'scheduled' | 'no-permission' | 'unsupported'> {
+  // Una reprogramación a la vez: si dos se cruzaran (guardar y marcar casi al mismo tiempo), una podría
+  // cancelar lo que la otra acaba de programar.
+  const next = queue.then(() => replaceHabitReminders(plan))
+  queue = next.catch(() => undefined)
+  return next
+}
+
+async function replaceHabitReminders(
   plan: Array<{ title: string; emoji?: string; at: Date[] }>,
 ): Promise<'scheduled' | 'no-permission' | 'unsupported'> {
   if (!notificationsSupported) return 'unsupported'

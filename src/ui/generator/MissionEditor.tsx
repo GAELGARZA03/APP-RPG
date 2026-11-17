@@ -1,11 +1,10 @@
 // Editor de una misión de la vista previa.
 import { type Difficulty, baseXp, questXp } from '../../game/rules'
 import { cn } from '../kit/cn'
+import { DifficultyPips } from '../kit/controls'
 import { ChevronDown, Clock, Network, Skull } from 'lucide-react'
 import { useState } from 'react'
 import type { DraftItem } from './draft'
-
-const DIFFICULTIES: Difficulty[] = [1, 2, 3, 4, 5]
 
 const compactField =
   'min-h-11 rounded-xl border border-line bg-void px-3 text-ink outline-none transition-colors focus:border-signal'
@@ -51,18 +50,18 @@ export function MissionEditor(props: {
           aria-label="Nombre de la misión"
           className={cn(compactField, 'min-w-0 flex-1 resize-none py-2 text-sm leading-snug [field-sizing:content]')}
         />
-        <select
-          value={item.difficulty}
-          onChange={(event) => onChange({ difficulty: Number(event.target.value) as Difficulty })}
-          aria-label={`Dificultad de ${item.title}`}
-          className={cn(compactField, 'w-16 shrink-0 px-2 text-sm text-info')}
+        {/* Tocar cambia la dificultad (1 → 5 y vuelve a 1): más rápido que un menú. */}
+        <button
+          type="button"
+          onClick={() => onChange({ difficulty: ((item.difficulty % 5) + 1) as Difficulty })}
+          aria-label={`Dificultad ${item.difficulty} de ${item.title}: toca para cambiarla`}
+          className={cn(compactField, 'flex w-16 shrink-0 flex-col items-center justify-center gap-0.5 px-1 py-1')}
         >
-          {DIFFICULTIES.map((difficulty) => (
-            <option key={difficulty} value={difficulty}>
-              {difficulty} · {boss ? questXp({ difficulty, boss }) : baseXp(difficulty)}
-            </option>
-          ))}
-        </select>
+          <DifficultyPips value={item.difficulty} />
+          <span className="text-[10px] font-semibold text-info tabular-nums">
+            {boss ? questXp({ difficulty: item.difficulty, boss }) : baseXp(item.difficulty)} XP
+          </span>
+        </button>
       </div>
 
       <button
