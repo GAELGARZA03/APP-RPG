@@ -30,6 +30,7 @@ import { Sheet } from '../Sheet'
 import { BackupPanel } from './BackupPanel'
 import { GeminiPanel } from './GeminiPanel'
 import { RemindersPanel } from './RemindersPanel'
+import { APP_VERSION } from '../../version'
 import { ResetPanel } from './ResetPanel'
 
 export type SettingsSection = 'reminders' | 'backup' | 'ai' | 'rules' | 'about' | 'reset'
@@ -77,7 +78,8 @@ function AboutPanel({ headingId }: { headingId: string }) {
   return (
     <Card embedded headingId={headingId} label="Acerca de" icon={Cpu}>
       <p className="text-sm text-muted">
-        Real Life RPG · plataforma <span className="text-ink">{Capacitor.getPlatform()}</span>
+        Real Life RPG <span className="text-ink">{APP_VERSION}</span> · plataforma{' '}
+        <span className="text-ink">{Capacitor.getPlatform()}</span>
       </p>
       <p className="mt-2 text-sm text-muted">Tus datos se guardan solo en este teléfono.</p>
     </Card>

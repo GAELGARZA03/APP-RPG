@@ -61,6 +61,7 @@ import {
   preloadScreens,
   ReviewSheet,
   ShopScreen,
+  HabitDetailScreen,
   LibraryScreen,
   RouteScreen,
   SkillTreeScreen,
@@ -110,6 +111,7 @@ type FullScreen =
   | { kind: 'shop' }
   | { kind: 'route' }
   | { kind: 'library' }
+  | { kind: 'habit'; habitId: string }
 
 type FormSheetKind = Exclude<Sheet, { kind: 'generate' | 'settings' | 'profile' | 'review' | 'habits' }>
 
@@ -460,6 +462,7 @@ export function App() {
                 onManage={() => setSheet({ kind: 'habits' })}
                 onRoute={() => setScreen({ kind: 'route' })}
                 onOpenDiary={openDiary}
+                onOpenHabit={(habitId) => setScreen({ kind: 'habit', habitId })}
                 onCreate={() => setSheet({ kind: 'newHabit' })}
                 onOutcome={handleOutcome}
               />
@@ -556,6 +559,16 @@ export function App() {
       {screen?.kind === 'route' && (
         <Suspense fallback={null}>
           <RouteScreen today={today} onClose={closeScreen} onOpenSettings={() => setScreen({ kind: 'settings' })} />
+        </Suspense>
+      )}
+      {screen?.kind === 'habit' && (
+        <Suspense fallback={null}>
+          <HabitDetailScreen
+            habitId={screen.habitId}
+            today={today}
+            onClose={closeScreen}
+            onEdit={(habit) => setSheet({ kind: 'editHabit', habit })}
+          />
         </Suspense>
       )}
       {screen?.kind === 'library' && (

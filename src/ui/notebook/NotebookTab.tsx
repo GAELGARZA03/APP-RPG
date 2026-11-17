@@ -15,6 +15,7 @@ import {
   type NotebookHabit,
   type Outcome,
   type TaskRef,
+  noteCover,
 } from '../../data/gameStore'
 import { addDays, type GameDay } from '../../game/gameDay'
 import { haptic } from '../../platform/haptics'
@@ -82,6 +83,7 @@ export function NotebookTab(props: {
   onManage: () => void
   onRoute: () => void
   onOpenDiary: (day: GameDay) => void
+  onOpenHabit: (habitId: string) => void
   onCreate: () => void
   onOutcome: (outcome: Outcome, ref: TaskRef, fromDetail: boolean) => void
 }) {
@@ -284,8 +286,8 @@ export function NotebookTab(props: {
                           note ? 'bg-info/20 text-info' : 'text-muted/40',
                         )}
                       >
-                        {note?.photo ? (
-                          <img src={note.photo} alt="" className="absolute inset-0 size-full object-cover" />
+                        {noteCover(note) ? (
+                          <img src={noteCover(note)} alt="" className="absolute inset-0 size-full object-cover" />
                         ) : note ? (
                           <NotebookPen aria-hidden className="size-3.5" />
                         ) : (
@@ -303,10 +305,13 @@ export function NotebookTab(props: {
                   role="row"
                   className={cn('flex', row > 0 && 'border-t border-white/[0.04]', habit.archived && 'opacity-50')}
                 >
-                  <div
+                  <button
+                    type="button"
                     role="rowheader"
+                    onClick={() => props.onOpenHabit(habit.id)}
+                    aria-label={`${habit.title}: ver estadísticas`}
                     className={cn(
-                      'sticky left-0 z-10 flex shrink-0 items-center gap-2 bg-panel/95 py-1.5 pr-1 pl-3',
+                      'sticky left-0 z-10 flex shrink-0 items-center gap-2 bg-panel/95 py-1.5 pr-1 pl-3 text-left active:bg-raised',
                       view === '3' ? 'w-32' : view === '7' ? 'w-[6.5rem]' : 'w-28',
                     )}
                   >
@@ -321,7 +326,7 @@ export function NotebookTab(props: {
                         {habit.rate !== null && <span>{habit.rate}%</span>}
                       </span>
                     </span>
-                  </div>
+                  </button>
                   {habit.cells.map((cell, index) => (
                     <Cell
                       key={cell.day}

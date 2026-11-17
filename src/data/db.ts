@@ -51,6 +51,15 @@ export interface Habit extends TaskDetail {
   level?: number
   /** Desde cuándo está en este nivel: la constancia se mide desde aquí. */
   levelSince?: GameDay
+  /** Último análisis a fondo hecho con IA (se reemplaza al pedir otro). */
+  analysis?: HabitAnalysis
+}
+
+export interface HabitAnalysis {
+  createdAt: number
+  model: string
+  summary: string
+  points: Array<{ title: string; text: string; principle?: string }>
 }
 
 /** Un hábito de la ruta progresiva: se activa poco a poco y crece por niveles. */
@@ -81,6 +90,8 @@ export interface HabitLog {
   habitId: string
   day: GameDay
   state: HabitState
+  /** Cuándo se marcó (solo si fue el mismo día), para saber a qué hora sueles hacerlo. */
+  at?: number
 }
 
 export interface Act {
@@ -173,6 +184,7 @@ export interface Evidence {
   note?: string
   /** Data URL JPEG ya comprimida. */
   photo?: string
+  video?: VideoRef
 }
 
 /** Registro de cada recompensa. El XP total siempre es la suma de estos eventos. */
@@ -189,10 +201,33 @@ export interface XpEvent {
 export interface DailyNote {
   id: GameDay
   text: string
-  /** Data URL JPEG ya comprimida, como las fotos de la bitácora de misiones. */
-  photo?: string
+  /** Data URLs JPEG ya comprimidas, como las fotos de la bitácora de misiones (hasta 6). */
+  photos?: string[]
+  /** Videos del día (hasta 3); el archivo vive aparte, en la tabla `media`. */
+  videos?: VideoRef[]
   createdAt: number
   updatedAt: number
+}
+
+/** Referencia a un video guardado en la tabla `media`, con lo necesario para mostrarlo sin abrir el archivo. */
+export interface VideoRef {
+  id: string
+  /** Segundos. */
+  duration: number
+  /** Bytes. */
+  size: number
+  /** Miniatura JPEG pequeña (data URL) de un cuadro del video. */
+  poster?: string
+}
+
+/**
+ * Archivo de video. IndexedDB guarda el Blob como archivo aparte en el disco: las notas y evidencias solo llevan la
+ * referencia, así que listar el diario o la bitácora no carga los videos. No viaja en el respaldo (lo haría enorme).
+ */
+export interface MediaFile {
+  id: string
+  blob: Blob
+  createdAt: number
 }
 
 /** Horas dormidas la noche anterior a `id` (el día de juego en que despertaste). No da XP: es solo registro. */
@@ -351,6 +386,7 @@ export class GameDatabase extends Dexie {
   rewards!: EntityTable<Reward, 'id'>
   redemptions!: EntityTable<Redemption, 'id'>
   routeItems!: EntityTable<RouteItem, 'id'>
+  media!: EntityTable<MediaFile, 'id'>
 
   constructor(name = 'real-life-rpg') {
     super(name)
@@ -435,6 +471,18 @@ export class GameDatabase extends Dexie {
       })
     // v10: ruta progresiva de hábitos.
     this.version(10).stores({ routeItems: 'id, order' })
+    // v11: varias fotos por día en el diario y videos (archivos en `media`).
+    this.version(11)
+      .stores({ media: 'id' })
+      .upgrade(async (transaction) => {
+        await transaction
+          .table('dailyNotes')
+          .toCollection()
+          .modify((note: DailyNote & { photo?: string }) => {
+            if (note.photo) note.photos = [note.photo]
+            delete note.photo
+          })
+      })
   }
 }
 

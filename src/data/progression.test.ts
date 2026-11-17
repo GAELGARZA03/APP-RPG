@@ -8,6 +8,7 @@ import {
   acceptCampaignPlan,
   addActMissions,
   addEvidence,
+  deleteEvidence,
   completeHabit,
   completeDaily,
   completeQuest,
@@ -576,22 +577,30 @@ describe('Bitácora', () => {
     const ref = { kind: 'sideQuest' as const, id: quest.id }
 
     await addEvidence(db, ref, { note: '  Primera nota  ' }, day(0))
-    for (let index = 0; index < 5; index += 1) {
+    for (let index = 0; index < 7; index += 1) {
       const added = await addEvidence(db, ref, { photo: PHOTO }, day(1, 10 + index))
-      expect(added === null).toBe(index >= 4)
+      expect(added === null).toBe(index >= 6)
     }
+    // Hasta 3 videos; al borrar la evidencia se borra también su archivo.
+    const videos = []
+    for (let index = 0; index < 4; index += 1) {
+      videos.push(await addEvidence(db, ref, { video: { blob: new Blob(['v']), duration: 5 } }, day(1, 18 + index)))
+    }
+    expect(videos.map((item) => item === null)).toEqual([false, false, false, true])
+    await deleteEvidence(db, videos[2]!.id)
+    expect(await db.media.count()).toBe(2)
     expect(await addEvidence(db, ref, { note: '   ' }, day(1))).toBeNull()
     expect(await addEvidence(db, { kind: 'sideQuest', id: 'no-existe' }, { note: 'x' }, day(1))).toBeNull()
 
     const journal = await getJournal(db)
-    expect(journal).toHaveLength(5)
-    expect(journal[4]).toMatchObject({
+    expect(journal).toHaveLength(9)
+    expect(journal[8]).toMatchObject({
       note: 'Primera nota',
       taskTitle: quest.title,
       campaign: 'Del silencio al escenario',
     })
     expect(journal[0].createdAt).toBeGreaterThan(journal[1].createdAt)
-    expect((await getTaskDetail(db, ref, gameDayOf(day(1))))?.evidence).toHaveLength(5)
+    expect((await getTaskDetail(db, ref, gameDayOf(day(1))))?.evidence).toHaveLength(9)
   })
 })
 

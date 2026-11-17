@@ -27,7 +27,14 @@ export interface ActCompletion {
 
 export const FAILED: Outcome = { ok: false, xp: 0 }
 
-export const MAX_PHOTOS_PER_TASK = 4
+export const MAX_PHOTOS_PER_TASK = 6
+/** Videos por misión y por día del diario. */
+export const MAX_VIDEOS = 3
+/** Límites de cada video: no se comprimen, así que se limita su duración y su peso. */
+export const MAX_VIDEO_SECONDS = 60
+export const MAX_VIDEO_BYTES = 50 * 1024 * 1024
+/** Fotos por día en el diario. */
+export const MAX_DIARY_PHOTOS = 6
 export const MAX_NOTES_PER_TASK = 6
 export const MAX_NOTE_LENGTH = 500
 export const MAX_SKILL_NAME = 40
@@ -138,6 +145,7 @@ export function allTables(db: GameDatabase) {
     db.rewards,
     db.redemptions,
     db.routeItems,
+    db.media,
   ]
 }
 

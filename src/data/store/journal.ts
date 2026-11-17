@@ -1,7 +1,8 @@
 // Bitácora de evidencias: fotos y notas.
 import { gameDayOf } from '../../game/gameDay'
 import type { Evidence, GameDatabase } from '../db'
-import { MAX_NOTES_PER_TASK, MAX_NOTE_LENGTH, MAX_PHOTOS_PER_TASK, type TaskRef, allTables } from './shared'
+import { storeVideo, type NewVideo } from './media'
+import { MAX_NOTES_PER_TASK, MAX_NOTE_LENGTH, MAX_PHOTOS_PER_TASK, MAX_VIDEOS, type TaskRef, allTables } from './shared'
 
 async function taskTitle(db: GameDatabase, ref: TaskRef): Promise<string | null> {
   const task =
@@ -13,11 +14,11 @@ async function taskTitle(db: GameDatabase, ref: TaskRef): Promise<string | null>
   return task?.title ?? null
 }
 
-/** Agrega una foto (data URL ya comprimida) o una nota. Devuelve `null` si se alcanzó el límite. */
+/** Agrega una foto (data URL ya comprimida), un video o una nota. Devuelve `null` si se alcanzó el límite. */
 export async function addEvidence(
   db: GameDatabase,
   ref: TaskRef,
-  content: { photo: string } | { note: string },
+  content: { photo: string } | { note: string } | { video: NewVideo },
   now = new Date(),
 ): Promise<Evidence | null> {
   return db.transaction('rw', allTables(db), async () => {
@@ -25,27 +26,38 @@ export async function addEvidence(
     if (title === null) return null
     const existing = await db.evidence.where('taskId').equals(ref.id).toArray()
 
-    const isPhoto = 'photo' in content
-    const note = isPhoto ? '' : content.note.trim().slice(0, MAX_NOTE_LENGTH)
-    if (isPhoto && existing.filter((item) => item.photo).length >= MAX_PHOTOS_PER_TASK) return null
-    if (!isPhoto && (!note || existing.filter((item) => item.note).length >= MAX_NOTES_PER_TASK)) return null
-
-    const evidence: Evidence = {
+    const base = {
       id: crypto.randomUUID(),
       taskKind: ref.kind,
       taskId: ref.id,
       taskTitle: title,
       createdAt: now.getTime(),
       day: gameDayOf(now),
-      ...(isPhoto ? { photo: content.photo } : { note }),
     }
+    let evidence: Evidence
+    if ('photo' in content) {
+      if (existing.filter((item) => item.photo).length >= MAX_PHOTOS_PER_TASK) return null
+      evidence = { ...base, photo: content.photo }
+    } else if ('video' in content) {
+      if (existing.filter((item) => item.video).length >= MAX_VIDEOS) return null
+      evidence = { ...base, video: await storeVideo(db, content.video, now) }
+    } else {
+      const note = content.note.trim().slice(0, MAX_NOTE_LENGTH)
+      if (!note || existing.filter((item) => item.note).length >= MAX_NOTES_PER_TASK) return null
+      evidence = { ...base, note }
+    }
+
     await db.evidence.add(evidence)
     return evidence
   })
 }
 
 export async function deleteEvidence(db: GameDatabase, id: string): Promise<void> {
-  await db.evidence.delete(id)
+  await db.transaction('rw', db.evidence, db.media, async () => {
+    const evidence = await db.evidence.get(id)
+    if (evidence?.video) await db.media.delete(evidence.video.id)
+    await db.evidence.delete(id)
+  })
 }
 
 /** Todas las evidencias, de la más reciente a la más antigua, con su campaña si la tienen. */

@@ -419,8 +419,9 @@ export function shortSource(principle: Principle): string {
  * Bloque que se agrega a las instrucciones de la IA: los principios que aplican a esta tarea.
  * La IA debe basarse solo en ellos y decir cuál aplicó en cada elemento (`principle`).
  */
-export function principlesPrompt(use: PrincipleUse): string {
-  const list = PRINCIPLES.filter((principle) => principle.uses.includes(use))
+export function principlesPrompt(use: PrincipleUse | PrincipleUse[]): string {
+  const uses = Array.isArray(use) ? use : [use]
+  const list = PRINCIPLES.filter((principle) => principle.uses.some((item) => uses.includes(item)))
     .map((principle) => `- ${principle.id} · ${principle.name}: ${principle.idea} Aplicación: ${principle.apply}`)
     .join('\n')
   return `BIBLIOTECA DE PRINCIPIOS (tu única base de conocimiento sobre hábitos, aprendizaje y metas):

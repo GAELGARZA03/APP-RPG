@@ -2,7 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { ChevronRight, History } from 'lucide-react'
 import { motion } from 'motion/react'
 import { db } from '../data/appDb'
-import { getMemory } from '../data/gameStore'
+import { getMemory, noteCover } from '../data/gameStore'
 import type { GameDay } from '../game/gameDay'
 
 /** Recuerdo discreto en Hoy: lo que escribiste el mismo día de hace un año o de hace un mes. */
@@ -21,8 +21,8 @@ export function MemoryCard({ today, onOpen }: { today: GameDay; onOpen: (day: Ga
       aria-label={`${label}: abrir esa página del diario`}
       className="flex items-center gap-3 rounded-3xl border border-white/[0.08] bg-raised/60 p-3 text-left"
     >
-      {note.photo ? (
-        <img src={note.photo} alt="" className="size-12 shrink-0 rounded-xl object-cover" />
+      {noteCover(note) ? (
+        <img src={noteCover(note)} alt="" className="size-12 shrink-0 rounded-xl object-cover" />
       ) : (
         <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-info/15 text-info">
           <History aria-hidden className="size-5" />

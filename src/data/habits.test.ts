@@ -218,25 +218,77 @@ describe('Notas diarias', () => {
     expect(await saveDailyNote(db, dayOf(3), { text: 'Del futuro' }, at(1))).toBe(false)
   })
 
-  it('la foto se conserva al editar el texto, se quita con null y una nota puede ser solo foto', async () => {
-    const { getDailyNote, saveDailyNote } = await import('./gameStore')
-    const photo = 'data:image/jpeg;base64,AAAA'
-    await saveDailyNote(db, dayOf(0), { text: 'El concierto', photo }, at(0))
+  it('varias fotos y videos por día, con límites; el texto se edita sin perderlos', async () => {
+    const { addDiaryMedia, getDailyNote, getVideoBlob, noteCover, removeDiaryPhoto, removeDiaryVideo, saveDailyNote } =
+      await import('./gameStore')
+    const photo = (n: number) => `data:image/jpeg;base64,AAA${n}`
+    const video = { blob: new Blob(['video']), duration: 12.34, poster: photo(9) }
+
+    const first = await addDiaryMedia(
+      db,
+      dayOf(0),
+      [1, 2, 3, 4, 5, 6, 7].map((n) => ({ photo: photo(n) })),
+      'El concierto',
+      at(0),
+    )
+    expect(first).toEqual({ added: 6, skipped: 1 })
+    await addDiaryMedia(db, dayOf(0), [{ video }, { video }, { video }, { video }], undefined, at(0))
+    let note = (await getDailyNote(db, dayOf(0)))!
+    expect(note.text).toBe('El concierto')
+    expect(note.photos).toHaveLength(6)
+    expect(note.videos).toHaveLength(3)
+    expect(note.videos![0]).toMatchObject({ duration: 12.3, size: 5, poster: photo(9) })
+    expect(noteCover(note)).toBe(photo(1))
+
     await saveDailyNote(db, dayOf(0), { text: 'El concierto, desde la primera fila' }, at(0))
-    expect(await getDailyNote(db, dayOf(0))).toMatchObject({ text: 'El concierto, desde la primera fila', photo })
-    await saveDailyNote(db, dayOf(0), { text: '', photo }, at(0))
-    expect(await getDailyNote(db, dayOf(0))).toMatchObject({ text: '', photo })
-    await saveDailyNote(db, dayOf(0), { text: '', photo: null }, at(0))
-    expect(await getDailyNote(db, dayOf(0))).toBeNull()
+    note = (await getDailyNote(db, dayOf(0)))!
+    expect(note.photos).toHaveLength(6)
+
+    await removeDiaryPhoto(db, dayOf(0), 0, at(0))
+    note = (await getDailyNote(db, dayOf(0)))!
+    expect(note.photos![0]).toBe(photo(2))
+    const removed = note.videos![0].id
+    await removeDiaryVideo(db, dayOf(0), removed, at(0))
+    expect(await getVideoBlob(db, removed)).toBeNull()
+    expect((await getDailyNote(db, dayOf(0)))!.videos).toHaveLength(2)
+
+    // Una nota puede ser solo fotos; sin texto ni nada más, desaparece.
+    await saveDailyNote(db, dayOf(1), { text: 'x' }, at(1))
+    await addDiaryMedia(db, dayOf(1), [{ photo: photo(1) }], '', at(1))
+    expect(await getDailyNote(db, dayOf(1))).toMatchObject({ text: '', photos: [photo(1)] })
+    await removeDiaryPhoto(db, dayOf(1), 0, at(1))
+    expect(await getDailyNote(db, dayOf(1))).toBeNull()
   })
 
-  it('viajan en el respaldo', async () => {
+  it('viajan en el respaldo (los videos solo como referencia) y aceptan la foto única de respaldos viejos', async () => {
     const { createBackup } = await import('./backup')
-    const { getDailyNote, saveDailyNote } = await import('./gameStore')
-    await saveDailyNote(db, dayOf(0), { text: 'Conocí a alguien famoso', photo: 'data:image/jpeg;base64,AAAA' }, at(0))
+    const { addDiaryMedia, getDailyNote, getVideoBlob } = await import('./gameStore')
+    await addDiaryMedia(
+      db,
+      dayOf(0),
+      [{ photo: 'data:image/jpeg;base64,AAAA' }, { video: { blob: new Blob(['v']), duration: 3 } }],
+      'Conocí a alguien famoso',
+      at(0),
+    )
     const target = new GameDatabase(`habitos-${crypto.randomUUID()}`)
-    await restoreBackup(target, parseBackup(JSON.stringify(await createBackup(db))))
-    expect(await getDailyNote(target, dayOf(0))).toEqual(await getDailyNote(db, dayOf(0)))
+    const backup = await createBackup(db)
+    await restoreBackup(target, parseBackup(JSON.stringify(backup)))
+    const restored = (await getDailyNote(target, dayOf(0)))!
+    expect(restored).toEqual(await getDailyNote(db, dayOf(0)))
+    expect(await getVideoBlob(target, restored.videos![0].id)).toBeNull()
+
+    const legacy = JSON.parse(JSON.stringify(backup))
+    legacy.data.dailyNotes = [
+      { id: dayOf(2), text: 'Viejo', photo: 'data:image/jpeg;base64,BBBB', createdAt: 1, updatedAt: 1 },
+    ]
+    await restoreBackup(target, parseBackup(JSON.stringify(legacy)))
+    expect(await getDailyNote(target, dayOf(2))).toEqual({
+      id: dayOf(2),
+      text: 'Viejo',
+      photos: ['data:image/jpeg;base64,BBBB'],
+      createdAt: 1,
+      updatedAt: 1,
+    })
     await target.delete()
   })
 })

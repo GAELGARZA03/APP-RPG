@@ -15,6 +15,7 @@ import type { GameDay } from '../game/gameDay'
 import { Diary } from './Diary'
 import { formatDay } from './formatDay'
 import { PhotoViewer } from './EvidenceSection'
+import { VideoThumb, VideoViewer } from './media/MediaTiles'
 import { Badge } from './kit/Badge'
 import { cardSurface } from './kit/Card'
 import { cn } from './kit/cn'
@@ -128,7 +129,7 @@ function Progress({ onOpen }: { onOpen: (ref: TaskRef) => void }) {
   const [viewing, setViewing] = useState<JournalEntry | null>(null)
   const entries = filter === 'milestones' ? [] : allEntries
   const milestones = filter === 'evidence' ? [] : (allMilestones ?? [])
-  const photoCount = allEntries?.filter((entry) => entry.photo).length ?? 0
+  const photoCount = allEntries?.filter((entry) => entry.photo || entry.video).length ?? 0
   const noteCount = (allEntries?.length ?? 0) - photoCount
   const groups = groupEntries(entries ?? [])
   const days = [...new Set([...groups.map((group) => group.day), ...milestones.map((item) => item.day)])].sort((a, b) =>
@@ -207,7 +208,7 @@ function Progress({ onOpen }: { onOpen: (ref: TaskRef) => void }) {
               })}
             {(groups.find((group) => group.day === day)?.tasks ?? []).map((task) => {
               const [first] = task.entries
-              const photos = task.entries.filter((entry) => entry.photo)
+              const photos = task.entries.filter((entry) => entry.photo || entry.video)
               const notes = task.entries.filter((entry) => entry.note)
               return (
                 <article
@@ -244,13 +245,17 @@ function Progress({ onOpen }: { onOpen: (ref: TaskRef) => void }) {
                           <button
                             type="button"
                             onClick={() => setViewing(entry)}
-                            aria-label={`Ver foto de ${entry.taskTitle}`}
+                            aria-label={`Ver ${entry.video ? 'video' : 'foto'} de ${entry.taskTitle}`}
                             className={cn(
                               'block w-full overflow-hidden rounded-2xl ring-1 ring-white/10 active:scale-[0.98]',
                               photos.length === 1 ? 'aspect-video' : 'aspect-square',
                             )}
                           >
-                            <img src={entry.photo} alt="" loading="lazy" className="size-full object-cover" />
+                            {entry.video ? (
+                              <VideoThumb video={entry.video} />
+                            ) : (
+                              <img src={entry.photo} alt="" loading="lazy" className="size-full object-cover" />
+                            )}
                           </button>
                         </li>
                       ))}
@@ -276,6 +281,16 @@ function Progress({ onOpen }: { onOpen: (ref: TaskRef) => void }) {
         {viewing?.photo && (
           <PhotoViewer
             photo={viewing.photo}
+            onClose={() => setViewing(null)}
+            onDelete={() => {
+              void deleteEvidence(db, viewing.id)
+              setViewing(null)
+            }}
+          />
+        )}
+        {viewing?.video && (
+          <VideoViewer
+            video={viewing.video}
             onClose={() => setViewing(null)}
             onDelete={() => {
               void deleteEvidence(db, viewing.id)

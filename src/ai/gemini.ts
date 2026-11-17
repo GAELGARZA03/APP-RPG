@@ -28,4 +28,6 @@ export {
 } from './gemini/calls'
 export { generateWeeklyReview, reviewInput } from './gemini/review'
 export { generateHabitRoute } from './gemini/route'
+export { analyzeHabit } from './gemini/habitAnalysis'
+export type { HabitAnalysisPlan } from './gemini/habitAnalysis'
 export type { RoutePlan } from './gemini/route'

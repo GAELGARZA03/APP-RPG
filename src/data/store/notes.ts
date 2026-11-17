@@ -1,6 +1,8 @@
-// Notas diarias de la bitácora: algo épico que hiciste o algo por lo que das gracias, una por día, con foto opcional.
+// Notas diarias de la bitácora: algo épico que hiciste o algo por lo que das gracias, una por día, con varias fotos y videos opcionales.
 import { gameDayOf, type GameDay } from '../../game/gameDay'
 import type { DailyNote, GameDatabase } from '../db'
+import { storeVideo, type NewMedia } from './media'
+import { MAX_DIARY_PHOTOS, MAX_VIDEOS } from './shared'
 
 export const MAX_DAILY_NOTE_LENGTH = 2000
 
@@ -8,32 +10,98 @@ export async function getDailyNote(db: GameDatabase, day: GameDay): Promise<Dail
   return (await db.dailyNotes.get(day)) ?? null
 }
 
-/**
- * Guarda la nota de un día (no del futuro). `photo: null` quita la foto; si se omite, se conserva la que había.
- * Sin texto ni foto, la nota se borra.
- */
-export async function saveDailyNote(
+/** Foto que representa el día (calendario, recuerdo): la primera foto o, si no hay, la miniatura del primer video. */
+export function noteCover(note: DailyNote | null | undefined): string | undefined {
+  return note?.photos?.[0] ?? note?.videos?.find((video) => video.poster)?.poster
+}
+
+const hasMedia = (note: Pick<DailyNote, 'photos' | 'videos'>) =>
+  (note.photos?.length ?? 0) > 0 || (note.videos?.length ?? 0) > 0
+
+/** Escribe la nota sin borrar si no queda nada (sin texto, fotos ni videos, la nota desaparece). */
+async function putNote(
   db: GameDatabase,
   day: GameDay,
-  entry: { text: string; photo?: string | null },
-  now = new Date(),
-): Promise<boolean> {
-  if (day > gameDayOf(now)) return false
+  fields: Omit<DailyNote, 'id' | 'createdAt' | 'updatedAt'>,
+  now: Date,
+) {
   const existing = await db.dailyNotes.get(day)
-  const text = entry.text.trim().slice(0, MAX_DAILY_NOTE_LENGTH)
-  const photo = entry.photo === undefined ? existing?.photo : (entry.photo ?? undefined)
-  if (!text && !photo) {
+  if (!fields.text && !hasMedia(fields)) {
     await db.dailyNotes.delete(day)
-    return true
+    return
   }
   await db.dailyNotes.put({
     id: day,
-    text,
-    ...(photo ? { photo } : {}),
+    text: fields.text,
+    ...(fields.photos?.length ? { photos: fields.photos } : {}),
+    ...(fields.videos?.length ? { videos: fields.videos } : {}),
     createdAt: existing?.createdAt ?? now.getTime(),
     updatedAt: now.getTime(),
   })
+}
+
+/** Guarda el texto de un día (no del futuro); las fotos y los videos se conservan. Sin nada, la nota se borra. */
+export async function saveDailyNote(
+  db: GameDatabase,
+  day: GameDay,
+  entry: { text: string },
+  now = new Date(),
+): Promise<boolean> {
+  if (day > gameDayOf(now)) return false
+  await db.transaction('rw', db.dailyNotes, async () => {
+    const existing = await db.dailyNotes.get(day)
+    const text = entry.text.trim().slice(0, MAX_DAILY_NOTE_LENGTH)
+    await putNote(db, day, { text, photos: existing?.photos, videos: existing?.videos }, now)
+  })
   return true
+}
+
+/**
+ * Agrega fotos y videos a un día, hasta los límites. Devuelve cuántos entraron y cuántos no cupieron.
+ * `text` es el texto que se está escribiendo (si la nota todavía no existe, se guarda con él).
+ */
+export async function addDiaryMedia(
+  db: GameDatabase,
+  day: GameDay,
+  items: NewMedia[],
+  text: string | undefined,
+  now = new Date(),
+): Promise<{ added: number; skipped: number }> {
+  if (day > gameDayOf(now)) return { added: 0, skipped: items.length }
+  return db.transaction('rw', db.dailyNotes, db.media, async () => {
+    const existing = await db.dailyNotes.get(day)
+    const photos = [...(existing?.photos ?? [])]
+    const videos = [...(existing?.videos ?? [])]
+    let added = 0
+    for (const item of items) {
+      if ('photo' in item && photos.length < MAX_DIARY_PHOTOS) photos.push(item.photo)
+      else if ('video' in item && videos.length < MAX_VIDEOS) videos.push(await storeVideo(db, item.video, now))
+      else continue
+      added += 1
+    }
+    const noteText = (text ?? existing?.text ?? '').trim().slice(0, MAX_DAILY_NOTE_LENGTH)
+    if (added > 0) await putNote(db, day, { text: noteText, photos, videos }, now)
+    return { added, skipped: items.length - added }
+  })
+}
+
+export async function removeDiaryPhoto(db: GameDatabase, day: GameDay, index: number, now = new Date()): Promise<void> {
+  await db.transaction('rw', db.dailyNotes, async () => {
+    const existing = await db.dailyNotes.get(day)
+    if (!existing?.photos?.[index]) return
+    const photos = existing.photos.filter((_, position) => position !== index)
+    await putNote(db, day, { text: existing.text, photos, videos: existing.videos }, now)
+  })
+}
+
+export async function removeDiaryVideo(db: GameDatabase, day: GameDay, videoId: string, now = new Date()) {
+  await db.transaction('rw', db.dailyNotes, db.media, async () => {
+    const existing = await db.dailyNotes.get(day)
+    if (!existing) return
+    await db.media.delete(videoId)
+    const videos = (existing.videos ?? []).filter((video) => video.id !== videoId)
+    await putNote(db, day, { text: existing.text, photos: existing.photos, videos }, now)
+  })
 }
 
 /** Todas las notas, de la más reciente a la más antigua. */

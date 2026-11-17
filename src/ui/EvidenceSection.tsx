@@ -1,17 +1,33 @@
-import { Camera, ImagePlus, NotebookPen, Trash2, X } from 'lucide-react'
+import { Camera, ImagePlus, LoaderCircle, NotebookPen, Trash2, Video, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { db } from '../data/appDb'
 import type { Evidence } from '../data/db'
-import { addEvidence, deleteEvidence, MAX_NOTE_LENGTH, MAX_PHOTOS_PER_TASK, type TaskRef } from '../data/gameStore'
+import {
+  addEvidence,
+  deleteEvidence,
+  MAX_NOTE_LENGTH,
+  MAX_PHOTOS_PER_TASK,
+  MAX_VIDEOS,
+  type TaskRef,
+} from '../data/gameStore'
 import { useBack } from './backStack'
-import { imageFileToEvidence } from './images'
+import { VideoThumb, VideoViewer } from './media/MediaTiles'
+import { isVideoFile, readMediaFiles } from './media/readMedia'
 import { Button } from './kit/Button'
 import { SectionLabel } from './kit/Card'
 import { Textarea } from './kit/controls'
 
 /** Foto a pantalla completa. Se cierra al tocarla o con el botón atrás. */
-export function PhotoViewer({ photo, onClose, onDelete }: { photo: string; onClose: () => void; onDelete?: () => void }) {
+export function PhotoViewer({
+  photo,
+  onClose,
+  onDelete,
+}: {
+  photo: string
+  onClose: () => void
+  onDelete?: () => void
+}) {
   useBack(true, onClose)
   const close = useRef<HTMLButtonElement>(null)
 
@@ -59,26 +75,45 @@ export function EvidenceSection(props: {
 }) {
   const { taskRef, evidence, required, onAdded } = props
   const camera = useRef<HTMLInputElement>(null)
+  const videoCamera = useRef<HTMLInputElement>(null)
   const gallery = useRef<HTMLInputElement>(null)
+  const [busy, setBusy] = useState(false)
   const [writing, setWriting] = useState(false)
   const [note, setNote] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [viewing, setViewing] = useState<Evidence | null>(null)
   const photos = evidence.filter((item) => item.photo)
+  const videos = evidence.filter((item) => item.video)
+  const media = evidence.filter((item) => item.photo || item.video)
   const notes = evidence.filter((item) => item.note)
-  const photosFull = photos.length >= MAX_PHOTOS_PER_TASK
+  const photoRoom = MAX_PHOTOS_PER_TASK - photos.length
+  const videoRoom = MAX_VIDEOS - videos.length
 
-  async function choosePhoto(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0]
+  /** Agrega lo elegido (una o varias fotos y videos) hasta los límites de la misión. */
+  async function addFiles(event: ChangeEvent<HTMLInputElement>) {
+    const files = [...(event.target.files ?? [])]
     event.target.value = ''
-    if (!file) return
+    if (files.length === 0) return
     setError(null)
+    let photosLeft = photoRoom
+    let videosLeft = videoRoom
+    const accepted = files.filter((file) => (isVideoFile(file) ? videosLeft-- > 0 : photosLeft-- > 0))
+    const messages: string[] = []
+    if (accepted.length < files.length) {
+      messages.push(`Por misión caben ${MAX_PHOTOS_PER_TASK} fotos y ${MAX_VIDEOS} videos.`)
+    }
+    setBusy(true)
+    let added = 0
     try {
-      const added = await addEvidence(db, taskRef, { photo: await imageFileToEvidence(file) })
-      if (added) onAdded?.()
-      else setError(`Máximo ${MAX_PHOTOS_PER_TASK} fotos por misión.`)
+      const { items, errors } = await readMediaFiles(accepted)
+      messages.unshift(...errors)
+      for (const item of items) if (await addEvidence(db, taskRef, item)) added += 1
     } catch {
-      setError('No se pudo usar esa imagen. Prueba con otra foto.')
+      messages.unshift('No se pudo guardar. Prueba otra vez.')
+    } finally {
+      setBusy(false)
+      setError(messages.length > 0 ? messages.join(' ') : null)
+      if (added > 0) onAdded?.()
     }
   }
 
@@ -105,17 +140,21 @@ export function EvidenceSection(props: {
         )}
       </div>
 
-      {photos.length > 0 && (
+      {media.length > 0 && (
         <ul className="grid grid-cols-4 gap-2">
-          {photos.map((item) => (
+          {media.map((item) => (
             <li key={item.id}>
               <button
                 type="button"
                 onClick={() => setViewing(item)}
-                aria-label="Ver foto"
+                aria-label={item.video ? 'Ver video' : 'Ver foto'}
                 className="block aspect-square w-full overflow-hidden rounded-xl ring-1 ring-white/10 active:scale-95"
               >
-                <img src={item.photo} alt="" className="size-full object-cover" />
+                {item.video ? (
+                  <VideoThumb video={item.video} />
+                ) : (
+                  <img src={item.photo} alt="" className="size-full object-cover" />
+                )}
               </button>
             </li>
           ))}
@@ -154,22 +193,47 @@ export function EvidenceSection(props: {
             <Button size="sm" onClick={() => setWriting(false)} className="flex-1">
               Cancelar
             </Button>
-            <Button size="sm" variant="outline" disabled={!note.trim()} onClick={() => void saveNote()} className="flex-1">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={!note.trim()}
+              onClick={() => void saveNote()}
+              className="flex-1"
+            >
               Guardar nota
             </Button>
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-3 gap-2">
-          <Button size="sm" disabled={photosFull} onClick={() => camera.current?.click()} className="min-h-11 px-2">
+        <div className="grid grid-cols-4 gap-2">
+          <Button
+            size="sm"
+            disabled={busy || photoRoom <= 0}
+            onClick={() => camera.current?.click()}
+            className="min-h-11 px-1"
+          >
             <Camera aria-hidden />
-            Cámara
+            Foto
           </Button>
-          <Button size="sm" disabled={photosFull} onClick={() => gallery.current?.click()} className="min-h-11 px-2">
-            <ImagePlus aria-hidden />
+          <Button
+            size="sm"
+            disabled={busy || videoRoom <= 0}
+            onClick={() => videoCamera.current?.click()}
+            className="min-h-11 px-1"
+          >
+            <Video aria-hidden />
+            Video
+          </Button>
+          <Button
+            size="sm"
+            disabled={busy || (photoRoom <= 0 && videoRoom <= 0)}
+            onClick={() => gallery.current?.click()}
+            className="min-h-11 px-1"
+          >
+            {busy ? <LoaderCircle aria-hidden className="animate-spin" /> : <ImagePlus aria-hidden />}
             Galería
           </Button>
-          <Button size="sm" onClick={() => setWriting(true)} className="min-h-11 px-2">
+          <Button size="sm" onClick={() => setWriting(true)} className="min-h-11 px-1">
             <NotebookPen aria-hidden />
             Nota
           </Button>
@@ -180,10 +244,25 @@ export function EvidenceSection(props: {
         type="file"
         accept="image/*"
         capture="environment"
-        onChange={(event) => void choosePhoto(event)}
+        onChange={(event) => void addFiles(event)}
         className="hidden"
       />
-      <input ref={gallery} type="file" accept="image/*" onChange={(event) => void choosePhoto(event)} className="hidden" />
+      <input
+        ref={videoCamera}
+        type="file"
+        accept="video/*"
+        capture="environment"
+        onChange={(event) => void addFiles(event)}
+        className="hidden"
+      />
+      <input
+        ref={gallery}
+        type="file"
+        accept="image/*,video/*"
+        multiple
+        onChange={(event) => void addFiles(event)}
+        className="hidden"
+      />
       {error && (
         <p role="alert" className="text-sm text-ember">
           {error}
@@ -194,6 +273,16 @@ export function EvidenceSection(props: {
         {viewing?.photo && (
           <PhotoViewer
             photo={viewing.photo}
+            onClose={() => setViewing(null)}
+            onDelete={() => {
+              void deleteEvidence(db, viewing.id)
+              setViewing(null)
+            }}
+          />
+        )}
+        {viewing?.video && (
+          <VideoViewer
+            video={viewing.video}
             onClose={() => setViewing(null)}
             onDelete={() => {
               void deleteEvidence(db, viewing.id)

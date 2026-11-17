@@ -1,6 +1,17 @@
 // Todas las lecturas y escrituras del juego. Cada área vive en src/data/store/;
 // el resto de la app importa desde aquí.
-export { MAX_NOTES_PER_TASK, MAX_NOTE_LENGTH, MAX_PHOTOS_PER_TASK } from './store/shared'
+export {
+  MAX_DIARY_PHOTOS,
+  MAX_NOTES_PER_TASK,
+  MAX_NOTE_LENGTH,
+  MAX_PHOTOS_PER_TASK,
+  MAX_VIDEO_BYTES,
+  MAX_VIDEO_SECONDS,
+  MAX_VIDEOS,
+} from './store/shared'
+export { getMediaUsage, getVideoBlob } from './store/media'
+export { formatClock, getHabitStats, habitAnalysisInput, MIN_TIME_SAMPLES, WEEKDAY_NAMES } from './store/habitStats'
+export type { HabitInsight, HabitStats } from './store/habitStats'
 export type { ActCompletion, Outcome, TaskChanges, TaskInput, TaskRef } from './store/shared'
 export { getHud, getWeek } from './store/hud'
 export type { Hud, WeekDay, WeekDayStatus } from './store/hud'
@@ -103,8 +114,13 @@ export {
   getMemory,
   listDailyNotes,
   MAX_DAILY_NOTE_LENGTH,
+  addDiaryMedia,
+  noteCover,
+  removeDiaryPhoto,
+  removeDiaryVideo,
   saveDailyNote,
 } from './store/notes'
+export type { NewMedia } from './store/media'
 export { clampSleep, getSleep, getSleepRange, MAX_SLEEP_HOURS, setSleep, SLEEP_GOAL_HOURS } from './store/sleep'
 export type { SleepRange } from './store/sleep'
 export { getMilestones } from './store/milestones'

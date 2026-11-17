@@ -11,6 +11,7 @@ import {
   summarizeBackup,
   type Backup,
 } from '../../data/backup'
+import { getMediaUsage } from '../../data/gameStore'
 import { getLastBackupAt, markBackupDone } from '../../data/settings'
 import { saveTextFile } from '../../platform/files'
 import { Badge } from '../kit/Badge'
@@ -34,6 +35,7 @@ function formatDate(iso: string) {
 
 export function BackupPanel({ embedded, headingId }: { embedded?: boolean; headingId?: string } = {}) {
   const lastBackupAt = useLiveQuery(() => getLastBackupAt(db), [])
+  const media = useLiveQuery(() => getMediaUsage(db), [])
   const fileInput = useRef<HTMLInputElement>(null)
   const [pending, setPending] = useState<Backup | null>(null)
   const [message, setMessage] = useState<{ error: boolean; text: string } | null>(null)
@@ -96,6 +98,13 @@ export function BackupPanel({ embedded, headingId }: { embedded?: boolean; headi
       <p className="mb-3 text-sm text-muted">
         Tus datos solo viven en este teléfono. Si desinstalas la app sin respaldo, se pierden.
       </p>
+      {media && media.count > 0 && (
+        <p className="mb-3 text-sm text-muted">
+          Tienes {media.count} {media.count === 1 ? 'video' : 'videos'} (
+          {Math.max(1, Math.round(media.bytes / 1048576))} MB). Los videos no entran en el respaldo: se quedan solo en
+          este teléfono.
+        </p>
+      )}
 
       <div className="grid grid-cols-2 gap-2">
         <Button onClick={() => void exportBackup()}>

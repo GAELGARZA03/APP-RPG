@@ -37,6 +37,13 @@ const photo = z
   .max(1_500_000)
   .regex(/^data:image\/(jpeg|png|webp);base64,/)
 
+const videoRef = z.object({
+  id,
+  duration: z.number().min(0).max(3600),
+  size: z.number().int().min(0),
+  poster: photo.optional(),
+})
+
 const detail = {
   description: text(1000).optional(),
   steps: z.array(text(200)).max(10).optional(),
@@ -130,10 +137,20 @@ const dataSchema = z.object({
       routeItemId: id.optional(),
       level: z.number().int().min(0).max(10).optional(),
       levelSince: day.optional(),
+      analysis: z
+        .object({
+          createdAt: timestamp,
+          model: text(80),
+          summary: text(1000),
+          points: z
+            .array(z.object({ title: text(120), text: text(800), principle: text(8).optional() }))
+            .max(6),
+        })
+        .optional(),
     }),
   ),
   habitLogs: z
-    .array(z.object({ id: z.string().min(1).max(220), habitId: id, day, state: z.enum(['done', 'half', 'missed']) }))
+    .array(z.object({ id: z.string().min(1).max(220), habitId: id, day, state: z.enum(['done', 'half', 'missed']), at: timestamp.optional() }))
     .default([]),
   campaigns: z.array(
     z.object({
@@ -192,6 +209,7 @@ const dataSchema = z.object({
         day,
         note: text(600).optional(),
         photo: photo.optional(),
+        video: videoRef.optional(),
       }),
     )
     .default([]),
@@ -280,8 +298,25 @@ const dataSchema = z.object({
   // No existe en los respaldos de las versiones 1 a 5.
   sleep: z.array(z.object({ id: day, hours: z.number().min(0).max(14).multipleOf(0.5) })).default([]),
   // No existe en los respaldos de las versiones 1 a 4.
+  // Hasta la versión 8 de la app, una sola `photo`; ahora `photos`. Los videos solo traen su referencia: el archivo no
+  // viaja en el respaldo y, al restaurar en otro teléfono, se muestra como no disponible.
   dailyNotes: z
-    .array(z.object({ id: day, text: text(2000), photo: photo.optional(), createdAt: timestamp, updatedAt: timestamp }))
+    .array(
+      z
+        .object({
+          id: day,
+          text: text(2000),
+          photo: photo.optional(),
+          photos: z.array(photo).max(6).optional(),
+          videos: z.array(videoRef).max(3).optional(),
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        })
+        .transform(({ photo: legacy, photos, ...note }) => {
+          const all = photos ?? (legacy ? [legacy] : [])
+          return { ...note, ...(all.length ? { photos: all } : {}) }
+        }),
+    )
     .default([]),
   // No existe en los respaldos de las versiones 1 y 2.
   reviews: z.array(review).max(600).default([]),

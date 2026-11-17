@@ -200,7 +200,12 @@ export async function setHabitState(
     if (!habit || !isScheduledOn(habit, day)) return null
 
     if (state === null) await db.habitLogs.delete(logId(habitId, day))
-    else await db.habitLogs.put({ id: logId(habitId, day), habitId, day, state })
+    else {
+      // La hora solo vale si se marca el mismo día; si ya tenía una (de hecho a medias), se conserva.
+      const previousLog = await db.habitLogs.get(logId(habitId, day))
+      const at = state !== 'missed' && day === today ? (previousLog?.at ?? now.getTime()) : undefined
+      await db.habitLogs.put({ id: logId(habitId, day), habitId, day, state, ...(at ? { at } : {}) })
+    }
     if (access === 'log') return 0
 
     const player = await settleClosedDays(db, today)

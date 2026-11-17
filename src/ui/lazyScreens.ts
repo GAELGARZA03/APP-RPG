@@ -13,6 +13,7 @@ const loaders = {
   shop: () => import('./shop/ShopScreen'),
   route: () => import('./route/RouteScreen'),
   library: () => import('./library/LibraryScreen'),
+  habit: () => import('./notebook/HabitDetailScreen'),
 }
 
 export const CampaignMap = lazy(() => loaders.map().then((module) => ({ default: module.CampaignMap })))
@@ -26,6 +27,10 @@ export const ReviewSheet = lazy(() => loaders.review().then((module) => ({ defau
 export const ShopScreen = lazy(() => loaders.shop().then((module) => ({ default: module.ShopScreen })))
 
 export const RouteScreen = lazy(() => loaders.route().then((module) => ({ default: module.RouteScreen })))
+
+export const HabitDetailScreen = lazy(() =>
+  loaders.habit().then((module) => ({ default: module.HabitDetailScreen })),
+)
 
 export const LibraryScreen = lazy(() => loaders.library().then((module) => ({ default: module.LibraryScreen })))
 
