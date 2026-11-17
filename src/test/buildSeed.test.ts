@@ -23,6 +23,9 @@ import {
   saveDaily,
   saveDailyNote,
   saveReview,
+  startRoute,
+  acceptRouteOffer,
+  getRoute,
   setSleep,
   skipSideQuest,
   toggleStep,
@@ -60,6 +63,7 @@ async function exportScenario(db: GameDatabase, name: string) {
     db.sleep,
     db.rewards,
     db.redemptions,
+    db.routeItems,
   ]) {
     stores[table.name] = await table.toArray()
   }
@@ -551,4 +555,69 @@ it.runIf(building)('escenario libreta', async () => {
   }
   await addSleep(db, 30)
   await exportScenario(db, 'libreta')
+})
+
+/**
+ * Ruta progresiva a mitad de camino: «Lectura» va al 100 % (sugiere subir de nivel o sumar el siguiente),
+ * «Agua» bajó al 30 % en su nivel 2 (sugiere bajar), el gimnasio es de 3 veces por semana con recordatorio,
+ * y quedan dos pasos pendientes.
+ */
+it.runIf(building)('escenario ruta', async () => {
+  const db = new GameDatabase('escenario-ruta')
+  const start = ago(16)
+  await startRoute(
+    db,
+    [
+      {
+        title: 'Lectura',
+        emoji: '📚',
+        why: 'Es la base para aprender lo demás.',
+        levels: ['Leer 2 páginas', 'Leer 10 páginas', 'Leer 30 minutos'],
+        frequency: { kind: 'daily' },
+      },
+      {
+        title: 'Agua',
+        emoji: '💧',
+        why: 'Más energía durante el día.',
+        levels: ['Tomar un vaso al despertar', 'Tomar 2 litros'],
+        frequency: { kind: 'daily' },
+      },
+      {
+        title: 'Gimnasio',
+        emoji: '🏋️',
+        why: 'Fuerza y mejor sueño.',
+        levels: ['Ir 20 minutos', 'Rutina completa'],
+        frequency: { kind: 'timesPerWeek', times: 3 },
+      },
+      {
+        title: 'Meditación',
+        emoji: '🧘',
+        why: 'Menos estrés.',
+        levels: ['Meditar 2 minutos', 'Meditar 10 minutos'],
+        frequency: { kind: 'daily' },
+      },
+      {
+        title: 'Inglés',
+        emoji: '🇬🇧',
+        why: 'Para el trabajo.',
+        levels: ['Una lección de 5 minutos', 'Una lección de 15 minutos'],
+        frequency: { kind: 'weekdays', days: [0, 1, 2, 3, 4] },
+      },
+    ],
+    3,
+    start,
+  )
+  const [reading, water, gym] = await getRoute(db, gameDayOf(start))
+  await acceptRouteOffer(db, water.id, 'levelUp', start)
+  await db.habits.update(gym.habitId!, { reminder: '19:00' })
+  for (let offset = 16; offset >= 1; offset--) {
+    const day = gameDayOf(ago(offset))
+    await setHabitState(db, reading.habitId!, day, 'done', ago(offset))
+    await setHabitState(db, water.habitId!, day, offset % 3 === 0 ? 'done' : 'missed', ago(offset))
+    if (offset % 2 === 0) await setHabitState(db, gym.habitId!, day, 'done', ago(offset))
+  }
+  const route = await getRoute(db, gameDayOf(ago(0)))
+  expect(route[0].offer?.kind).toBe('levelUp')
+  expect(route[1].offer?.kind).toBe('levelDown')
+  await exportScenario(db, 'ruta')
 })

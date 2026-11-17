@@ -34,6 +34,7 @@ import {
   deleteCampaign,
   deleteSideQuest,
   getHud,
+  getReminderPlan,
   renameCampaign,
   updateHabit,
   getTaskDetail,
@@ -47,7 +48,7 @@ import { getCosmetics, getNotificationSettings, getPrefs, getProfile } from './d
 import { effectiveCosmetics, THEMES, titleName, unlocksBetween } from './game/cosmetics'
 import { goldForXp } from './game/rules'
 import { haptic, setHapticsEnabled } from './platform/haptics'
-import { applyNotificationSettings, notificationsSupported } from './platform/notifications'
+import { applyNotificationSettings, notificationsSupported, scheduleHabitReminders } from './platform/notifications'
 import { ActCelebration } from './ui/ActCelebration'
 import { runBack } from './ui/backStack'
 import { FormSheet, type FormSheetProps } from './ui/FormSheet'
@@ -60,6 +61,7 @@ import {
   preloadScreens,
   ReviewSheet,
   ShopScreen,
+  RouteScreen,
   SkillTreeScreen,
 } from './ui/lazyScreens'
 import { Logo } from './ui/kit/Logo'
@@ -105,6 +107,7 @@ type FullScreen =
   | { kind: 'settings' }
   | { kind: 'profile' }
   | { kind: 'shop' }
+  | { kind: 'route' }
   | { kind: 'shop' }
 
 type FormSheetKind = Exclude<Sheet, { kind: 'generate' | 'settings' | 'profile' | 'review' | 'habits' }>
@@ -129,7 +132,7 @@ function sheetProps(sheet: FormSheetKind): Omit<FormSheetProps, 'onClose'> {
         withDetails: true,
         initialDescription: sheet.habit.description,
         initialSteps: sheet.habit.steps,
-        habit: { emoji: sheet.habit.emoji, frequency: sheet.habit.frequency },
+        habit: { emoji: sheet.habit.emoji, frequency: sheet.habit.frequency, reminder: sheet.habit.reminder },
         onSubmit: (values) => updateHabit(db, sheet.habit.id, values),
         danger: {
           label: 'Archivar hábito',
@@ -338,6 +341,15 @@ export function App() {
     window.scrollTo({ top: 0 })
   }, [tab])
 
+  // Recordatorios por hábito: se reprograman cada vez que cambia un hábito o se marca uno (el de hoy se cancela).
+  const reminderPlan = useLiveQuery(() => getReminderPlan(db), [today])
+  const reminderKey = reminderPlan
+    ? JSON.stringify(reminderPlan.map((item) => [item.title, item.emoji, item.at.map((date) => date.getTime())]))
+    : null
+  useEffect(() => {
+    if (reminderPlan) scheduleHabitReminders(reminderPlan).catch(console.error)
+  }, [reminderKey])
+
   // Mantiene los recordatorios programados al día con los ajustes guardados.
   useEffect(() => {
     if (notificationSettings) applyNotificationSettings(notificationSettings).catch(console.error)
@@ -445,6 +457,7 @@ export function App() {
               <NotebookTab
                 today={today}
                 onManage={() => setSheet({ kind: 'habits' })}
+                onRoute={() => setScreen({ kind: 'route' })}
                 onOpenDiary={openDiary}
                 onCreate={() => setSheet({ kind: 'newHabit' })}
                 onOutcome={handleOutcome}
@@ -538,6 +551,11 @@ export function App() {
             />
           </div>
         </Screen>
+      )}
+      {screen?.kind === 'route' && (
+        <Suspense fallback={null}>
+          <RouteScreen today={today} onClose={closeScreen} onOpenSettings={() => setScreen({ kind: 'settings' })} />
+        </Suspense>
       )}
       {screen?.kind === 'shop' && (
         <Suspense fallback={null}>

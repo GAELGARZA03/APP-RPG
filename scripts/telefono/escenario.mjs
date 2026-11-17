@@ -21,6 +21,7 @@ const ESCENARIOS = {
   revision: 'La misma semana con la revisión ya hecha: prueba «Aplicar» y «Descartar» sin gastar llamadas.',
   libreta:
     'Libreta con 12 hábitos y el mes registrado (hecho, a medias, no hecho): cuadrícula, cumplimiento, rachas y la gráfica de sueño.',
+  ruta: 'Ruta de hábitos a mitad de camino: una sugerencia de subir, otra de bajar, un hábito de 3 veces por semana con recordatorio y pasos pendientes.',
   'semana-vacia': 'La semana pasada no hubo actividad: Hoy muestra «Semana tranquila» sin llamar a la IA.',
 }
 

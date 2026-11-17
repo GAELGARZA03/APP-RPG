@@ -24,6 +24,8 @@ export interface FormValues {
   /** Solo en hábitos. */
   emoji?: string
   frequency?: HabitFrequency
+  /** Hora del recordatorio (HH:MM) o `null` sin recordatorio. */
+  reminder?: string | null
 }
 
 const WEEKDAYS = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
@@ -41,7 +43,7 @@ export interface FormSheetProps {
   initialSteps?: string[]
   danger?: { label: string; confirmLabel: string; action: () => Promise<void> }
   /** Pide emoji y frecuencia (hábitos). */
-  habit?: { emoji?: string; frequency?: HabitFrequency }
+  habit?: { emoji?: string; frequency?: HabitFrequency; reminder?: string }
   onSubmit: (values: FormValues) => Promise<void>
   onClose: () => void
 }
@@ -58,7 +60,9 @@ export function FormSheet(props: FormSheetProps) {
   const [weekdays, setWeekdays] = useState<number[]>(
     props.habit?.frequency?.kind === 'weekdays' ? props.habit.frequency.days : [],
   )
-  const [daily, setDaily] = useState(props.habit?.frequency?.kind !== 'weekdays')
+  const [mode, setMode] = useState<HabitFrequency['kind']>(props.habit?.frequency?.kind ?? 'daily')
+  const [times, setTimes] = useState(props.habit?.frequency?.kind === 'timesPerWeek' ? props.habit.frequency.times : 3)
+  const [reminder, setReminder] = useState(props.habit?.reminder ?? '')
   const [confirming, setConfirming] = useState(false)
   const [busy, setBusy] = useState(false)
 
@@ -83,9 +87,12 @@ export function FormSheet(props: FormSheetProps) {
     const habitFields = props.habit
       ? {
           emoji: [...emoji.trim()].slice(0, 2).join(''),
-          frequency: (daily || weekdays.length === 0
-            ? { kind: 'daily' }
-            : { kind: 'weekdays', days: [...weekdays].sort() }) as HabitFrequency,
+          frequency: (mode === 'timesPerWeek'
+            ? { kind: 'timesPerWeek', times }
+            : mode === 'weekdays' && weekdays.length > 0
+              ? { kind: 'weekdays', days: [...weekdays].sort() }
+              : { kind: 'daily' }) as HabitFrequency,
+          reminder: /^\d{2}:\d{2}$/.test(reminder) ? reminder : null,
         }
       : {}
     if (trimmed) {
@@ -123,19 +130,22 @@ export function FormSheet(props: FormSheetProps) {
             </Field>
             <fieldset className="flex flex-col gap-2">
               <legend className="mb-1.5 text-xs font-medium text-muted">¿Qué días?</legend>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { value: true, label: 'Todos los días' },
-                  { value: false, label: 'Ciertos días' },
-                ].map((option) => (
+              <div className="grid grid-cols-3 gap-2">
+                {(
+                  [
+                    { value: 'daily', label: 'Diario' },
+                    { value: 'weekdays', label: 'Ciertos días' },
+                    { value: 'timesPerWeek', label: 'Veces por semana' },
+                  ] as const
+                ).map((option) => (
                   <button
                     key={option.label}
                     type="button"
-                    aria-pressed={daily === option.value}
-                    onClick={() => setDaily(option.value)}
+                    aria-pressed={mode === option.value}
+                    onClick={() => setMode(option.value)}
                     className={cn(
-                      'min-h-11 rounded-2xl border text-sm',
-                      daily === option.value
+                      'min-h-11 rounded-2xl border px-1 text-sm leading-tight',
+                      mode === option.value
                         ? 'border-info bg-info/15 text-info'
                         : 'border-white/[0.06] bg-void/50 text-muted',
                     )}
@@ -144,7 +154,7 @@ export function FormSheet(props: FormSheetProps) {
                   </button>
                 ))}
               </div>
-              {!daily && (
+              {mode === 'weekdays' && (
                 <div className="grid grid-cols-7 gap-1.5">
                   {WEEKDAYS.map((letter, index) => (
                     <button
@@ -169,8 +179,52 @@ export function FormSheet(props: FormSheetProps) {
                   ))}
                 </div>
               )}
-              {!daily && weekdays.length === 0 && <p className="text-xs text-muted">Elige al menos un día.</p>}
+              {mode === 'weekdays' && weekdays.length === 0 && (
+                <p className="text-xs text-muted">Elige al menos un día.</p>
+              )}
+              {mode === 'timesPerWeek' && (
+                <div className="flex items-center gap-2">
+                  <div className="grid flex-1 grid-cols-6 gap-1.5">
+                    {[1, 2, 3, 4, 5, 6].map((count) => (
+                      <button
+                        key={count}
+                        type="button"
+                        aria-pressed={times === count}
+                        aria-label={`${count} ${count === 1 ? 'vez' : 'veces'} por semana`}
+                        onClick={() => setTimes(count)}
+                        className={cn(
+                          'grid aspect-square min-h-10 place-items-center rounded-xl border font-display font-semibold',
+                          times === count
+                            ? 'border-signal bg-signal text-on-signal'
+                            : 'border-white/[0.08] bg-void/50 text-muted',
+                        )}
+                      >
+                        {count}
+                      </button>
+                    ))}
+                  </div>
+                  <span className="text-xs text-muted">por semana</span>
+                </div>
+              )}
             </fieldset>
+            <Field
+              label="Recordatorio (opcional)"
+              hint="Te avisa a esta hora los días que toca, si aún no lo marcaste."
+            >
+              <div className="flex items-center gap-2">
+                <Input
+                  type="time"
+                  value={reminder}
+                  onChange={(event) => setReminder(event.target.value)}
+                  className="w-36"
+                />
+                {reminder && (
+                  <Button size="sm" variant="ghost" onClick={() => setReminder('')}>
+                    Quitar
+                  </Button>
+                )}
+              </div>
+            </Field>
           </>
         )}
 
@@ -229,7 +283,9 @@ export function FormSheet(props: FormSheetProps) {
           <Button
             type="submit"
             variant="primary"
-            disabled={busy || title.trim() === '' || (Boolean(props.habit) && !daily && weekdays.length === 0)}
+            disabled={
+              busy || title.trim() === '' || (Boolean(props.habit) && mode === 'weekdays' && weekdays.length === 0)
+            }
             className="flex-1"
           >
             {submitLabel}

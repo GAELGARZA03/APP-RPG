@@ -33,7 +33,7 @@
   1. ~~Navegación con cinco pestañas y menú lateral, y libreta mensual de hábitos (sustituye a los contratos diarios).~~ Hecha: ver [docs/fase3-parte1-entrega.md](docs/fase3-parte1-entrega.md).
   2. ~~Diario de momentos, bitácora unificada y registro de sueño.~~ Hecha: ver [docs/fase3-parte2-entrega.md](docs/fase3-parte2-entrega.md).
   3. ~~Tres misiones del día, oro, tienda de premios reales y racha por campaña.~~ Hecha: ver [docs/fase3-parte3-entrega.md](docs/fase3-parte3-entrega.md).
-  4. Ruta progresiva de hábitos y recordatorios por hábito.
+  4. ~~Ruta progresiva de hábitos y recordatorios por hábito.~~ Hecha: ver [docs/fase3-parte4-entrega.md](docs/fase3-parte4-entrega.md).
 
 ## Ideas
 

@@ -12,6 +12,7 @@ import { markBackupDone } from './settings'
 
 const BACKUP_APP = 'real-life-rpg'
 /**
+ * Versión 8: ruta progresiva de hábitos, «N veces por semana» y recordatorio por hábito.
  * Versión 7: tres misiones del día, premios y canjes de la tienda.
  * Versión 6: registro de sueño.
  * Versión 5: notas diarias de la bitácora.
@@ -19,8 +20,8 @@ const BACKUP_APP = 'real-life-rpg'
  * Versión 3: revisiones semanales. Versión 2: actos, análisis, habilidades, bitácora y misión del día.
  * Las versiones 1 a 3 se siguen importando: sus contratos se convierten en hábitos diarios (`upgradeLegacy`).
  */
-const BACKUP_VERSION = 7
-const SUPPORTED_VERSIONS = [1, 2, 3, 4, 5, 6, BACKUP_VERSION] as const
+const BACKUP_VERSION = 8
+const SUPPORTED_VERSIONS = [1, 2, 3, 4, 5, 6, 7, BACKUP_VERSION] as const
 
 const id = z.string().min(1).max(100)
 const title = z.string().trim().min(1).max(200)
@@ -112,6 +113,7 @@ const dataSchema = z.object({
       frequency: z.discriminatedUnion('kind', [
         z.object({ kind: z.literal('daily') }),
         z.object({ kind: z.literal('weekdays'), days: z.array(z.number().int().min(0).max(6)).min(1).max(7) }),
+        z.object({ kind: z.literal('timesPerWeek'), times: z.number().int().min(1).max(6) }),
       ]),
       order: z.number().int(),
       createdAt: timestamp,
@@ -119,6 +121,13 @@ const dataSchema = z.object({
       archivedDay: day.nullable(),
       stepsDone: z.object({ day, done: stepIndexes }).optional(),
       campaignId: id.optional(),
+      reminder: z
+        .string()
+        .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+        .optional(),
+      routeItemId: id.optional(),
+      level: z.number().int().min(0).max(10).optional(),
+      levelSince: day.optional(),
     }),
   ),
   habitLogs: z
@@ -199,6 +208,28 @@ const dataSchema = z.object({
         completedDay: day.nullable(),
         stepsDone: stepIndexes.optional(),
         campaignId: id.optional(),
+      }),
+    )
+    .default([]),
+  // No existe en los respaldos de las versiones 1 a 7.
+  routeItems: z
+    .array(
+      z.object({
+        id,
+        order: z.number().int(),
+        title,
+        emoji: text(16).optional(),
+        why: text(400),
+        levels: z.array(text(120)).min(1).max(6),
+        frequency: z.discriminatedUnion('kind', [
+          z.object({ kind: z.literal('daily') }),
+          z.object({ kind: z.literal('weekdays'), days: z.array(z.number().int().min(0).max(6)).min(1).max(7) }),
+          z.object({ kind: z.literal('timesPerWeek'), times: z.number().int().min(1).max(6) }),
+        ]),
+        status: z.enum(['pending', 'active', 'mastered']),
+        habitId: id.optional(),
+        snoozedUntil: day.optional(),
+        createdAt: timestamp,
       }),
     )
     .default([]),
@@ -312,6 +343,7 @@ function tables(db: GameDatabase) {
     db.sleep,
     db.rewards,
     db.redemptions,
+    db.routeItems,
   ]
 }
 
@@ -330,6 +362,7 @@ export async function createBackup(db: GameDatabase, now = new Date()): Promise<
         sleep: await db.sleep.toArray(),
         rewards: await db.rewards.toArray(),
         redemptions: await db.redemptions.toArray(),
+        routeItems: await db.routeItems.toArray(),
         campaigns: await db.campaigns.toArray(),
         sideQuests: await db.sideQuests.toArray(),
         xpEvents: await db.xpEvents.toArray(),
@@ -476,6 +509,7 @@ export async function restoreBackup(db: GameDatabase, backup: Backup): Promise<v
       await db.sleep.bulkAdd(backup.data.sleep)
       await db.rewards.bulkAdd(backup.data.rewards)
       await db.redemptions.bulkAdd(backup.data.redemptions)
+      await db.routeItems.bulkAdd(backup.data.routeItems)
       await db.campaigns.bulkAdd(backup.data.campaigns)
       await db.sideQuests.bulkAdd(backup.data.sideQuests)
       await db.xpEvents.bulkAdd(backup.data.xpEvents)

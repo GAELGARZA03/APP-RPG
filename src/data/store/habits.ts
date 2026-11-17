@@ -14,7 +14,14 @@ import {
   type TaskInput,
 } from './shared'
 
-export type HabitInput = TaskInput & { emoji?: string; frequency?: HabitFrequency; campaignId?: string }
+export type HabitInput = TaskInput & {
+  emoji?: string
+  frequency?: HabitFrequency
+  campaignId?: string
+  reminder?: string | null
+  routeItemId?: string
+  level?: number
+}
 
 const logId = (habitId: string, day: GameDay) => `${habitId}:${day}`
 const byOrder = (a: Habit, b: Habit) => a.order - b.order || a.createdAt - b.createdAt
@@ -29,12 +36,43 @@ export function dayAccess(day: GameDay, today: GameDay): DayAccess {
 
 /** Días programados consecutivos con el hábito hecho o a medias. Hoy sin registrar no la rompe. */
 export function habitStreak(habit: Habit, logs: Map<GameDay, HabitState>, today: GameDay): number {
+  if (habit.frequency.kind === 'timesPerWeek') return weeklyStreak(habit, habit.frequency.times, logs, today)
   let streak = 0
   for (let day = today; day >= habit.createdDay; day = addDays(day, -1)) {
     if (!isScheduledOn(habit, day)) continue
     const state = logs.get(day)
     if (state === 'done' || state === 'half') streak += 1
     else if (day !== today || state === 'missed') break
+  }
+  return streak
+}
+
+/** Hecho cuenta 1 y a medias 0.5. */
+const credit = (state: HabitState | null | undefined) => (state === 'done' ? 1 : state === 'half' ? 0.5 : 0)
+
+/** Lunes de la semana de `day`. */
+const mondayOf = (day: GameDay) => addDays(day, -weekdayOf(day))
+
+/** Cuántas veces se hizo un hábito en la semana de `day` (a medias cuenta la mitad). */
+export function weekCount(logs: Map<GameDay, HabitState>, day: GameDay): number {
+  const monday = mondayOf(day)
+  let total = 0
+  for (let offset = 0; offset < 7; offset++) total += credit(logs.get(addDays(monday, offset)))
+  return total
+}
+
+/**
+ * Racha de un hábito de «N veces por semana»: semanas seguidas en que se llegó a la meta.
+ * La semana en curso suma si ya llegó; si todavía no, no rompe la racha.
+ */
+function weeklyStreak(habit: Habit, times: number, logs: Map<GameDay, HabitState>, today: GameDay): number {
+  let streak = 0
+  let monday = mondayOf(today)
+  if (weekCount(logs, today) >= times) streak += 1
+  monday = addDays(monday, -7)
+  while (monday >= mondayOf(habit.createdDay) && weekCount(logs, monday) >= times) {
+    streak += 1
+    monday = addDays(monday, -7)
   }
   return streak
 }
@@ -64,6 +102,11 @@ export async function getTodayHabits(db: GameDatabase, today: GameDay) {
         state,
         doneToday: state === 'done' || state === 'half',
         streak: habitStreak(habit, byDay, today),
+        // En «N veces por semana», cuántas lleva esta semana.
+        week:
+          habit.frequency.kind === 'timesPerWeek'
+            ? { done: weekCount(byDay, today), times: habit.frequency.times }
+            : null,
         xp: habitXp(habit.difficulty, player.streak),
         // Los objetivos marcados otro día de juego ya no cuentan.
         stepsDoneToday: habit.stepsDone?.day === today ? habit.stepsDone.done.length : 0,
@@ -75,11 +118,13 @@ export async function getTodayHabits(db: GameDatabase, today: GameDay) {
 export type TodayHabit = Awaited<ReturnType<typeof getTodayHabits>>[number]
 
 export async function createHabit(db: GameDatabase, input: HabitInput, now = new Date()): Promise<Habit> {
-  const { frequency = { kind: 'daily' }, ...rest } = input
+  const { frequency = { kind: 'daily' }, reminder, ...rest } = input
   const last = (await db.habits.toArray()).reduce((max, habit) => Math.max(max, habit.order), -1)
   const habit: Habit = {
     id: crypto.randomUUID(),
     ...rest,
+    ...(reminder ? { reminder } : {}),
+    ...(rest.routeItemId ? { levelSince: gameDayOf(now) } : {}),
     frequency,
     order: last + 1,
     createdAt: now.getTime(),
@@ -94,10 +139,12 @@ export async function createHabit(db: GameDatabase, input: HabitInput, now = new
 export async function updateHabit(
   db: GameDatabase,
   id: string,
-  changes: TaskChanges & { emoji?: string; frequency?: HabitFrequency },
+  changes: TaskChanges & { emoji?: string; frequency?: HabitFrequency; reminder?: string | null },
 ): Promise<void> {
+  const { reminder, ...rest } = changes
+  const update = { ...rest, ...(reminder !== undefined ? { reminder: reminder ?? undefined } : {}) }
   // Si cambian los objetivos, las casillas marcadas ya no corresponden.
-  await db.habits.update(id, changes.steps ? { ...changes, stepsDone: undefined } : changes)
+  await db.habits.update(id, changes.steps ? { ...update, stepsDone: undefined } : update)
 }
 
 /** Archivar conserva el historial y el XP; el hábito deja de tocar desde hoy. */
@@ -253,10 +300,10 @@ export async function getHabitGrid(db: GameDatabase, first: GameDay, last: GameD
         const counted = cells.filter(
           (cell) => cell.scheduled && (cell.day < today || (cell.day === today && cell.state)),
         )
-        const score = counted.reduce(
-          (sum, cell) => sum + (cell.state === 'done' ? 1 : cell.state === 'half' ? 0.5 : 0),
-          0,
-        )
+        const score = counted.reduce((sum, cell) => sum + credit(cell.state), 0)
+        // En «N veces por semana» la meta del periodo es N por cada 7 días contados.
+        const expected =
+          habit.frequency.kind === 'timesPerWeek' ? (habit.frequency.times * counted.length) / 7 : counted.length
         return {
           id: habit.id,
           title: habit.title,
@@ -264,7 +311,8 @@ export async function getHabitGrid(db: GameDatabase, first: GameDay, last: GameD
           difficulty: habit.difficulty,
           archived: habit.archivedDay !== null,
           cells,
-          rate: counted.length > 0 ? Math.round((score / counted.length) * 100) : null,
+          rate: expected > 0 ? Math.min(100, Math.round((score / expected) * 100)) : null,
+          weekly: habit.frequency.kind === 'timesPerWeek',
           streak: habitStreak(habit, byDay, today),
         }
       }),
@@ -281,3 +329,38 @@ export async function habitLogsOf(db: GameDatabase, habitId: string): Promise<Ma
   const logs: HabitLog[] = await db.habitLogs.where('habitId').equals(habitId).toArray()
   return new Map(logs.map((log) => [log.day, log.state]))
 }
+
+/** Fecha y hora real de un recordatorio: antes de las 4:00 a. m. ya es el día de calendario siguiente. */
+function reminderDate(day: GameDay, time: string): Date {
+  const [year, month, date] = day.split('-').map(Number)
+  const [hour, minute] = time.split(':').map(Number)
+  return new Date(year, month - 1, date + (hour < 4 ? 1 : 0), hour, minute)
+}
+
+/**
+ * Recordatorios de los próximos 7 días de juego, para los hábitos con hora. Se salta un día si el hábito no toca,
+ * si ya está marcado, o (en «N veces por semana») si esa semana ya llegó a la meta. Solo horas futuras.
+ */
+export async function getReminderPlan(db: GameDatabase, now = new Date()) {
+  const today = gameDayOf(now)
+  const habits = (await db.habits.toArray())
+    .filter((habit) => habit.reminder && habit.archivedDay === null)
+    .sort(byOrder)
+  const plan: Array<{ habitId: string; title: string; emoji?: string; at: Date[] }> = []
+  for (const habit of habits) {
+    const logs = await db.habitLogs.where('habitId').equals(habit.id).toArray()
+    const byDay = new Map(logs.map((log) => [log.day, log.state]))
+    const at: Date[] = []
+    for (let offset = 0; offset < 7; offset++) {
+      const day = addDays(today, offset)
+      if (!isScheduledOn(habit, day) || byDay.has(day)) continue
+      if (habit.frequency.kind === 'timesPerWeek' && weekCount(byDay, day) >= habit.frequency.times) continue
+      const date = reminderDate(day, habit.reminder!)
+      if (date > now) at.push(date)
+    }
+    plan.push({ habitId: habit.id, title: habit.title, ...(habit.emoji ? { emoji: habit.emoji } : {}), at })
+  }
+  return plan
+}
+
+export type ReminderPlan = Awaited<ReturnType<typeof getReminderPlan>>

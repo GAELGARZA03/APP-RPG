@@ -123,3 +123,43 @@ export async function getExactAlarmGranted(): Promise<boolean | null> {
 export async function openExactAlarmSettings(): Promise<void> {
   await LocalNotifications.changeExactNotificationSetting()
 }
+
+/** Los recordatorios de hábitos usan los ids 1000 a 1999: así se reemplazan sin tocar los fijos. */
+const HABIT_IDS = { from: 1000, to: 1999 }
+
+/**
+ * Reprograma los recordatorios de hábitos según el plan (los próximos 7 días). Los de un día en que el hábito
+ * ya se marcó no están en el plan, así que quedan cancelados.
+ */
+export async function scheduleHabitReminders(
+  plan: Array<{ title: string; emoji?: string; at: Date[] }>,
+): Promise<'scheduled' | 'no-permission' | 'unsupported'> {
+  if (!notificationsSupported) return 'unsupported'
+  const pending = await LocalNotifications.getPending()
+  const old = pending.notifications.filter((item) => item.id >= HABIT_IDS.from && item.id <= HABIT_IDS.to)
+  if (old.length > 0) await LocalNotifications.cancel({ notifications: old.map(({ id }) => ({ id })) })
+
+  const total = plan.reduce((sum, item) => sum + item.at.length, 0)
+  if (total === 0) return 'scheduled'
+  let permission = await getNotificationPermission()
+  if (permission === 'prompt') permission = await requestNotificationPermission()
+  if (permission !== 'granted') return 'no-permission'
+
+  await ensureChannel()
+  let id = HABIT_IDS.from
+  const notifications: LocalNotificationSchema[] = []
+  for (const item of plan) {
+    for (const at of item.at) {
+      if (id > HABIT_IDS.to) break
+      notifications.push({
+        id: id++,
+        title: `${item.emoji ? `${item.emoji} ` : ''}${item.title}`,
+        body: 'Tu hábito de hoy te espera. Márcalo en la app para cuidar tu racha.',
+        channelId: CHANNEL_ID,
+        schedule: { at, allowWhileIdle: true },
+      })
+    }
+  }
+  await LocalNotifications.schedule({ notifications })
+  return 'scheduled'
+}

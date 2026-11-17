@@ -44,10 +44,11 @@ export const HABIT_XP_WINDOW_DAYS = 1
 
 /** Un hábito toca ese día de la semana (0 = lunes … 6 = domingo). */
 export function isScheduledWeekday(
-  frequency: { kind: 'daily' } | { kind: 'weekdays'; days: number[] },
+  frequency: { kind: 'daily' } | { kind: 'weekdays'; days: number[] } | { kind: 'timesPerWeek'; times: number },
   weekday: number,
 ): boolean {
-  return frequency.kind === 'daily' || frequency.days.includes(weekday)
+  // «N veces por semana» se puede hacer cualquier día.
+  return frequency.kind !== 'weekdays' || frequency.days.includes(weekday)
 }
 
 export function nextStreak(streak: number, outcome: DayOutcome): number {

@@ -19,8 +19,12 @@ export interface TaskDetail {
   skillId?: string
 }
 
-/** Qué días toca un hábito. En `weekdays`, 0 es lunes y 6 es domingo. */
-export type HabitFrequency = { kind: 'daily' } | { kind: 'weekdays'; days: number[] }
+/**
+ * Qué días toca un hábito. En `weekdays`, 0 es lunes y 6 es domingo. En `timesPerWeek`, cualquier día
+ * sirve y la meta es hacerlo `times` veces de lunes a domingo.
+ */
+export type HabitFrequency =
+  { kind: 'daily' } | { kind: 'weekdays'; days: number[] } | { kind: 'timesPerWeek'; times: number }
 
 export interface Habit extends TaskDetail {
   id: string
@@ -38,6 +42,30 @@ export interface Habit extends TaskDetail {
   stepsDone?: { day: GameDay; done: number[] }
   /** Campaña con la que se creó; al borrarla, el hábito se archiva con ella. */
   campaignId?: string
+  /** Hora del recordatorio (HH:MM), si tiene. */
+  reminder?: string
+  /** Paso de la ruta progresiva del que salió, con su nivel actual (0 = versión mínima). */
+  routeItemId?: string
+  level?: number
+  /** Desde cuándo está en este nivel: la constancia se mide desde aquí. */
+  levelSince?: GameDay
+}
+
+/** Un hábito de la ruta progresiva: se activa poco a poco y crece por niveles. */
+export interface RouteItem {
+  id: string
+  order: number
+  title: string
+  emoji?: string
+  why: string
+  /** Del nivel mínimo al más alto; el texto de cada nivel es el nombre del hábito en ese nivel. */
+  levels: string[]
+  frequency: HabitFrequency
+  status: 'pending' | 'active' | 'mastered'
+  habitId?: string
+  /** Las sugerencias de este paso no se muestran hasta este día (el jugador dijo «Ahora no»). */
+  snoozedUntil?: GameDay
+  createdAt: number
 }
 
 export type HabitState = 'done' | 'half' | 'missed'
@@ -316,6 +344,7 @@ export class GameDatabase extends Dexie {
   sleep!: EntityTable<SleepLog, 'id'>
   rewards!: EntityTable<Reward, 'id'>
   redemptions!: EntityTable<Redemption, 'id'>
+  routeItems!: EntityTable<RouteItem, 'id'>
 
   constructor(name = 'real-life-rpg') {
     super(name)
@@ -398,6 +427,8 @@ export class GameDatabase extends Dexie {
             daily.slot ??= 1
           })
       })
+    // v10: ruta progresiva de hábitos.
+    this.version(10).stores({ routeItems: 'id, order' })
   }
 }
 

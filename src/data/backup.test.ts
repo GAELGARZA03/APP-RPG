@@ -117,7 +117,7 @@ describe('Respaldo', () => {
     await saveAiModels(target, { mainModel: 'modelo-de-este-telefono' })
 
     const backup = parseBackup(JSON.stringify(await createBackup(source, noon)))
-    expect(backup.version).toBe(7)
+    expect(backup.version).toBe(8)
     await restoreBackup(target, backup)
 
     expect(await getCampaign(target, campaign.id)).toEqual(await getCampaign(source, campaign.id))

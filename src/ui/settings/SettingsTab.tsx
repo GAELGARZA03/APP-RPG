@@ -48,6 +48,8 @@ const RULES = [
   'Saltar una misión («Ya sé hacer esto») cuenta para avanzar, pero no da XP.',
   'Cada día hay tres misiones del día: dan 50% más de XP, cuentan para tu racha y caducan a las 4:00 a. m.',
   'Ganas 1 de oro por cada 10 XP y 20 por cerrar un acto. Canjéalo en la Tienda por premios que tú defines; deshacer algo devuelve su oro.',
+  'La ruta de hábitos introduce tus hábitos poco a poco: con 80% de constancia en dos semanas te sugiere subir de nivel o sumar el siguiente; por debajo de 50%, bajar un nivel. Nada cambia sin que lo aceptes.',
+  'Un hábito de «N veces por semana» se puede hacer cualquier día; su racha cuenta las semanas en que llegaste a la meta.',
   'Un premio por meta se gana al cumplirla (terminar una campaña o un acto, completar una misión o una racha de un hábito) y se canjea gratis.',
 ]
 

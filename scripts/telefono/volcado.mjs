@@ -20,6 +20,7 @@ const GAME_STORES = [
   'sleep',
   'rewards',
   'redemptions',
+  'routeItems',
 ]
 
 const OPEN = `const idb = await new Promise((resolve, reject) => { const request = indexedDB.open(${JSON.stringify(DATABASE)}); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error) })`

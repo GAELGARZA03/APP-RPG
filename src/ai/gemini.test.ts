@@ -544,3 +544,52 @@ describe('Misión del día', () => {
     await expectKind(generateDailies(request, { apiKey: 'k', model: 'm', context: dailyContext }), 'bad-response')
   })
 })
+
+describe('Ruta progresiva de hábitos', () => {
+  it('pide la ruta con razonamiento y normaliza niveles y frecuencias', async () => {
+    const { generateHabitRoute } = await import('./gemini')
+    const request = replying(
+      interactionReply({
+        intro: 'Empieza pequeño.',
+        habits: [
+          {
+            title: 'Lectura',
+            emoji: '📚',
+            why: 'Base',
+            levels: ['Leer 2 páginas', 'Leer 10 páginas'],
+            frequency: { kind: 'daily' },
+          },
+          {
+            title: 'Gimnasio',
+            emoji: '🏋️',
+            why: 'Fuerza',
+            levels: ['Ir 20 minutos', ''],
+            frequency: { kind: 'timesPerWeek', times: 9 },
+          },
+          {
+            title: 'Inglés',
+            emoji: '🇬🇧',
+            why: 'Trabajo',
+            levels: ['Una lección'],
+            frequency: { kind: 'weekdays', days: [0, 2, 2, 9] },
+          },
+        ],
+      }),
+    )
+    const plan = await generateHabitRoute(request, {
+      apiKey: 'k',
+      model: 'gemini-4-hydrogen',
+      thinking: 'medium',
+      wishes: 'leer\ngimnasio\ninglés',
+      context: 'Trabajo de 9 a 6',
+    })
+    expect(plan.habits.map((item) => [item.title, item.levels, item.frequency])).toEqual([
+      ['Lectura', ['Leer 2 páginas', 'Leer 10 páginas'], { kind: 'daily' }],
+      ['Gimnasio', ['Ir 20 minutos'], { kind: 'timesPerWeek', times: 6 }],
+      ['Inglés', ['Una lección'], { kind: 'weekdays', days: [0, 2] }],
+    ])
+    const sent = request.mock.calls[0][0]
+    expect(sent.url).toContain('/interactions')
+    expect(JSON.stringify(sent.body)).toContain('Trabajo de 9 a 6')
+  })
+})

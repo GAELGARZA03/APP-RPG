@@ -1,6 +1,6 @@
 // Libreta de hábitos: una fila por hábito y una casilla por día, con vistas de 3 días, 7 días o el mes.
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Check, ChevronLeft, ChevronRight, Flame, ListChecks, NotebookPen, Plus, X } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, Flame, ListChecks, NotebookPen, Plus, Route, X } from 'lucide-react'
 import { motion } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
 import { db } from '../../data/appDb'
@@ -8,6 +8,7 @@ import type { HabitState } from '../../data/db'
 import {
   getDiaryRange,
   getHabitGrid,
+  getRoute,
   nextHabitState,
   setHabitState,
   type NotebookCell,
@@ -19,6 +20,7 @@ import { addDays, type GameDay } from '../../game/gameDay'
 import { haptic } from '../../platform/haptics'
 import { Button } from '../kit/Button'
 import { cn } from '../kit/cn'
+import { RouteOfferCard } from '../route/RouteOfferCard'
 import { SleepChart } from '../sleep/SleepChart'
 
 const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
@@ -78,6 +80,7 @@ function periodLabel(view: View, [first, last]: [GameDay, GameDay]): string {
 export function NotebookTab(props: {
   today: GameDay
   onManage: () => void
+  onRoute: () => void
   onOpenDiary: (day: GameDay) => void
   onCreate: () => void
   onOutcome: (outcome: Outcome, ref: TaskRef, fromDetail: boolean) => void
@@ -89,6 +92,7 @@ export function NotebookTab(props: {
   const range = rangeOf(view, anchor)
   const grid = useLiveQuery(() => getHabitGrid(db, range[0], range[1], today), [range[0], range[1], today])
   const diary = useLiveQuery(() => getDiaryRange(db, range[0], range[1]), [range[0], range[1]])
+  const route = useLiveQuery(() => getRoute(db, today), [today])
   const scroller = useRef<HTMLDivElement>(null)
   const todayHeader = useRef<HTMLDivElement>(null)
 
@@ -135,11 +139,23 @@ export function NotebookTab(props: {
     <>
       <header className="flex items-center justify-between gap-2">
         <h1 className="font-display text-2xl font-semibold">Libreta</h1>
-        <Button size="sm" variant="outline" onClick={props.onManage}>
-          <ListChecks aria-hidden />
-          Hábitos
-        </Button>
+        <div className="flex gap-2">
+          <Button size="sm" variant="ghost" onClick={props.onRoute}>
+            <Route aria-hidden />
+            Ruta
+          </Button>
+          <Button size="sm" variant="outline" onClick={props.onManage}>
+            <ListChecks aria-hidden />
+            Hábitos
+          </Button>
+        </div>
       </header>
+
+      {route
+        ?.filter((step) => step.offer)
+        .map((step) => (
+          <RouteOfferCard key={step.id} step={step} />
+        ))}
 
       <div role="radiogroup" aria-label="Vista" className="grid grid-cols-3 gap-1 rounded-2xl bg-raised/70 p-1">
         {VIEWS.map((option) => (

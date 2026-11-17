@@ -12,6 +12,7 @@ export {
   getArchivedHabits,
   getHabitGrid,
   getHabits,
+  getReminderPlan,
   getNotebook,
   getTodayHabits,
   habitStreak,
@@ -29,6 +30,7 @@ export type {
   Notebook,
   NotebookCell,
   NotebookHabit,
+  ReminderPlan,
   TodayHabit,
 } from './store/habits'
 export {
@@ -119,3 +121,18 @@ export {
   updateReward,
 } from './store/shop'
 export type { RedeemResult, RewardInput, Shop, Wallet } from './store/shop'
+export {
+  acceptRouteOffer,
+  activateNextRouteItem,
+  consistency,
+  deleteRoute,
+  getRoute,
+  offerFor,
+  ROUTE_HIGH,
+  ROUTE_LOW,
+  ROUTE_MIN_DAYS,
+  ROUTE_WINDOW_DAYS,
+  snoozeRouteOffer,
+  startRoute,
+} from './store/route'
+export type { RouteOffer, RoutePlanItem, RouteStep } from './store/route'

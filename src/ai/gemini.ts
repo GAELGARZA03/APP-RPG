@@ -27,3 +27,5 @@ export {
   listModels,
 } from './gemini/calls'
 export { generateWeeklyReview, reviewInput } from './gemini/review'
+export { generateHabitRoute } from './gemini/route'
+export type { RoutePlan } from './gemini/route'

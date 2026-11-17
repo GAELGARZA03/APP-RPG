@@ -13,6 +13,8 @@ import { Sheet, SheetTitle } from '../Sheet'
 const WEEKDAYS = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
 
 export function frequencyLabel(frequency: HabitFrequency): string {
+  if (frequency.kind === 'timesPerWeek')
+    return `${frequency.times} ${frequency.times === 1 ? 'vez' : 'veces'} por semana`
   if (frequency.kind === 'daily' || frequency.days.length === 7) return 'Todos los días'
   return frequency.days.map((day) => WEEKDAYS[day]).join(' · ')
 }

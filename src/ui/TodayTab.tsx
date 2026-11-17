@@ -98,7 +98,7 @@ export function TodayTab(props: {
             <TaskRow
               key={habit.id}
               layoutId={`task-${habit.id}`}
-              title={habit.emoji ? `${habit.emoji} ${habit.title}` : habit.title}
+              title={`${habit.emoji ? `${habit.emoji} ` : ''}${habit.title}${habit.week ? ` · ${habit.week.done}/${habit.week.times} esta semana` : ''}`}
               difficulty={habit.difficulty}
               xp={habit.state === 'half' ? Math.round(habit.xp / 2) : habit.xp}
               done={habit.doneToday}
