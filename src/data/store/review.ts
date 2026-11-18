@@ -70,15 +70,20 @@ export async function getWeekReport(db: GameDatabase, weekStart: GameDay) {
       const closedThisWeek: string[] = []
       let previousActDone: GameDay | null = null
       for (const act of view.actViews) {
-        actTitle.set(act.id, view.legacy ? '' : `Acto ${act.number}: ${act.title}`)
+        actTitle.set(act.id, view.legacy ? '' : `Fase ${act.number}: ${act.title}`)
         const doneDays = act.quests.map((quest) => quest.completedDay ?? quest.skippedDay ?? null)
         const closedOn = act.state === 'done' && doneDays.every(Boolean) ? (doneDays as GameDay[]).sort().at(-1)! : null
-        if (closedOn && inWeek(closedOn) && !view.legacy) closedThisWeek.push(`Acto ${act.number}: ${act.title}`)
+        if (closedOn && inWeek(closedOn) && !view.legacy) closedThisWeek.push(`Fase ${act.number}: ${act.title}`)
 
         if (act.state === 'current' && act.status === 'ready') {
           for (const quest of act.quests) {
             if (isResolved(quest) || quest.lock) continue
-            const unlocked = [quest.createdDay, act.readyDay, previousActDone].filter(Boolean).sort().at(-1)!
+            // En una misión de práctica, cuenta desde la última sesión: si practica seguido, no está atascada.
+            const lastSession = quest.sessionDays?.at(-1)
+            const unlocked = [quest.createdDay, act.readyDay, previousActDone, lastSession]
+              .filter(Boolean)
+              .sort()
+              .at(-1)!
             const days = daysBetween(unlocked, weekEnd)
             const item = {
               ref: ref('sideQuest', quest),
@@ -87,7 +92,9 @@ export async function getWeekReport(db: GameDatabase, weekStart: GameDay) {
               act: actTitle.get(act.id) ?? '',
               difficulty: quest.difficulty,
               boss: Boolean(quest.boss),
-              steps: `${quest.stepsDone?.length ?? 0}/${quest.steps?.length ?? 0}`,
+              steps:
+                `${quest.stepsDone?.length ?? 0}/${quest.steps?.length ?? 0}` +
+                ((quest.sessions ?? 1) > 1 ? `, sesiones ${quest.sessionDays?.length ?? 0}/${quest.sessions}` : ''),
               undone: quest.undoCount ?? 0,
             }
             open.push(item)

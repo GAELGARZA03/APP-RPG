@@ -16,8 +16,9 @@ const missionJsonSchema = {
     tip: text,
     skill: text,
     principle: text,
+    sessions: { type: 'integer', minimum: 1, maximum: 10 },
   },
-  required: ['title', 'difficulty', 'description', 'steps', 'estimate', 'why', 'tip', 'skill', 'principle'],
+  required: ['title', 'difficulty', 'description', 'steps', 'estimate', 'why', 'tip', 'skill', 'principle', 'sessions'],
 }
 
 export const QUESTIONS_JSON_SCHEMA = {

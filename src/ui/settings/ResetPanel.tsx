@@ -11,7 +11,7 @@ import { Card } from '../kit/Card'
 import { SettingRow, Switch } from '../kit/controls'
 
 const ERASED = [
-  'Campañas, actos y misiones',
+  'Campañas, fases y misiones',
   'Side Quests sueltas',
   'Árbol de habilidades',
   'Bitácora (fotos y notas)',

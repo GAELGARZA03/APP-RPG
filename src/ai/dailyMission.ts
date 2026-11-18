@@ -7,24 +7,43 @@ import { aiSession } from './session'
 
 /**
  * `ready`: ya hay misiones de hoy. `none`: no hay de dónde generarlas (sin llave, sin campañas, hábitos ni habilidades).
- * `failed`: la llamada falló; se puede reintentar a mano. `waiting`: ya se intentó hoy y no se repite sola.
+ * `failed`: la llamada falló. `waiting`: falló hace poco; se reintenta sola más tarde (o a mano).
  */
 export type DailyStatus = 'ready' | 'none' | 'failed' | 'waiting'
 
-const ATTEMPT_KEY = 'daily-attempt-day'
+/** Intentos automáticos por día de juego y tiempo mínimo entre uno y otro (si Gemini está saturado). */
+export const MAX_AUTO_ATTEMPTS = 6
+export const AUTO_RETRY_GAP_MS = 20 * 60 * 1000
+
+const ATTEMPTS_KEY = 'daily-attempts'
 let inFlight: { day: string; promise: Promise<DailyStatus> } | null = null
 
-function attemptedToday(today: string): boolean {
-  try {
-    return localStorage.getItem(ATTEMPT_KEY) === today
-  } catch {
-    return false
-  }
+interface Attempts {
+  day: string
+  count: number
+  last: number
 }
 
-function markAttempt(today: string) {
+function readAttempts(today: string): Attempts {
   try {
-    localStorage.setItem(ATTEMPT_KEY, today)
+    const saved = JSON.parse(localStorage.getItem(ATTEMPTS_KEY) ?? 'null') as Attempts | null
+    if (saved && saved.day === today) return saved
+  } catch {
+    // Sin almacenamiento o dato dañado: se empieza de cero.
+  }
+  return { day: today, count: 0, last: 0 }
+}
+
+/** ¿Toca un intento automático? Hasta 6 por día, con al menos 20 minutos entre uno y otro. */
+function canAutoAttempt(today: string, now: number): boolean {
+  const attempts = readAttempts(today)
+  return attempts.count < MAX_AUTO_ATTEMPTS && now - attempts.last >= AUTO_RETRY_GAP_MS
+}
+
+function markAttempt(today: string, now: number) {
+  const attempts = readAttempts(today)
+  try {
+    localStorage.setItem(ATTEMPTS_KEY, JSON.stringify({ day: today, count: attempts.count + 1, last: now }))
   } catch {
     // Sin almacenamiento local: como mucho se reintenta en la siguiente apertura.
   }
@@ -33,22 +52,22 @@ function markAttempt(today: string) {
 async function run(now: Date, manual: boolean): Promise<DailyStatus> {
   const today = gameDayOf(now)
   if ((await getDailies(db, today)).length > 0) return 'ready'
-  // Una sola llamada automática por día de juego; el botón de reintentar sí puede repetirla.
-  if (!manual && attemptedToday(today)) return 'waiting'
+  // Si Gemini falló, los intentos automáticos se espacian (el botón de reintentar sí puede repetirla ya).
+  if (!manual && !canAutoAttempt(today, now.getTime())) return 'waiting'
 
   const context = await getDailyContext(db, today)
   if (!context) return 'none'
   const session = await aiSession()
   if (!session) return 'none'
 
-  markAttempt(today)
+  markAttempt(today, now.getTime())
   try {
     const missions = await generateDailies(httpRequest, {
       apiKey: session.apiKey,
       model: session.fastModel,
       context,
-      // Es una llamada de fondo y sigue siendo una sola por día: si falla, se ofrece reintentar a mano.
-      retry: false,
+      // Si el modelo está saturado, unos reintentos cortos; si aun así falla, se vuelve a intentar más tarde.
+      retry: true,
     })
     await saveDailies(db, missions, { campaignId: context.campaignId, branchId: context.branchId }, now)
     return 'ready'
@@ -76,7 +95,7 @@ export function ensureDailyMission(now = new Date(), manual = false): Promise<Da
 export function resetDailyAttempts() {
   inFlight = null
   try {
-    localStorage.removeItem(ATTEMPT_KEY)
+    localStorage.removeItem(ATTEMPTS_KEY)
   } catch {
     // Nada que limpiar.
   }

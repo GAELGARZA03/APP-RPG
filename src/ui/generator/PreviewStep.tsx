@@ -72,8 +72,8 @@ export function PreviewStep(props: {
         )}
       </section>
 
-      <section aria-label="Actos" className="flex flex-col gap-2">
-        <SectionLabel icon={Flag}>El camino · {draft.design.acts.length} actos</SectionLabel>
+      <section aria-label="Fases" className="flex flex-col gap-2">
+        <SectionLabel icon={Flag}>El camino · {draft.design.acts.length} fases</SectionLabel>
         <ol className="flex flex-col gap-2">
           {draft.design.acts.map((act, index) => (
             <li
@@ -91,7 +91,7 @@ export function PreviewStep(props: {
               <div className="min-w-0 flex-1">
                 <p className="flex items-center justify-between gap-2 font-display font-semibold">
                   <span className="min-w-0 truncate">
-                    Acto {index + 1}: {act.title}
+                    Fase {index + 1}: {act.title}
                   </span>
                   <DifficultyPips value={act.difficulty} />
                 </p>
@@ -105,15 +105,15 @@ export function PreviewStep(props: {
         </ol>
       </section>
 
-      <section aria-label="Misiones del Acto 1" className="flex flex-col gap-2">
-        <SectionLabel>Misiones del Acto 1 · {chosen(draft.missions).length}</SectionLabel>
+      <section aria-label="Misiones de la Fase 1" className="flex flex-col gap-2">
+        <SectionLabel>Misiones de la Fase 1 · {chosen(draft.missions).length}</SectionLabel>
         {draft.missions.map((item) => (
           <MissionEditor key={item.key} item={item} onChange={changeItem('missions', item.key)} />
         ))}
       </section>
 
       <section aria-label="Misión jefe" className="flex flex-col gap-2">
-        <SectionLabel icon={Skull}>Misión jefe · al final del Acto {draft.design.acts.length}</SectionLabel>
+        <SectionLabel icon={Skull}>Misión jefe · al final de la Fase {draft.design.acts.length}</SectionLabel>
         <MissionEditor
           item={draft.boss}
           boss

@@ -44,14 +44,14 @@ const RULES = [
   'Un hábito hecho da su XP completo; a medias, la mitad. Hoy y ayer dan XP; los días anteriores se corrigen en la libreta solo como registro.',
   'Cada hábito tiene su racha: días seguidos que le tocaban, hechos o a medias. Los días que no le tocan no la rompen.',
   'El día cierra a las 4:00 a. m.',
-  'En una campaña solo está abierto el primer acto sin terminar; nunca se bloquea por tu nivel.',
+  'En una campaña solo está abierta la primera fase sin terminar; nunca se bloquea por tu nivel.',
   'La misión jefe da el doble de XP y pide una foto o una nota como evidencia.',
   'Saltar una misión («Ya sé hacer esto») cuenta para avanzar, pero no da XP.',
   'Cada día hay tres misiones del día: dan 50% más de XP, cuentan para tu racha y caducan a las 4:00 a. m.',
-  'Ganas 1 de oro por cada 10 XP y 20 por cerrar un acto. Canjéalo en la Tienda por premios que tú defines; deshacer algo devuelve su oro.',
+  'Ganas 1 de oro por cada 10 XP y 20 por cerrar una fase. Canjéalo en la Tienda por premios que tú defines; deshacer algo devuelve su oro.',
   'La ruta de hábitos introduce tus hábitos poco a poco: con 80% de constancia en dos semanas te sugiere subir de nivel o sumar el siguiente; por debajo de 50%, bajar un nivel. Nada cambia sin que lo aceptes.',
   'Un hábito de «N veces por semana» se puede hacer cualquier día; su racha cuenta las semanas en que llegaste a la meta.',
-  'Un premio por meta se gana al cumplirla (terminar una campaña o un acto, completar una misión o una racha de un hábito) y se canjea gratis.',
+  'Un premio por meta se gana al cumplirla (terminar una campaña o una fase, completar una misión o una racha de un hábito) y se canjea gratis.',
 ]
 
 function RulesPanel({ headingId }: { headingId: string }) {
@@ -231,7 +231,7 @@ export function SettingsTab(props: {
           icon={ScrollText}
           tone="bg-ember/15 text-ember"
           label="Reglas del juego"
-          summary="XP, rachas, actos y cierre del día"
+          summary="XP, rachas, fases y cierre del día"
           onClick={() => props.onOpenSection('rules')}
         />
         <MenuRow

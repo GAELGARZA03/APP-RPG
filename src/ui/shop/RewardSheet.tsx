@@ -22,7 +22,7 @@ import { Sheet, SheetTitle } from '../Sheet'
 type GoalKind = RewardGoal['kind']
 const GOAL_KINDS: Array<{ id: GoalKind; label: string }> = [
   { id: 'campaign', label: 'Terminar una campaña' },
-  { id: 'act', label: 'Cerrar un acto' },
+  { id: 'act', label: 'Cerrar una fase' },
   { id: 'quest', label: 'Completar una misión' },
   { id: 'habitStreak', label: 'Racha de un hábito' },
 ]
@@ -61,7 +61,7 @@ export function RewardSheet(props: { today: GameDay; reward?: Reward; draft?: Re
         ? []
         : campaign.actViews
             .filter((act) => act.state !== 'done')
-            .map((act) => ({ id: act.id, label: `Cerrar el Acto ${act.number} de «${campaign.title}»` })),
+            .map((act) => ({ id: act.id, label: `Cerrar la Fase ${act.number} de «${campaign.title}»` })),
     ),
     quest: [...campaigns.flatMap((campaign) => campaign.sideQuests), ...(missions?.looseSideQuests ?? [])]
       .filter((quest) => !isResolved(quest))
@@ -163,7 +163,7 @@ export function RewardSheet(props: { today: GameDay; reward?: Reward; draft?: Re
 
         {!byGoal && (
           <>
-            <Field label="Precio en oro" hint="Ganas 1 de oro por cada 10 XP y 20 por cerrar un acto.">
+            <Field label="Precio en oro" hint="Ganas 1 de oro por cada 10 XP y 20 por cerrar una fase.">
               <Input
                 type="number"
                 inputMode="numeric"

@@ -53,7 +53,7 @@ export function ShopScreen({ today, onClose }: { today: GameDay; onClose: () => 
               <p className="font-display text-3xl font-bold text-gold tabular-nums">{shop.wallet.balance}</p>
               <p className="text-xs text-muted">
                 Ganaste {shop.wallet.earned} · gastaste {shop.wallet.spent}. Ganas 1 de oro por cada 10 XP y 20 por
-                cerrar un acto.
+                cerrar una fase.
               </p>
             </div>
           </section>

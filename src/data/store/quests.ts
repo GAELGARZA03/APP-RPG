@@ -1,6 +1,6 @@
 // Misiones (side quests): crear, completar respetando el bloqueo de actos, saltar y deshacer.
 import { gameDayOf } from '../../game/gameDay'
-import { campaignState, isResolved, questXp } from '../../game/rules'
+import { campaignState, isResolved, questXp, sessionXp } from '../../game/rules'
 import type { GameDatabase, SideQuest } from '../db'
 import {
   type ActCompletion,
@@ -10,6 +10,7 @@ import {
   type TaskInput,
   allSteps,
   allTables,
+  sessionsOf,
 } from './shared'
 import { pruneSkills } from './skills'
 
@@ -132,11 +133,36 @@ export async function completeQuest(db: GameDatabase, id: string, now = new Date
       return { ...FAILED, blocked: 'evidence' as const, boss: true }
     }
 
+    // Misión de práctica: una sesión por día; la última la completa.
+    const total = sessionsOf(quest)
+    const sessionDays = quest.sessionDays ?? []
+    if (total > 1) {
+      if (sessionDays.includes(today)) return { ...FAILED, blocked: 'session' as const }
+      if (sessionDays.length + 1 < total) {
+        const xp = sessionXp(quest)
+        await db.sideQuests.update(id, {
+          sessionDays: [...sessionDays, today],
+          stepsDone: allSteps(quest.steps?.length ?? 0),
+          stepsDay: today,
+        })
+        await db.xpEvents.add({
+          id: crypto.randomUUID(),
+          kind: 'sideQuest',
+          taskId: id,
+          day: today,
+          xp,
+          ...(quest.skillId ? { skillId: quest.skillId } : {}),
+        })
+        return { ok: true, xp, session: { done: sessionDays.length + 1, total } }
+      }
+    }
+
     const xp = questXp(quest)
     await db.sideQuests.update(id, {
       completedDay: today,
       skippedDay: null,
       stepsDone: allSteps(quest.steps?.length ?? 0),
+      ...(total > 1 ? { sessionDays: [...sessionDays, today], stepsDay: today } : {}),
     })
     await db.xpEvents.add({
       id: crypto.randomUUID(),
@@ -147,7 +173,13 @@ export async function completeQuest(db: GameDatabase, id: string, now = new Date
       ...(quest.skillId ? { skillId: quest.skillId } : {}),
     })
 
-    return { ok: true, xp, boss: quest.boss === true, act: before ? await actCompletion(db, quest, before) : undefined }
+    return {
+      ok: true,
+      xp,
+      boss: quest.boss === true,
+      ...(total > 1 ? { session: { done: total, total } } : {}),
+      act: before ? await actCompletion(db, quest, before) : undefined,
+    }
   })
 }
 
@@ -178,7 +210,26 @@ export async function skipSideQuest(db: GameDatabase, id: string, now = new Date
 export async function undoSideQuest(db: GameDatabase, id: string): Promise<boolean> {
   return db.transaction('rw', db.sideQuests, db.xpEvents, async () => {
     const sideQuest = await db.sideQuests.get(id)
-    if (!sideQuest || !isResolved(sideQuest)) return false
+    if (!sideQuest) return false
+
+    // Misión de práctica: se deshace solo la última sesión (y, si la había completado, la completada).
+    const sessionDays = sideQuest.sessionDays ?? []
+    if (sessionsOf(sideQuest) > 1 && !sideQuest.skippedDay && sessionDays.length > 0) {
+      const last = sessionDays.at(-1)!
+      await db.sideQuests.update(id, {
+        completedDay: null,
+        sessionDays: sessionDays.slice(0, -1),
+        stepsDone: [],
+        ...(sideQuest.completedDay !== null ? { undoCount: (sideQuest.undoCount ?? 0) + 1 } : {}),
+      })
+      await db.xpEvents
+        .where('taskId')
+        .equals(id)
+        .filter((event) => event.day === last)
+        .delete()
+      return true
+    }
+    if (!isResolved(sideQuest)) return false
 
     const wasCompleted = sideQuest.completedDay !== null
     await db.sideQuests.update(id, {

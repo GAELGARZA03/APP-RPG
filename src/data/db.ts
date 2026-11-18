@@ -142,6 +142,12 @@ export interface SideQuest extends TaskDetail {
   stepsDone?: number[]
   /** Veces que se deshizo; la IA lo usa para ajustar el siguiente acto. */
   undoCount?: number
+  /** Misión de práctica: cuántas sesiones (en días distintos) hay que hacer. Sin valor o 1: de una sola vez. */
+  sessions?: number
+  /** Días en que se hizo una sesión, en orden. */
+  sessionDays?: GameDay[]
+  /** Día de los objetivos marcados (en las misiones de práctica, cada sesión empieza de cero). */
+  stepsDay?: GameDay
 }
 
 /** Reto pequeño generado una vez por día de juego. Su `id` es el día, así nunca hay dos. */

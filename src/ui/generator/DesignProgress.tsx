@@ -8,8 +8,8 @@ import { useEffect, useState } from 'react'
 /** Pasos que se muestran mientras el modelo principal diseña. Avanzan con el tiempo; el último espera la respuesta. */
 const DESIGN_STAGES = [
   'Analizando tu meta y tus respuestas',
-  'Trazando los actos del camino',
-  'Diseñando las misiones del Acto 1',
+  'Trazando las fases del camino',
+  'Diseñando las misiones de la Fase 1',
   'Forjando la misión jefe',
 ]
 const STAGE_SECONDS = 6

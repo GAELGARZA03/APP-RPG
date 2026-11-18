@@ -83,7 +83,7 @@ export async function getMilestones(db: GameDatabase): Promise<Milestone[]> {
           id: `acto-${act.id}`,
           day: closedOn,
           kind: 'act',
-          title: `Acto ${act.number} cerrado: ${act.title}`,
+          title: `Fase ${act.number} cerrada: ${act.title}`,
           subtitle: campaign.title,
         })
       }

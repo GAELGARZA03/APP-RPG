@@ -10,6 +10,7 @@ import {
   Menu,
   NotebookPen,
   NotebookTabs,
+  Repeat,
   Skull,
   Sparkles,
   Star,
@@ -48,6 +49,7 @@ import { getCosmetics, getNotificationSettings, getPrefs, getProfile } from './d
 import { effectiveCosmetics, THEMES, titleName, unlocksBetween } from './game/cosmetics'
 import { goldForXp } from './game/rules'
 import { haptic, setHapticsEnabled } from './platform/haptics'
+import { isTestBuild } from './platform/build'
 import { applyNotificationSettings, notificationsSupported, scheduleHabitReminders } from './platform/notifications'
 import { ActCelebration } from './ui/ActCelebration'
 import { runBack } from './ui/backStack'
@@ -247,6 +249,14 @@ export function App() {
       if (!fromDetail) void openDetail(ref)
       return
     }
+    if (outcome.blocked === 'session') {
+      toast('Ya practicaste hoy', {
+        description: 'Es una sesión por día: vuelve mañana para la siguiente.',
+        icon: <Repeat aria-hidden className="size-5 text-info" />,
+        duration: 2500,
+      })
+      return
+    }
     if (outcome.blocked === 'locked') {
       toast('Misión bloqueada', {
         description: 'Completa lo anterior para desbloquearla.',
@@ -263,7 +273,11 @@ export function App() {
       haptic(outcome.boss ? 'boss' : 'complete')
       const gold = goldForXp(outcome.xp)
       const reward = `+${outcome.xp} XP${gold > 0 ? ` · +${gold} de oro` : ''}`
-      toast(outcome.boss ? `¡Jefe derrotado! ${reward}` : reward, {
+      const session =
+        outcome.session && outcome.session.done < outcome.session.total
+          ? `Sesión ${outcome.session.done} de ${outcome.session.total} · `
+          : ''
+      toast(outcome.boss ? `¡Jefe derrotado! ${reward}` : `${session}${reward}`, {
         icon: outcome.boss ? (
           <Skull aria-hidden className="size-5 text-ember" />
         ) : (
@@ -349,9 +363,17 @@ export function App() {
   const reminderKey = reminderPlan
     ? JSON.stringify(reminderPlan.map((item) => [item.title, item.emoji, item.at.map((date) => date.getTime())]))
     : null
+  // En la app de pruebas no suenan a menos que actives las notificaciones en Ajustes: así sus datos de prueba
+  // no te mandan avisos como si fueran tu app.
+  const [testBuild, setTestBuild] = useState<boolean | null>(null)
   useEffect(() => {
-    if (reminderPlan) scheduleHabitReminders(reminderPlan).catch(console.error)
-  }, [reminderKey])
+    void isTestBuild().then(setTestBuild)
+  }, [])
+  const notificationsOn = notificationSettings?.enabled ?? false
+  useEffect(() => {
+    if (!reminderPlan || testBuild === null) return
+    scheduleHabitReminders(testBuild && !notificationsOn ? [] : reminderPlan).catch(console.error)
+  }, [reminderKey, testBuild, notificationsOn])
 
   // Mantiene los recordatorios programados al día con los ajustes guardados.
   useEffect(() => {

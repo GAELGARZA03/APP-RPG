@@ -142,8 +142,12 @@ async function buildDemo(db: GameDatabase) {
   await completeQuest(db, progression.id, ago(3))
   const actTwo = (await getCampaign(db, guitar.id))!.actViews[1]
   await addActMissions(db, guitar.id, actTwo.id, actTwoMissions, ago(3))
-  const [strum] = (await getCampaign(db, guitar.id))!.actViews[1].quests
+  const [strum, blind] = (await getCampaign(db, guitar.id))!.actViews[1].quests
   await toggleStep(db, { kind: 'sideQuest', id: strum.id }, 0, ago(1))
+  // Misión de práctica: 5 sesiones, con 2 hechas (anteayer y ayer); hoy toca la tercera.
+  await db.sideQuests.update(blind.id, { sessions: 5 })
+  await completeQuest(db, blind.id, ago(2))
+  await completeQuest(db, blind.id, ago(1))
 
   // Campaña terminada, para ver la sección «Completadas» y un jefe derrotado con evidencia.
   const reading = await acceptCampaignPlan(db, readingDesign, ago(14))

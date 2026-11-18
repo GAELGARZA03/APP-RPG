@@ -7,6 +7,7 @@ import {
   FastForward,
   Flag,
   ListChecks,
+  Repeat,
   LoaderCircle,
   Lock,
   LockOpen,
@@ -222,7 +223,12 @@ function ActPath(props: {
               </span>
               <span className="flex items-center gap-1.5">
                 <Badge tone={state === 'locked' ? 'muted' : quest.boss ? 'ember' : 'signal'}>+{quest.xp} XP</Badge>
-                {stepCount > 0 && state !== 'locked' && (
+                {(quest.sessions ?? 1) > 1 && !quest.boss && state !== 'locked' ? (
+                  <Badge tone={(quest.sessionDays?.length ?? 0) > 0 ? 'info' : 'muted'}>
+                    <Repeat aria-hidden />
+                    {quest.sessionDays?.length ?? 0} / {quest.sessions} días
+                  </Badge>
+                ) : stepCount > 0 && state !== 'locked' && (
                   <Badge tone={(quest.stepsDone?.length ?? 0) > 0 ? 'info' : 'muted'}>
                     <ListChecks aria-hidden />
                     {quest.stepsDone?.length ?? 0} / {stepCount}
@@ -272,7 +278,7 @@ function ActHeader({ act, campaignDone }: { act: ActView; campaignDone: boolean 
       </motion.span>
       <div className="min-w-0 flex-1">
         <p className="flex items-center gap-2 font-display text-[11px] font-semibold tracking-wide text-muted uppercase">
-          Acto {act.number}
+          Fase {act.number}
           <DifficultyPips value={act.difficulty} />
         </p>
         <h2 className="font-display text-lg leading-tight font-semibold">{act.title}</h2>
@@ -306,7 +312,7 @@ function GenerateAct({ campaignId, act, onAddQuest }: { campaignId: string; act:
           <motion.span animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}>
             <LoaderCircle aria-hidden className="size-8" />
           </motion.span>
-          <p className="font-display">Diseñando el Acto {act.number} según cómo te fue…</p>
+          <p className="font-display">Diseñando la Fase {act.number} según cómo te fue…</p>
           <p aria-live="polite" className={cn('text-xs', run.retrying ? 'text-ember' : 'text-muted')}>
             {run.retrying && run.message
               ? run.message
@@ -318,20 +324,20 @@ function GenerateAct({ campaignId, act, onAddQuest }: { campaignId: string; act:
       ) : (
         <>
           <p className="text-sm text-muted">
-            ¡Llegaste al Acto {act.number}! Sus misiones se diseñan ahora, usando lo que completaste, saltaste y cuánto
+            ¡Llegaste a la Fase {act.number}! Sus misiones se diseñan ahora, usando lo que completaste, saltaste y cuánto
             tardaste.
           </p>
           {run?.status === 'error' && (
             <div role="alert" className="flex items-start gap-2 rounded-2xl border border-ember/50 bg-ember/10 p-3 text-left text-sm">
               <ShieldAlert aria-hidden className="mt-0.5 size-4 shrink-0 text-ember" />
               <p>
-                {run.message} <span className="text-muted">El acto sigue pendiente.</span>
+                {run.message} <span className="text-muted">La fase sigue pendiente.</span>
               </p>
             </div>
           )}
           <Button variant="primary" size="lg" onClick={() => void generate(false)}>
             {run?.status === 'error' ? <RotateCcw aria-hidden /> : <Sparkles aria-hidden />}
-            {run?.status === 'error' ? 'Reintentar' : `Generar Acto ${act.number}`}
+            {run?.status === 'error' ? 'Reintentar' : `Generar Fase ${act.number}`}
           </Button>
           {run?.status === 'error' && run.offerFast && (
             <Button variant="outline" onClick={() => void generate(true)}>
@@ -453,7 +459,7 @@ export function CampaignMap(props: {
           ? `Campaña · ${campaign.sideQuests.length} misiones`
           : done
             ? 'Campaña completada'
-            : `Campaña · Acto ${campaign.currentAct} de ${campaign.actViews.length}${streak ? ` · 🔥 ${streak} ${streak === 1 ? 'día' : 'días'}` : ''}`
+            : `Campaña · Fase ${campaign.currentAct} de ${campaign.actViews.length}${streak ? ` · 🔥 ${streak} ${streak === 1 ? 'día' : 'días'}` : ''}`
       }
       onClose={onClose}
       action={
@@ -497,7 +503,7 @@ export function CampaignMap(props: {
             const start = offset
             offset += act.quests.length
             return (
-              <section key={act.id} aria-label={campaign.legacy ? 'Misiones' : `Acto ${act.number}: ${act.title}`}>
+              <section key={act.id} aria-label={campaign.legacy ? 'Misiones' : `Fase ${act.number}: ${act.title}`}>
                 {!campaign.legacy && <ActHeader act={act} campaignDone={done} />}
                 {act.state === 'current' && act.status === 'planned' && (
                   <GenerateAct campaignId={campaign.id} act={act} onAddQuest={() => onAddQuest(campaign.id)} />
@@ -517,7 +523,7 @@ export function CampaignMap(props: {
                 {(campaign.legacy || (act.state === 'current' && act.status === 'ready')) && (
                   <Button variant="dashed" onClick={() => onAddQuest(campaign.id)} className="relative z-10 mb-3 w-full">
                     <Plus aria-hidden />
-                    Agregar misión{campaign.legacy ? '' : ` al Acto ${act.number}`}
+                    Agregar misión{campaign.legacy ? '' : ` a la Fase ${act.number}`}
                   </Button>
                 )}
               </section>

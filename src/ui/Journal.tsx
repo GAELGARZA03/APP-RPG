@@ -169,7 +169,7 @@ function Progress({ onOpen }: { onOpen: (ref: TaskRef) => void }) {
             </span>
             <p className="font-display text-xl font-semibold">Aún no hay progreso registrado</p>
             <p className="text-sm text-muted">
-              Aquí aparecen tus logros (niveles, actos, jefes y habilidades) y las fotos y notas de tus misiones.
+              Aquí aparecen tus logros (niveles, fases, jefes y habilidades) y las fotos y notas de tus misiones.
             </p>
           </div>
         )}

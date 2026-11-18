@@ -191,8 +191,8 @@ describe('Generar una campaña', () => {
     // Vista previa: análisis, actos, misiones del Acto 1 y jefe. Aún no se creó nada.
     expect(preview).toBeTruthy()
     expect(screen.getByText('Tocas 3 canciones completas sin detenerte y lo grabas.')).toBeTruthy()
-    expect(screen.getByText(/El camino · 3 actos/)).toBeTruthy()
-    expect(screen.getByText(/Misiones del Acto 1 · 3/)).toBeTruthy()
+    expect(screen.getByText(/El camino · 3 fases/)).toBeTruthy()
+    expect(screen.getByText(/Misiones de la Fase 1 · 3/)).toBeTruthy()
     expect(await db.campaigns.count()).toBe(0)
 
     // Los contratos sugeridos llegan desmarcados; se desmarca además una misión.
@@ -217,11 +217,11 @@ describe('Generar una campaña', () => {
     expect(campaign.brief?.answers).toEqual([
       { question: '¿Qué tanto sabes ya de guitarra?', answer: 'Nada, empiezo de cero' },
     ])
-    expect(within(map).getByText('Campaña · Acto 1 de 3')).toBeTruthy()
+    expect(within(map).getByText('Campaña · Fase 1 de 3')).toBeTruthy()
 
     // Bloqueo de actos: el jefe se ve, pero su detalle es de solo lectura con el motivo.
     await user.click(within(map).getByRole('button', { name: /Misión jefe: El concierto/ }))
-    expect(await screen.findByText('Completa el Acto 1 para desbloquear')).toBeTruthy()
+    expect(await screen.findByText('Completa la Fase 1 para desbloquear')).toBeTruthy()
     expect(screen.queryByRole('button', { name: /^Completar/ })).toBeNull()
     expect(screen.queryByRole('button', { name: /Ya sé hacer esto/ })).toBeNull()
     await closeDetail()
@@ -232,12 +232,12 @@ describe('Generar una campaña', () => {
     await closeDetail()
     await completeFromMap(/Misión: Domina Mi menor/, 50)
 
-    const celebration = await screen.findByRole('alertdialog', { name: 'Acto 1 completado' })
+    const celebration = await screen.findByRole('alertdialog', { name: 'Fase 1 completada' })
     expect(within(celebration).getByText('Ritmo y cambios')).toBeTruthy()
     expect((await getHud(db, today())).totalXp).toBe(50)
 
     // Generar el Acto 2 usando cómo le fue.
-    await user.click(within(celebration).getByRole('button', { name: /Generar Acto 2/ }))
+    await user.click(within(celebration).getByRole('button', { name: /Generar Fase 2/ }))
     expect(await screen.findByRole('button', { name: /Misión: Rasguea abajo-arriba/ })).toBeTruthy()
 
     const [actCall] = calls(isAct)
@@ -365,9 +365,9 @@ describe('Generar el siguiente acto', () => {
     await openMissions()
     await user.click(await screen.findByRole('button', { name: /Abrir el mapa de Del silencio/ }))
 
-    await user.click(await screen.findByRole('button', { name: /Generar Acto 2/ }))
+    await user.click(await screen.findByRole('button', { name: /Generar Fase 2/ }))
     expect(await screen.findByText(SATURATED)).toBeTruthy()
-    expect(screen.getByText('El acto sigue pendiente.')).toBeTruthy()
+    expect(screen.getByText('La fase sigue pendiente.')).toBeTruthy()
     let view = (await getCampaign(db, campaign.id))!
     expect(view.actViews[1]).toMatchObject({ status: 'planned', state: 'current' })
     expect(view.actViews[1].quests).toHaveLength(0)
@@ -390,7 +390,7 @@ describe('Generar el siguiente acto', () => {
     render(<App />)
     await openMissions()
     await user.click(await screen.findByRole('button', { name: /Abrir el mapa de Del silencio/ }))
-    await user.click(await screen.findByRole('button', { name: /Generar Acto 2/ }))
+    await user.click(await screen.findByRole('button', { name: /Generar Fase 2/ }))
 
     expect(await screen.findByRole('button', { name: /Misión: Rasguea abajo-arriba/ })).toBeTruthy()
     expect(calls(isAct).at(-1)!.url).toContain('gemini-3.5-flash-lite:generateContent')

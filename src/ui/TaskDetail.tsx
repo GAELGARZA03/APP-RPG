@@ -203,6 +203,10 @@ export function TaskDetail(props: {
   const hasDetail = description.length > 0 || steps.length > 0
   const locked = Boolean(view?.lock)
   const resolved = Boolean(view && (view.done || view.skipped))
+  // Misión de práctica: varias sesiones en días distintos.
+  const sessions = view?.kind === 'sideQuest' ? view.sessions : null
+  const sessionToday = Boolean(sessions?.today && !resolved)
+  const finalSession = Boolean(sessions && sessions.done + 1 >= sessions.total)
   const showEvidence = view && view.kind !== 'habit' && !locked
 
   return (
@@ -285,7 +289,9 @@ export function TaskDetail(props: {
                     {DIFFICULTY_NAMES[view.task.difficulty]}
                   </span>
                   <Badge tone={view.boss ? 'ember' : 'signal'}>
-                    +{view.xp} XP{view.boss ? ' · doble' : ''}
+                    {sessions
+                      ? `+${sessions.xp} XP por sesión · +${view.xp} al terminar`
+                      : `+${view.xp} XP${view.boss ? ' · doble' : ''}`}
                   </Badge>
                   {view.task.estimate && (
                     <Badge>
@@ -328,10 +334,46 @@ export function TaskDetail(props: {
 
               {description && <p className="text-[15px] leading-relaxed text-ink/90">{description}</p>}
 
+              {sessions && (
+                <section
+                  aria-label="Sesiones de práctica"
+                  className="flex flex-col gap-2 rounded-2xl border border-white/[0.06] bg-void/50 p-3"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-1.5 text-sm font-semibold">
+                      <Repeat aria-hidden className="size-4 text-info" />
+                      Práctica: {sessions.total} sesiones
+                    </span>
+                    <span className="font-display text-sm font-semibold text-muted tabular-nums">
+                      {sessions.done} / {sessions.total}
+                    </span>
+                  </div>
+                  <div className="flex gap-1.5" aria-hidden>
+                    {Array.from({ length: sessions.total }, (_, index) => (
+                      <span
+                        key={index}
+                        className={cn(
+                          'h-2 flex-1 rounded-full',
+                          index < sessions.done ? 'bg-signal' : 'bg-white/10',
+                          sessions.today && index === sessions.done - 1 && 'ring-2 ring-signal/40',
+                        )}
+                      />
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted">
+                    {view.done
+                      ? `Completada en ${sessions.total} sesiones.`
+                      : sessions.today
+                        ? `Sesión de hoy hecha. Vuelve mañana para la ${sessions.done + 1}.`
+                        : 'Una sesión por día: haz los objetivos de abajo y márcala.'}
+                  </p>
+                </section>
+              )}
+
               {steps.length > 0 && (
                 <section aria-label="Objetivos">
                   <div className="flex items-center justify-between">
-                    <SectionLabel>Objetivos</SectionLabel>
+                    <SectionLabel>{sessions && !view.done ? 'Objetivos de cada sesión' : 'Objetivos'}</SectionLabel>
                     <span className="font-display text-sm font-semibold text-muted tabular-nums">
                       {view.stepsDone.length} / {steps.length}
                     </span>
@@ -490,13 +532,21 @@ export function TaskDetail(props: {
                     </Button>
                   )}
                   <Button
-                    variant={resolved ? 'secondary' : 'primary'}
-                    onClick={() => void (resolved ? undo() : complete())}
+                    variant={resolved || sessionToday ? 'secondary' : 'primary'}
+                    onClick={() => void (resolved || sessionToday ? undo() : complete())}
                     disabled={view.kind === 'habit' && !view.scheduledToday && !resolved}
                     className="flex-[2] whitespace-nowrap px-3"
                   >
-                    {resolved ? <RotateCcw aria-hidden /> : <Check aria-hidden />}
-                    {view.skipped ? 'Deshacer salto' : view.done ? 'Deshacer' : `Completar +${view.xp} XP`}
+                    {resolved || sessionToday ? <RotateCcw aria-hidden /> : <Check aria-hidden />}
+                    {view.skipped
+                      ? 'Deshacer salto'
+                      : view.done
+                        ? 'Deshacer'
+                        : sessionToday
+                          ? 'Deshacer sesión de hoy'
+                          : sessions && !finalSession
+                            ? `Sesión ${sessions.done + 1} de ${sessions.total} +${sessions.xp} XP`
+                            : `Completar +${view.xp} XP`}
                   </Button>
                 </>
               )}

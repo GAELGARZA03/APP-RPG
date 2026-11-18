@@ -56,7 +56,7 @@ export function MissionsTab(props: {
       {missions.campaigns.length === 0 && (
         <Card label="Campañas" icon={Flag}>
           <p className="mb-3 text-sm text-muted">
-            Una campaña es una meta grande convertida en un camino por actos, con una misión jefe al final.
+            Una campaña es una meta grande convertida en un camino por fases, con una misión jefe al final.
           </p>
           <Button variant="dashed" onClick={onCreateCampaign} className="w-full">
             <Plus aria-hidden />
@@ -177,7 +177,7 @@ function CampaignCard({ campaign, streak, onOpen }: { campaign: CampaignView; st
               ? `Campaña · ${campaign.sideQuests.length} Side Quests`
               : finished
                 ? 'Campaña completada'
-                : `Campaña · Acto ${campaign.currentAct} de ${campaign.actViews.length}`}
+                : `Campaña · Fase ${campaign.currentAct} de ${campaign.actViews.length}`}
           </span>
           <span className="mt-1 block font-display text-xl leading-tight font-semibold">{campaign.title}</span>
           {streak > 0 && (
@@ -246,7 +246,7 @@ function CampaignCard({ campaign, streak, onOpen }: { campaign: CampaignView; st
         <span className="flex items-center gap-2 text-sm text-muted">
           <span className="shrink-0 text-xs font-semibold text-signal uppercase">Sigue</span>
           <span className="truncate">
-            {next ? next.title : `Generar las misiones del Acto ${currentAct!.number}`}
+            {next ? next.title : `Generar las misiones de la Fase ${currentAct!.number}`}
           </span>
         </span>
       )}

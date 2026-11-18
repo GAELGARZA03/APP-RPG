@@ -12,7 +12,12 @@ const MISSION_RULES = `Cada misión debe ser concreta y medible, como una misió
 - ${DIFFICULTY_RULE}`
 
 const FULL_MISSION_RULES = `${MISSION_RULES}
-- estimate: tiempo realista, corto ("15 min", "45 min", "3 sesiones de 20 min").
+- sessions: cuántas sesiones, en días distintos, pide la misión.
+  - 1 para lo que se hace una sola vez: afinar, comprar, investigar, preparar algo, una entrega.
+  - De 3 a 10 para las misiones de PRÁCTICA de una técnica, donde una sola vez no basta para dominarla. Ahí los steps son lo que se hace EN CADA sesión ("Haz el corte fantasma 10 veces sin mirar las manos") y la description dice cómo saber que ya lo dominas al terminar todas. Más sesiones cuanto más difícil o física sea la técnica.
+  - En cada acto, la mayoría de las misiones de habilidad deben ser de práctica con varias sesiones: así el jugador practica de verdad varios días (práctica deliberada y espaciada), no una sola tarde. Con sesiones, un acto de 3 o 4 misiones ya puede durar dos semanas.
+  - La misión jefe siempre es de 1 sesión.
+- estimate: tiempo realista de CADA sesión, corto ("15 min", "20 min por sesión").
 - why: una frase sobre por qué esta misión importa para la meta.
 - tip: un consejo práctico y específico, no una frase motivacional.
 - skill: el nombre exacto de una de las sub-habilidades de la campaña.`
@@ -53,6 +58,8 @@ Ejemplo del nivel esperado (meta: aprender guitarra; principiante; 4 horas a la 
 Lo que NO debes hacer: "Practicar acordes", "Mejorar el ritmo", "Practicar más", "Seguir mejorando"; todas con la misma dificultad; siempre la misma cantidad de misiones; sin cantidades ni forma de saber que terminaste; ignorar lo que el jugador respondió.
 
 ${principlesPrompt('campaign')}
+
+En los textos que lee el jugador, llama «fase» a cada acto (por ejemplo «en la fase 2»).
 
 Todo en español. No inventes datos personales del jugador.`
 

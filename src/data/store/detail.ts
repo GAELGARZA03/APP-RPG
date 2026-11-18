@@ -1,9 +1,19 @@
 // Vista de detalle de una misión, un hábito o la misión del día.
 import type { GameDay } from '../../game/gameDay'
-import { habitXp, dailyXp, questXp } from '../../game/rules'
+import { habitXp, dailyXp, questXp, sessionXp } from '../../game/rules'
 import type { GameDatabase } from '../db'
 import { buildCampaignView } from './campaigns'
-import { type TaskRef, allTables, evidenceOf, isScheduledOn, pathOf, projectPlayer, skillMap } from './shared'
+import {
+  type TaskRef,
+  allTables,
+  evidenceOf,
+  isScheduledOn,
+  pathOf,
+  projectPlayer,
+  questStepsDone,
+  sessionsOf,
+  skillMap,
+} from './shared'
 
 /** Todo lo que muestra la vista de detalle de una misión. `null` si ya no existe. */
 export async function getTaskDetail(db: GameDatabase, ref: TaskRef, today: GameDay) {
@@ -74,7 +84,7 @@ export async function getTaskDetail(db: GameDatabase, ref: TaskRef, today: GameD
       kind: 'sideQuest' as const,
       task,
       campaign: campaign?.title ?? null,
-      actLabel: view && !view.legacy && act ? `Acto ${act.number}` : null,
+      actLabel: view && !view.legacy && act ? `Fase ${act.number}` : null,
       lock,
       boss: task.boss === true,
       skipped,
@@ -82,7 +92,17 @@ export async function getTaskDetail(db: GameDatabase, ref: TaskRef, today: GameD
       done: task.completedDay !== null,
       xp: questXp(task),
       completions: task.completedDay ? 1 : 0,
-      stepsDone: task.stepsDone ?? [],
+      stepsDone: questStepsDone(task, today),
+      // Misión de práctica: cuántas sesiones van y si la de hoy ya está hecha.
+      sessions:
+        sessionsOf(task) > 1
+          ? {
+              total: sessionsOf(task),
+              done: task.sessionDays?.length ?? 0,
+              today: (task.sessionDays ?? []).includes(today),
+              xp: sessionXp(task),
+            }
+          : null,
       skill: pathOf(skills, task.skillId),
     }
   })

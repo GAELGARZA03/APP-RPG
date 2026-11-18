@@ -153,7 +153,7 @@ describe('Actos y bloqueo', () => {
     const boss = campaign.sideQuests.find((quest) => quest.boss)!
 
     expect(campaign.actViews[0].quests.every((quest) => quest.lock === null)).toBe(true)
-    expect(boss.lock).toBe('Completa el Acto 1 para desbloquear')
+    expect(boss.lock).toBe('Completa la Fase 1 para desbloquear')
     expect(await completeQuest(db, boss.id, day(0))).toMatchObject({ ok: false, blocked: 'locked' })
     expect(await skipSideQuest(db, boss.id, day(0))).toMatchObject({ ok: false })
     expect(await toggleStep(db, { kind: 'sideQuest', id: boss.id }, 0, day(0))).toMatchObject({ blocked: 'locked' })
@@ -215,7 +215,7 @@ describe('Actos y bloqueo', () => {
 
     const after = await view(campaign.id)
     expect(after.actViews.map((act) => act.state)).toEqual(['current', 'locked', 'locked'])
-    expect(after.actViews[1].quests[1].lock).toBe('Completa el Acto 1 para desbloquear')
+    expect(after.actViews[1].quests[1].lock).toBe('Completa la Fase 1 para desbloquear')
     expect(await completeQuest(db, after.actViews[1].quests[1].id, day(2))).toMatchObject({ blocked: 'locked' })
     // Se pierde solo el XP de la misión deshecha; lo ganado en el Acto 2 se conserva.
     expect(await xp()).toBe(160 + 90 - 20)
@@ -309,12 +309,12 @@ describe('Misión jefe', () => {
   it('espera a que se genere su acto y a que se completen las demás misiones', async () => {
     const { campaign, boss } = await reachBoss()
     expect((await view(campaign.id)).sideQuests.find((quest) => quest.boss)?.lock).toBe(
-      'Genera las misiones del Acto 3 para llegar al jefe',
+      'Genera las misiones de la Fase 3 para llegar al jefe',
     )
 
     await addActMissions(db, campaign.id, campaign.actViews[2].id, [actTwoMissions[0]], day(4))
     expect((await view(campaign.id)).sideQuests.find((quest) => quest.boss)?.lock).toBe(
-      'Completa las demás misiones del acto para enfrentar al jefe',
+      'Completa las demás misiones de la fase para enfrentar al jefe',
     )
     expect(await completeQuest(db, boss.id, day(4))).toMatchObject({ blocked: 'locked' })
   })
@@ -567,6 +567,73 @@ describe('Restablecer progreso', () => {
     expect(habits.every((habit) => !habit.skillId && !habit.campaignId && !habit.stepsDone)).toBe(true)
     expect(await db.xpEvents.count()).toBe(0)
     expect((await getTodayHabits(db, gameDayOf(day(0)))).every((habit) => !habit.doneToday)).toBe(true)
+  })
+})
+
+describe('Misiones de práctica', () => {
+  it('piden una sesión por día, dan XP por sesión y se completan con la última', async () => {
+    const campaign = await guitar()
+    const quest = campaign.actViews[0].quests[0]
+    await db.sideQuests.update(quest.id, { sessions: 3 })
+    const ref = { kind: 'sideQuest' as const, id: quest.id }
+    const steps = quest.steps?.length ?? 0
+    const sessionXp = Math.max(5, Math.round(quest.xp * 0.4))
+
+    const first = await completeQuest(db, quest.id, day(0))
+    expect(first).toMatchObject({ ok: true, xp: sessionXp, session: { done: 1, total: 3 } })
+    expect((await db.sideQuests.get(quest.id))?.completedDay).toBeNull()
+    // Una sola sesión por día.
+    expect(await completeQuest(db, quest.id, day(0, 20))).toMatchObject({ ok: false, blocked: 'session' })
+    let detail = (await getTaskDetail(db, ref, gameDayOf(day(0))))!
+    expect(detail.kind === 'sideQuest' && detail.sessions).toMatchObject({ done: 1, total: 3, today: true })
+
+    // Al día siguiente los objetivos empiezan de cero; marcarlos todos hace la sesión 2.
+    detail = (await getTaskDetail(db, ref, gameDayOf(day(1))))!
+    expect(detail.stepsDone).toEqual([])
+    let outcome = { ok: false, xp: 0 } as Awaited<ReturnType<typeof toggleStep>>
+    for (let index = 0; index < steps; index += 1) outcome = await toggleStep(db, ref, index, day(1))
+    expect(outcome).toMatchObject({ ok: true, xp: sessionXp, session: { done: 2, total: 3 } })
+    // Quitar una casilla de la sesión de hoy la deshace (y su XP); volver a marcarla la rehace.
+    await toggleStep(db, ref, 0, day(1, 13))
+    expect((await db.sideQuests.get(quest.id))?.sessionDays).toHaveLength(1)
+    expect((await toggleStep(db, ref, 0, day(1, 14))).session).toEqual({ done: 2, total: 3 })
+
+    const last = await completeQuest(db, quest.id, day(2))
+    expect(last).toMatchObject({ ok: true, xp: quest.xp, session: { done: 3, total: 3 } })
+    const saved = (await db.sideQuests.get(quest.id))!
+    expect(saved.completedDay).toBe(gameDayOf(day(2)))
+    expect(saved.sessionDays).toEqual([gameDayOf(day(0)), gameDayOf(day(1)), gameDayOf(day(2))])
+    const events = await db.xpEvents.where('taskId').equals(quest.id).toArray()
+    expect(events.sort((a, b) => a.day.localeCompare(b.day)).map((event) => event.xp)).toEqual([
+      sessionXp,
+      sessionXp,
+      quest.xp,
+    ])
+
+    // Deshacer quita solo la última sesión (la que la completó).
+    expect(await undoSideQuest(db, quest.id)).toBe(true)
+    const undone = (await db.sideQuests.get(quest.id))!
+    expect(undone.completedDay).toBeNull()
+    expect(undone.sessionDays).toHaveLength(2)
+    expect(await db.xpEvents.where('taskId').equals(quest.id).count()).toBe(2)
+  })
+
+  it('la IA puede pedir sesiones; el jefe y los hábitos siempre son de una vez', async () => {
+    const design = structuredClone(guitarDesign)
+    design.missions[1].sessions = 5
+    design.boss.sessions = 4
+    design.habits.forEach((habit) => (habit.sessions = 3))
+    const created = await acceptCampaignPlan(
+      db,
+      { ...design, missions: design.missions, habits: design.habits },
+      day(0),
+    )
+    const quests = await db.sideQuests.where('campaignId').equals(created.id).toArray()
+    expect(quests.find((quest) => quest.title === design.missions[1].title)?.sessions).toBe(5)
+    expect(quests.find((quest) => quest.title === design.missions[0].title)?.sessions).toBeUndefined()
+    const boss = quests.find((quest) => quest.boss)!
+    expect(await completeQuest(db, boss.id, day(0))).not.toHaveProperty('session')
+    expect((await db.habits.toArray()).every((habit) => !('sessions' in habit))).toBe(true)
   })
 })
 

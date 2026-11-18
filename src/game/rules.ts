@@ -90,6 +90,14 @@ export function questXp(quest: { difficulty: Difficulty; boss?: boolean }): numb
   return baseXp(quest.difficulty) * (quest.boss ? BOSS_XP_MULTIPLIER : 1)
 }
 
+/** Máximo de sesiones de una misión de práctica. */
+export const MAX_SESSIONS = 10
+
+/** XP de cada sesión de una misión de práctica (la última da el XP completo de la misión). */
+export function sessionXp(quest: { difficulty: Difficulty; boss?: boolean }): number {
+  return Math.max(5, Math.round(questXp(quest) * 0.4))
+}
+
 /** La misión del día da un 50% más que una misión normal de su dificultad, más el bono de racha. */
 export function dailyXp(difficulty: Difficulty, streak = 0): number {
   return Math.round((baseXp(difficulty) * 1.5 * (100 + streakBonusPercent(streak))) / 100)
@@ -159,11 +167,11 @@ export function campaignState(actsInput: ReadonlyArray<ActLike> | undefined, que
 export function lockMessage(reason: LockReason): string {
   switch (reason.kind) {
     case 'act':
-      return `Completa el Acto ${reason.actNumber} para desbloquear`
+      return `Completa la Fase ${reason.actNumber} para desbloquear`
     case 'boss':
-      return 'Completa las demás misiones del acto para enfrentar al jefe'
+      return 'Completa las demás misiones de la fase para enfrentar al jefe'
     case 'planned':
-      return `Genera las misiones del Acto ${reason.actNumber} para llegar al jefe`
+      return `Genera las misiones de la Fase ${reason.actNumber} para llegar al jefe`
   }
 }
 

@@ -222,7 +222,7 @@ export async function acceptPlan(
 }
 
 /** Misión propuesta por la IA: `skill` es el nombre de su sub-rama. */
-export type MissionInput = TaskInput & { skill?: string }
+export type MissionInput = TaskInput & { skill?: string; sessions?: number }
 
 export interface CampaignPlanInput {
   campaign: string
@@ -237,8 +237,8 @@ export interface CampaignPlanInput {
 }
 
 function questFields(mission: MissionInput, skillId: string | undefined) {
-  const { skill: _skill, ...fields } = mission
-  return { ...fields, ...(skillId ? { skillId } : {}) }
+  const { skill: _skill, sessions, ...fields } = mission
+  return { ...fields, ...(skillId ? { skillId } : {}), ...(sessions && sessions > 1 ? { sessions } : {}) }
 }
 
 /**
@@ -302,7 +302,10 @@ export async function acceptCampaignPlan(
     for (const [index, habit] of plan.habits.entries()) {
       await createHabit(
         db,
-        { ...questFields(habit, await resolver.leaf(branchId, habit.skill)), campaignId: campaign.id },
+        {
+          ...questFields({ ...habit, sessions: undefined }, await resolver.leaf(branchId, habit.skill)),
+          campaignId: campaign.id,
+        },
         new Date(now.getTime() + index + 1),
       )
     }

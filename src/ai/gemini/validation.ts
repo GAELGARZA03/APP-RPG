@@ -32,6 +32,11 @@ const missionSchema = detailSchema.extend({
   tip: optionalText(240),
   skill: optionalText(40),
   principle,
+  /** Sesiones de práctica (1 = de una sola vez). */
+  sessions: z.coerce
+    .number()
+    .catch(1)
+    .transform((value) => Math.min(10, Math.max(1, Math.round(value) || 1))),
 })
 
 export const questionsSchema = z.object({

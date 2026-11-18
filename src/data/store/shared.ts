@@ -1,7 +1,7 @@
 // Tipos, constantes y piezas internas que comparten todas las áreas del juego.
 import { type GameDay, addDays, weekdayOf } from '../../game/gameDay'
 import { type DayOutcome, type Difficulty, isScheduledWeekday, nextStreak } from '../../game/rules'
-import type { Habit, Evidence, GameDatabase, Player, Skill, TaskDetail } from '../db'
+import type { Habit, Evidence, GameDatabase, Player, SideQuest, Skill, TaskDetail } from '../db'
 
 export type TaskInput = { title: string; difficulty: Difficulty } & TaskDetail
 export type TaskChanges = Partial<TaskInput>
@@ -10,8 +10,13 @@ export type TaskChanges = Partial<TaskInput>
 export interface Outcome {
   ok: boolean
   xp: number
-  /** `locked`: la misión está bloqueada. `evidence`: la misión jefe pide una foto o una nota. */
-  blocked?: 'locked' | 'evidence'
+  /**
+   * `locked`: la misión está bloqueada. `evidence`: la misión jefe pide una foto o una nota.
+   * `session`: la sesión de práctica de hoy ya está hecha (una por día).
+   */
+  blocked?: 'locked' | 'evidence' | 'session'
+  /** En una misión de práctica: sesiones hechas (con esta) y total. */
+  session?: { done: number; total: number }
   boss?: boolean
   /** Presente cuando esta acción cerró un acto. */
   act?: ActCompletion
@@ -169,4 +174,16 @@ export async function skillMap(db: GameDatabase): Promise<Map<string, Skill>> {
 
 export async function evidenceOf(db: GameDatabase, taskId: string): Promise<Evidence[]> {
   return (await db.evidence.where('taskId').equals(taskId).toArray()).sort(byCreation)
+}
+
+/** Sesiones de una misión: 1 es una misión de una sola vez. El jefe siempre es de una vez. */
+export function sessionsOf(quest: Pick<SideQuest, 'sessions' | 'boss'>): number {
+  return quest.boss ? 1 : Math.max(1, Math.min(10, Math.round(quest.sessions ?? 1)))
+}
+
+/** Objetivos marcados que valen hoy: en una misión de práctica, cada día empieza una sesión nueva. */
+export function questStepsDone(quest: SideQuest, today: GameDay): number[] {
+  if (quest.completedDay !== null) return allSteps(quest.steps?.length ?? 0)
+  if (sessionsOf(quest) > 1 && quest.stepsDay !== today) return []
+  return quest.stepsDone ?? []
 }

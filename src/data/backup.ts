@@ -142,15 +142,21 @@ const dataSchema = z.object({
           createdAt: timestamp,
           model: text(80),
           summary: text(1000),
-          points: z
-            .array(z.object({ title: text(120), text: text(800), principle: text(8).optional() }))
-            .max(6),
+          points: z.array(z.object({ title: text(120), text: text(800), principle: text(8).optional() })).max(6),
         })
         .optional(),
     }),
   ),
   habitLogs: z
-    .array(z.object({ id: z.string().min(1).max(220), habitId: id, day, state: z.enum(['done', 'half', 'missed']), at: timestamp.optional() }))
+    .array(
+      z.object({
+        id: z.string().min(1).max(220),
+        habitId: id,
+        day,
+        state: z.enum(['done', 'half', 'missed']),
+        at: timestamp.optional(),
+      }),
+    )
     .default([]),
   campaigns: z.array(
     z.object({
@@ -178,6 +184,9 @@ const dataSchema = z.object({
       boss: z.boolean().optional(),
       skippedDay: day.nullable().optional(),
       stepsDone: stepIndexes.optional(),
+      sessions: z.number().int().min(1).max(30).optional(),
+      sessionDays: z.array(day).max(30).optional(),
+      stepsDay: day.optional(),
       undoCount: z.number().int().nonnegative().optional(),
     }),
   ),

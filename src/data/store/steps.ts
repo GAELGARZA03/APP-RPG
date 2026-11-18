@@ -4,7 +4,7 @@ import type { GameDatabase } from '../db'
 import { completeHabit, undoHabit } from './habits'
 import { completeDaily, undoDaily } from './daily'
 import { campaignContext, completeQuest, undoSideQuest } from './quests'
-import { FAILED, type Outcome, type TaskRef, allTables, isScheduledOn } from './shared'
+import { FAILED, type Outcome, type TaskRef, allTables, isScheduledOn, questStepsDone, sessionsOf } from './shared'
 
 function toggled(done: number[], index: number): number[] {
   return done.includes(index) ? done.filter((value) => value !== index) : [...done, index].sort((a, b) => a - b)
@@ -51,11 +51,15 @@ export async function toggleStep(db: GameDatabase, ref: TaskRef, index: number, 
     if (!quest || index < 0 || index >= count) return FAILED
     const context = await campaignContext(db, quest)
     if (context?.state.locks.get(ref.id)) return { ...FAILED, blocked: 'locked' as const }
-    const done = toggled(quest.stepsDone ?? [], index)
+    const done = toggled(questStepsDone(quest, today), index)
+    // En una misión de práctica, quitar una casilla de la sesión de hoy deshace esa sesión.
+    const practice = sessionsOf(quest) > 1
+    const sessionToday = practice && (quest.sessionDays ?? []).at(-1) === today
+    const finished = quest.completedDay !== null || sessionToday
 
-    if (quest.completedDay !== null && done.length < count) await undoSideQuest(db, ref.id)
-    await db.sideQuests.update(ref.id, { stepsDone: done })
-    if (quest.completedDay === null && done.length === count) {
+    if (finished && done.length < count) await undoSideQuest(db, ref.id)
+    await db.sideQuests.update(ref.id, { stepsDone: done, ...(practice ? { stepsDay: today } : {}) })
+    if (!finished && done.length === count) {
       const outcome = await completeQuest(db, ref.id, now)
       // Si el jefe aún pide evidencia, las casillas quedan marcadas y se completa al agregarla.
       return outcome.ok || outcome.blocked ? outcome : { ok: true, xp: 0 }

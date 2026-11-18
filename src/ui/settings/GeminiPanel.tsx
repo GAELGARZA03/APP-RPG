@@ -145,7 +145,7 @@ export function GeminiPanel({ embedded, headingId }: { embedded?: boolean; headi
 
           <Field
             label="Modelo principal"
-            hint={`Diseña las campañas y genera cada acto, pensando a fondo. Por defecto: ${DEFAULT_MAIN_MODEL}.`}
+            hint={`Diseña las campañas y genera cada fase, pensando a fondo. Por defecto: ${DEFAULT_MAIN_MODEL}.`}
           >
             <Input
               key={aiSettings.mainModel}
@@ -175,8 +175,8 @@ export function GeminiPanel({ embedded, headingId }: { embedded?: boolean; headi
             label="Modo ahorro"
             description={
               testBuild
-                ? 'Todo usa el modelo rápido, también diseñar campañas y actos. Activo por defecto en la app de pruebas.'
-                : 'Todo usa el modelo rápido, también diseñar campañas y actos. Útil para probar sin gastar llamadas del principal.'
+                ? 'Todo usa el modelo rápido, también diseñar campañas y fases. Activo por defecto en la app de pruebas.'
+                : 'Todo usa el modelo rápido, también diseñar campañas y fases. Útil para probar sin gastar llamadas del principal.'
             }
           >
             <Switch

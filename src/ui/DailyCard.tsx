@@ -44,6 +44,23 @@ export function DailyCard(props: {
     setStatus(await ensureDailyMission(new Date(), true))
   }
 
+  // Si falló (por ejemplo, Gemini saturado), se vuelve a intentar sola: al regresar a la app y cada pocos minutos
+  // mientras está abierta. `ensureDailyMission` decide si ya toca (máximo 6 al día, cada 20 minutos).
+  const pending = dailies !== undefined && dailies.length === 0 && (status === 'failed' || status === 'waiting')
+  useEffect(() => {
+    if (!pending) return
+    const attempt = () => {
+      if (document.visibilityState !== 'visible') return
+      void ensureDailyMission().then((result) => result !== 'waiting' && setStatus(result))
+    }
+    const timer = setInterval(attempt, 5 * 60 * 1000)
+    document.addEventListener('visibilitychange', attempt)
+    return () => {
+      clearInterval(timer)
+      document.removeEventListener('visibilitychange', attempt)
+    }
+  }, [pending])
+
   if (dailies === undefined) return null
 
   if (dailies.length === 0) {
@@ -71,7 +88,7 @@ export function DailyCard(props: {
           <RotateCcw aria-hidden className="size-5 shrink-0 text-info" />
           <span>
             <span className="block font-medium text-ink">No se pudieron generar las misiones del día</span>
-            Toca para reintentar.
+            Lo vuelvo a intentar solo cada 20 minutos (hasta 6 veces al día). Toca para reintentar ahora.
           </span>
         </button>
       )

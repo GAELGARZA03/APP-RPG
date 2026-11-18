@@ -29,6 +29,8 @@ export interface MissionPlan extends TaskDetailPlan {
   skill: string
   /** Principio de la biblioteca en el que se basó la IA (H4, A1…). */
   principle?: string
+  /** Sesiones de práctica en días distintos (1 = de una sola vez). */
+  sessions?: number
 }
 
 export interface Question {

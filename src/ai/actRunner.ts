@@ -45,7 +45,7 @@ export async function generateNextAct(campaignId: string, fast = false): Promise
     if (!session) {
       setState(campaignId, {
         status: 'error',
-        message: 'Guarda tu API key de Gemini en Ajustes para generar el acto, o agrega misiones a mano.',
+        message: 'Guarda tu API key de Gemini en Ajustes para generar la fase, o agrega misiones a mano.',
         offerFast: false,
         noKey: true,
       })
@@ -95,7 +95,7 @@ export async function generateNextAct(campaignId: string, fast = false): Promise
     const aiError = error instanceof AiError ? error : null
     setState(campaignId, {
       status: 'error',
-      message: aiError?.message ?? 'No se pudo generar el acto.',
+      message: aiError?.message ?? 'No se pudo generar la fase.',
       offerFast: !fast && Boolean(aiError?.modelRelated),
     })
     return false

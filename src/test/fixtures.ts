@@ -16,6 +16,7 @@ const mission = (
   skill,
   // Como lo haría la IA: lo diminuto empieza el hábito, lo difícil es la habilidad real, lo demás es práctica deliberada.
   principle: difficulty === 1 ? 'H4' : difficulty >= 4 ? 'A8' : 'A1',
+  sessions: 1,
 })
 
 /** La campaña del Anexo A de la especificación, como la devolvería la IA ya validada. */

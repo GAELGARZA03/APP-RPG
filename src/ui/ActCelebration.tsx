@@ -36,7 +36,7 @@ export function ActCelebration(props: {
     <motion.div
       role="alertdialog"
       aria-modal="true"
-      aria-label={finished ? 'Campaña completada' : `Acto ${act.actNumber} completado`}
+      aria-label={finished ? 'Campaña completada' : `Fase ${act.actNumber} completada`}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-6 backdrop-blur-sm"
@@ -74,12 +74,12 @@ export function ActCelebration(props: {
 
         <div>
           <p className="font-display text-xs font-semibold tracking-widest text-signal uppercase">
-            {finished ? act.campaignTitle : `Acto ${act.actNumber} completado`}
+            {finished ? act.campaignTitle : `Fase ${act.actNumber} completada`}
           </p>
           <h2 className="mt-1 font-display text-3xl leading-tight font-bold">
             {finished ? '¡Campaña completada!' : act.actTitle}
           </h2>
-          {finished && <p className="mt-2 text-sm text-muted">Derrotaste al jefe y cerraste el último acto.</p>}
+          {finished && <p className="mt-2 text-sm text-muted">Derrotaste al jefe y cerraste la última fase.</p>}
         </div>
 
         {act.next && (
@@ -99,7 +99,7 @@ export function ActCelebration(props: {
             </motion.span>
             <span className="min-w-0">
               <span className="block text-xs font-medium text-muted">
-                {unlocked ? 'Desbloqueado' : 'Desbloqueando…'} · Acto {act.next.number}
+                {unlocked ? 'Desbloqueada' : 'Desbloqueando…'} · Fase {act.next.number}
               </span>
               <span className="block truncate font-display text-lg font-semibold">{act.next.title}</span>
             </span>
@@ -109,7 +109,7 @@ export function ActCelebration(props: {
         <div className="flex w-full flex-col gap-2">
           <Button ref={primary} variant="primary" size="lg" onClick={onContinue}>
             {act.next?.planned && <Sparkles aria-hidden />}
-            {act.next?.planned ? `Generar Acto ${act.next.number}` : 'Ver el mapa'}
+            {act.next?.planned ? `Generar Fase ${act.next.number}` : 'Ver el mapa'}
           </Button>
           <Button variant="ghost" onClick={onClose}>
             Seguir después

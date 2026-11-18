@@ -12,7 +12,7 @@ const ITEMS: Array<{ id: MenuDestination; label: string; hint: string; icon: Luc
   { id: 'shop', label: 'Tienda', hint: 'Canjea tu oro por premios reales', icon: Gift },
   { id: 'library', label: 'Biblioteca', hint: 'Los principios en los que se basa la IA', icon: BookMarked },
   { id: 'settings', label: 'Ajustes', hint: 'Recordatorios, IA y respaldo', icon: Settings },
-  { id: 'rules', label: 'Reglas del juego', hint: 'XP, rachas, hábitos y actos', icon: BookOpen },
+  { id: 'rules', label: 'Reglas del juego', hint: 'XP, rachas, hábitos y fases', icon: BookOpen },
   { id: 'about', label: 'Acerca de', hint: 'Versión y privacidad', icon: Info },
 ]
 

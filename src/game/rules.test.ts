@@ -131,7 +131,7 @@ describe('Estado de los actos', () => {
     expect(state.currentIndex).toBe(0)
     expect(state.locks.get('q1')).toBeNull()
     expect(state.locks.get('q2')).toEqual({ kind: 'act', actNumber: 1 })
-    expect(lockMessage(state.locks.get('jefe')!)).toBe('Completa el Acto 1 para desbloquear')
+    expect(lockMessage(state.locks.get('jefe')!)).toBe('Completa la Fase 1 para desbloquear')
   })
 
   it('un acto sin generar nunca cuenta como terminado y retiene al jefe', () => {
